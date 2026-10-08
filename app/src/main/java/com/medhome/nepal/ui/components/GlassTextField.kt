@@ -33,10 +33,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -89,13 +88,6 @@ fun GlassTextField(
     val labelText = stringResource(label)
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        // The field itself announces the label, so the visible one is hidden from TalkBack.
-        Text(
-            text = labelText,
-            style = MaterialTheme.typography.labelMedium,
-            color = colors.textPrimary,
-            modifier = Modifier.clearAndSetSemantics {},
-        )
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -116,40 +108,71 @@ fun GlassTextField(
             interactionSource = interactionSource,
             modifier = Modifier
                 .fillMaxWidth()
-                .semantics {
-                    contentDescription = labelText
-                    if (errorText != null) error(errorText)
-                },
+                .semantics { if (errorText != null) error(errorText) },
+            // The label lives inside the decoration: text fields merge their decoration into one
+            // TalkBack item, so it is announced with the typed value (as Material's TextField does).
             decorationBox = { innerTextField ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(GlassDimens.FieldHeight)
-                        .background(colors.fieldFill, GlassShapes.Input)
-                        .border(
-                            if (focused || error != null) FocusedBorderWidth else GlassDimens.BorderWidth,
-                            borderColor,
-                            GlassShapes.Input,
-                        )
-                        .padding(start = 16.dp, end = if (isPassword) 4.dp else 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(modifier = Modifier.weight(1f)) { innerTextField() }
-                    if (isPassword) {
-                        TextButton(onClick = { passwordVisible = !passwordVisible }, enabled = enabled) {
-                            Text(
-                                text = stringResource(
-                                    if (passwordVisible) R.string.action_hide_password else R.string.action_show_password,
-                                ),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = colors.link,
-                            )
-                        }
-                    }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(text = labelText, style = MaterialTheme.typography.labelMedium, color = colors.textPrimary)
+                    FieldBox(
+                        focused = focused,
+                        hasError = error != null,
+                        borderColor = borderColor,
+                        isPassword = isPassword,
+                        innerTextField = innerTextField,
+                        trailing = {
+                            if (isPassword) {
+                                PasswordToggle(
+                                    visible = passwordVisible,
+                                    enabled = enabled,
+                                    onToggle = { passwordVisible = !passwordVisible },
+                                )
+                            }
+                        },
+                    )
                 }
             },
         )
         SupportingText(errorText = errorText, hint = hint)
+    }
+}
+
+@Composable
+private fun FieldBox(
+    focused: Boolean,
+    hasError: Boolean,
+    borderColor: Color,
+    isPassword: Boolean,
+    innerTextField: @Composable () -> Unit,
+    trailing: @Composable () -> Unit,
+) {
+    val colors = GlassTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(GlassDimens.FieldHeight)
+            .background(colors.fieldFill, GlassShapes.Input)
+            .border(
+                if (focused || hasError) FocusedBorderWidth else GlassDimens.BorderWidth,
+                borderColor,
+                GlassShapes.Input,
+            )
+            .padding(start = 16.dp, end = if (isPassword) 4.dp else 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(modifier = Modifier.weight(1f)) { innerTextField() }
+        trailing()
+    }
+}
+
+@Composable
+private fun PasswordToggle(visible: Boolean, enabled: Boolean, onToggle: () -> Unit) {
+    TextButton(onClick = onToggle, enabled = enabled) {
+        Text(
+            text = stringResource(if (visible) R.string.action_hide_password else R.string.action_show_password),
+            style = MaterialTheme.typography.labelMedium,
+            color = GlassTheme.colors.link,
+        )
     }
 }
 

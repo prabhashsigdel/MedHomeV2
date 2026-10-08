@@ -100,6 +100,8 @@ class FakeProfileStore : ProfileStore {
     var getError: AuthError? = null
     var ensureError: AuthError? = null
     var deleteError: AuthError? = null
+    var clearCount = 0
+        private set
 
     override suspend fun getProfile(uid: String): UserProfile? {
         calls += "getProfile"
@@ -117,6 +119,10 @@ class FakeProfileStore : ProfileStore {
         calls += "deleteProfile"
         deleteError?.let { throw AuthException(it) }
         profiles.remove(uid)
+    }
+
+    override suspend fun clearLocalData() {
+        clearCount++
     }
 }
 

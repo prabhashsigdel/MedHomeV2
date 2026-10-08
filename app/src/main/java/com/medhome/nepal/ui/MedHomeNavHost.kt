@@ -44,6 +44,7 @@ import com.medhome.nepal.ui.motion.entrance
 import com.medhome.nepal.ui.theme.GlassTheme
 import com.medhome.nepal.ui.verify.VerifyEmailScreen
 import kotlinx.serialization.Serializable
+import kotlin.reflect.KClass
 
 @Serializable private data object LoadingRoute
 @Serializable private data object AuthGraph
@@ -52,6 +53,7 @@ import kotlinx.serialization.Serializable
 @Serializable private data class ForgotPasswordRoute(val email: String = "")
 @Serializable private data object VerifyEmailRoute
 @Serializable private data object ProfileUnavailableRoute
+@Serializable private data object MainGraph
 @Serializable private data object HomeRoute
 
 /**
@@ -70,7 +72,7 @@ fun MedHomeNavHost(
         is SessionState.SignedOut -> AuthGraph
         is SessionState.NeedsVerification -> VerifyEmailRoute
         SessionState.ProfileUnavailable -> ProfileUnavailableRoute
-        is SessionState.SignedIn -> HomeRoute
+        is SessionState.SignedIn -> MainGraph
     }
     LaunchedEffect(topLevelRoute) { navController.showTopLevel(topLevelRoute) }
     val transitions = ScreenTransitions(reducedMotion = LocalReducedMotion.current)
@@ -118,9 +120,13 @@ fun MedHomeNavHost(
             ProfileUnavailableScreen(sessionViewModel)
         }
 
-        composable<HomeRoute> {
-            (session as? SessionState.SignedIn)?.let {
-                HomeScreen(profile = it.profile, usesPassword = it.usesPassword)
+        // Every signed-in screen goes inside this graph, so session updates and rotation never
+        // reset a deeper screen back to Home (showTopLevel sees we're already in MainGraph).
+        navigation<MainGraph>(startDestination = HomeRoute) {
+            composable<HomeRoute> {
+                (session as? SessionState.SignedIn)?.let {
+                    HomeScreen(profile = it.profile, usesPassword = it.usesPassword)
+                }
             }
         }
     }
@@ -141,9 +147,9 @@ private fun NavHostController.showTopLevel(route: Any) {
 }
 
 /**
- * Steps inside the signed-out flow (Login, Sign up, Forgot password) push and pop: forward slides
- * in from the right with a fade, back reverses it and follows the predictive back gesture.
- * Session changes (e.g. Login to Home) are not navigation steps, so they crossfade.
+ * Steps inside one flow (the signed-out AuthGraph or the signed-in MainGraph) push and pop:
+ * forward slides in from the right with a fade, back reverses it and follows the predictive back
+ * gesture. Session changes (e.g. Login to Home) are not navigation steps, so they crossfade.
  */
 private class ScreenTransitions(private val reducedMotion: Boolean) {
     private fun <T> spec() = tween<T>(MotionTokens.SCREEN_MS, easing = MotionTokens.EaseOut)
@@ -174,15 +180,19 @@ private class ScreenTransitions(private val reducedMotion: Boolean) {
         else -> fadeOut(spec())
     }
 
-    private fun AnimatedContentTransitionScope<NavBackStackEntry>.isFlowStep(): Boolean =
-        initialState.isInAuthFlow() && targetState.isInAuthFlow()
+    private fun AnimatedContentTransitionScope<NavBackStackEntry>.isFlowStep(): Boolean {
+        val flow = initialState.flow()
+        return flow != null && flow == targetState.flow()
+    }
 
-    private fun NavBackStackEntry.isInAuthFlow(): Boolean =
-        destination.hierarchy.any { it.hasRoute(AuthGraph::class) }
+    private fun NavBackStackEntry.flow(): KClass<*>? =
+        FLOW_GRAPHS.firstOrNull { graph -> destination.hierarchy.any { it.hasRoute(graph) } }
 
     private companion object {
         /** The screen underneath moves a quarter as far, for depth. */
         const val PARALLAX = 4
+
+        val FLOW_GRAPHS: List<KClass<*>> = listOf(AuthGraph::class, MainGraph::class)
     }
 }
 

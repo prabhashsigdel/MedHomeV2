@@ -38,6 +38,24 @@ data class GlassColors(
     val fieldFill: Color,
     val fieldBorder: Color,
     val shadow: Color,
+    /**
+     * Solid colors for stock Material 3 components (date pickers, menus, sheets, snackbars),
+     * which must never be translucent. Glass is applied only through our own components.
+     */
+    val materialSurfaces: MaterialSurfaces,
+)
+
+@Immutable
+data class MaterialSurfaces(
+    val surface: Color,
+    val containerLowest: Color,
+    val containerLow: Color,
+    val container: Color,
+    val containerHigh: Color,
+    val containerHighest: Color,
+    /** Borders of stock outlined components; dark enough for 3:1 on these surfaces. */
+    val outline: Color,
+    val outlineVariant: Color,
 )
 
 /** Multiplies RGB toward black by [fraction], keeping alpha. */
@@ -66,6 +84,16 @@ fun lightGlassColors(accent: Color = DefaultAccent): GlassColors = GlassColors(
     fieldFill = Color.White.copy(alpha = 0.50f),
     fieldBorder = Color.White,
     shadow = Color(0xFF1A1E1C).copy(alpha = 0.18f),
+    materialSurfaces = MaterialSurfaces(
+        surface = Color(0xFFFAFBFB),
+        containerLowest = Color.White,
+        containerLow = Color(0xFFF5F7F6),
+        container = Color(0xFFEFF2F1),
+        containerHigh = Color(0xFFE9EDEB),
+        containerHighest = Color(0xFFE3E8E6),
+        outline = Color(0xFF6E7673),
+        outlineVariant = Color(0xFFC3C9C6),
+    ),
 )
 
 val LocalGlassColors = staticCompositionLocalOf { lightGlassColors() }

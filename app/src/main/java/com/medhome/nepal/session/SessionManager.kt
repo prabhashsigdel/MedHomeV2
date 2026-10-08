@@ -83,7 +83,7 @@ class SessionManager(
         // Stored on the Auth account so a later sign-in can recreate the profile with this name.
         logFailure("updateDisplayName") { auth.updateDisplayName(name) }
         val profile = loadProfileOrSignOut {
-            profiles.ensureProfile(user.uid, name, user.email ?: email)
+            profiles.ensureProfile(user.uid, name, profileEmail(user.email ?: email))
         }
         val sent = logFailure("sendEmailVerification") { auth.sendEmailVerification() }
         _state.value = SessionState.NeedsVerification(profile, verificationEmailFailed = !sent)
@@ -128,6 +128,7 @@ class SessionManager(
         profiles.deleteProfile(user.uid)
         auth.deleteUser()
         clearCredentials()
+        clearLocalData()
         _state.value = SessionState.SignedOut()
     }
 
@@ -147,7 +148,10 @@ class SessionManager(
     }
 
     private suspend fun ensureProfileFor(user: AuthUser): UserProfile =
-        profiles.ensureProfile(user.uid, displayNameFor(user), user.email.orEmpty())
+        profiles.ensureProfile(user.uid, displayNameFor(user), profileEmail(user.email.orEmpty()))
+
+    /** Lowercased on both sides (here and in firestore.rules) so letter case can never lock a user out. */
+    private fun profileEmail(email: String): String = email.lowercase()
 
     /** Signing in without a usable profile is not allowed: sign out and report why. */
     private suspend fun loadProfileOrSignOut(load: suspend () -> UserProfile): UserProfile = try {
@@ -174,7 +178,13 @@ class SessionManager(
     private suspend fun signOutInternal(error: AuthError?) {
         auth.signOut()
         clearCredentials()
+        clearLocalData()
         _state.value = SessionState.SignedOut(error)
+    }
+
+    /** Failing to wipe the cache must not block sign-out; it is logged instead. */
+    private suspend fun clearLocalData() {
+        logFailure("clearLocalData") { profiles.clearLocalData() }
     }
 
     private suspend fun clearCredentials() {
@@ -182,14 +192,21 @@ class SessionManager(
     }
 
     private fun onExternalSignOut() {
-        _state.update { current ->
-            when (current) {
-                is SessionState.SignedIn,
-                is SessionState.NeedsVerification,
-                SessionState.ProfileUnavailable -> SessionState.SignedOut()
-                is SessionState.SignedOut,
-                SessionState.Loading -> current
-            }
+        val before = _state.value
+        val endsSession = when (before) {
+            is SessionState.SignedIn,
+            is SessionState.NeedsVerification,
+            SessionState.ProfileUnavailable -> true
+            is SessionState.SignedOut,
+            SessionState.Loading -> false
+        }
+        // Our own sign-out paths have normally set SignedOut (and cleared the cache) by the time
+        // Firebase's listener fires, so this only acts on sign-outs Firebase did on its own
+        // (account disabled, token revoked). If the listener does fire mid-operation, the cache
+        // is cleared twice, which is harmless. The clear queues behind any running operation.
+        if (!endsSession) return
+        if (_state.compareAndSet(before, SessionState.SignedOut())) {
+            scope.launch { runCatchingAuth { exclusive { clearLocalData() } } }
         }
     }
 

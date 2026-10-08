@@ -11,8 +11,12 @@ import com.medhome.nepal.domain.UserProfile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 
+/**
+ * [firestore] is asked for on every call: [clearLocalData] terminates the current instance and
+ * FirebaseFirestore.getInstance() then returns a new one.
+ */
 class FirestoreProfileStore(
-    private val firestore: FirebaseFirestore,
+    private val firestore: () -> FirebaseFirestore,
 ) : ProfileStore {
 
     override suspend fun getProfile(uid: String): UserProfile? {
@@ -34,7 +38,7 @@ class FirestoreProfileStore(
         val ref = document(uid)
         // Transactions read from the server, so "missing" is a real answer, never a guess.
         val existing = mapErrors {
-            firestore.runTransaction<Map<String, Any>?> { transaction ->
+            firestore().runTransaction<Map<String, Any>?> { transaction ->
                 val snapshot = transaction.get(ref)
                 if (snapshot.exists()) {
                     snapshot.data
@@ -64,6 +68,13 @@ class FirestoreProfileStore(
         Unit
     }
 
+    override suspend fun clearLocalData() = mapErrors {
+        val instance = firestore()
+        instance.terminate().await()
+        instance.clearPersistence().await()
+        Unit
+    }
+
     /** Returns null when the document is not in the local cache. */
     private suspend fun readFromCache(uid: String): DocumentSnapshot? = try {
         document(uid).get(Source.CACHE).await()
@@ -73,7 +84,7 @@ class FirestoreProfileStore(
         null
     }
 
-    private fun document(uid: String) = firestore.collection(COLLECTION_USERS).document(uid)
+    private fun document(uid: String) = firestore().collection(COLLECTION_USERS).document(uid)
 
     private fun parse(uid: String, data: Map<String, Any?>?): UserProfile {
         val role = Role.fromId(data?.get(FIELD_ROLE) as? String)

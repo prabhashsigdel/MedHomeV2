@@ -34,7 +34,8 @@ service cloud.firestore {
       allow create: if isOwner(uid)
         && request.resource.data.keys().hasOnly(['name', 'email', 'role', 'createdAt'])
         && hasValidName()
-        && request.resource.data.email == request.auth.token.email
+        // Lowercased on both sides so a difference in letter case can't block profile creation.
+        && request.resource.data.email == request.auth.token.email.lower()
         && request.resource.data.role == 'patient'
         && request.resource.data.createdAt == request.time;
 

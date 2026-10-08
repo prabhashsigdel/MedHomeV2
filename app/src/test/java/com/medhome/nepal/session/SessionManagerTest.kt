@@ -174,6 +174,15 @@ class SessionManagerTest {
     }
 
     @Test
+    fun `profile email is stored lowercased`() = runTest {
+        val user = passwordUser().copy(email = "Asha.Rai@Example.COM")
+        withSession(FakeAuthDataSource().apply { nextUser = user }) { session ->
+            session.signInWithEmail("Asha.Rai@Example.COM", "password123")
+            assertEquals("asha.rai@example.com", (session.state.value as SessionState.SignedIn).profile.email)
+        }
+    }
+
+    @Test
     fun `unverified password user needs verification`() = runTest {
         val user = passwordUser(verified = false)
         withSession(FakeAuthDataSource().apply { nextUser = user }) { session ->
@@ -271,7 +280,27 @@ class SessionManagerTest {
             session.signOut()
             assertNull(auth.currentUser)
             assertEquals(1, google.clearCount)
+            assertEquals(1, profiles.clearCount)
             assertEquals(SessionState.SignedOut(), session.state.value)
+        }
+    }
+
+    @Test
+    fun `failed profile load clears local data when signing out`() = runTest {
+        profiles.ensureError = AuthError.NETWORK
+        withSession(FakeAuthDataSource()) { session ->
+            expectError(AuthError.PROFILE_LOAD_FAILED) { session.signInWithEmail("a@b.co", "password123") }
+            assertEquals(1, profiles.clearCount)
+        }
+    }
+
+    @Test
+    fun `offline cold start keeps local data`() = runTest {
+        profiles.getError = AuthError.NETWORK
+        withSession(FakeAuthDataSource(passwordUser())) { session ->
+            session.start()
+            assertEquals(SessionState.ProfileUnavailable, session.state.value)
+            assertEquals(0, profiles.clearCount)
         }
     }
 
@@ -283,6 +312,7 @@ class SessionManagerTest {
             assertTrue(session.state.value is SessionState.SignedIn)
             auth.signOutExternally()
             assertEquals(SessionState.SignedOut(), session.state.value)
+            assertEquals(1, profiles.clearCount)
         }
     }
 
@@ -297,6 +327,7 @@ class SessionManagerTest {
             assertFalse(user.uid in profiles.profiles)
             assertEquals(SessionState.SignedOut(), session.state.value)
             assertEquals(1, google.clearCount)
+            assertEquals(1, profiles.clearCount)
         }
     }
 
@@ -341,6 +372,19 @@ class SessionManagerTest {
             assertEquals(SessionState.SignedOut(), session.state.value)
         } finally {
             scope.cancel()
+        }
+    }
+
+    @Test
+    fun `external sign out on the verify screen signs out and clears data`() = runTest {
+        val user = passwordUser(verified = false)
+        val auth = FakeAuthDataSource().apply { nextUser = user }
+        withSession(auth) { session ->
+            session.start()
+            session.signInWithEmail("a@b.co", "password123")
+            auth.signOutExternally()
+            assertEquals(SessionState.SignedOut(), session.state.value)
+            assertEquals(1, profiles.clearCount)
         }
     }
 

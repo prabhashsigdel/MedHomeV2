@@ -14,4 +14,10 @@ interface ProfileStore {
     suspend fun ensureProfile(uid: String, name: String, email: String): UserProfile
 
     suspend fun deleteProfile(uid: String)
+
+    /**
+     * Wipes Firestore's on-device cache so a signed-out user's data doesn't stay on the phone.
+     * Cache reads bypass security rules, so this matters on shared devices.
+     */
+    suspend fun clearLocalData()
 }

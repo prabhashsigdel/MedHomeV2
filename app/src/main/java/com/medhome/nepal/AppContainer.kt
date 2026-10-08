@@ -26,7 +26,7 @@ class AppContainer(context: Context) {
 
     val sessionManager = SessionManager(
         auth = FirebaseAuthDataSource(FirebaseAuth.getInstance()),
-        profiles = FirestoreProfileStore(FirebaseFirestore.getInstance()),
+        profiles = FirestoreProfileStore { FirebaseFirestore.getInstance() },
         google = googleClient,
         scope = appScope,
     )
