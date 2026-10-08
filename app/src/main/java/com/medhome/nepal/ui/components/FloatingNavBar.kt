@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -40,7 +41,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.medhome.nepal.R
 import com.medhome.nepal.ui.motion.feedbackTween
 import com.medhome.nepal.ui.motion.materializeIn
@@ -53,8 +56,12 @@ import com.medhome.nepal.ui.theme.MedHomeTheme
 
 data class NavBarItem(@param:StringRes val label: Int, @param:DrawableRes val icon: Int)
 
-private val NavBarHeight = 64.dp
-private val IndicatorInset = 6.dp
+/** Compact bar: each tab's touch target is the full 60dp height (at least 48dp). */
+private val NavBarHeight = 60.dp
+private val IndicatorHeight = 48.dp
+private val IndicatorMaxWidth = 72.dp
+private val IndicatorSideGap = 8.dp
+private val NavIconSize = 22.dp
 
 /**
  * Floating glass tab bar, inset 16dp from the screen edges. The selected-tab indicator slides
@@ -71,19 +78,19 @@ fun FloatingNavBar(
     FloatingContainer(modifier = modifier, animateIn = animateIn) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(NavBarHeight).selectableGroup()) {
             val itemWidth = maxWidth / items.size
+            // The pill hugs the icon and label rather than filling the whole tab.
+            val pillWidth = (itemWidth - IndicatorSideGap).coerceAtMost(IndicatorMaxWidth)
             val indicatorOffset by animateDpAsState(
-                targetValue = itemWidth * selectedIndex,
+                targetValue = itemWidth * selectedIndex + (itemWidth - pillWidth) / 2,
                 animationSpec = motionSpec(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)),
                 label = "navIndicator",
             )
             Box(
                 modifier = Modifier
                     // Lambda overload: the animated offset only re-places, it doesn't recompose.
-                    .offset { IntOffset(indicatorOffset.roundToPx(), 0) }
-                    .width(itemWidth)
-                    .fillMaxHeight()
-                    .padding(IndicatorInset)
-                    .background(GlassTheme.colors.accent.copy(alpha = 0.14f), GlassShapes.Chip),
+                    .offset { IntOffset(indicatorOffset.roundToPx(), ((NavBarHeight - IndicatorHeight) / 2).roundToPx()) }
+                    .size(width = pillWidth, height = IndicatorHeight)
+                    .background(GlassTheme.colors.accentEmphasis.copy(alpha = 0.16f), GlassShapes.Chip),
             )
             Row(modifier = Modifier.fillMaxWidth()) {
                 items.forEachIndexed { index, item ->
@@ -118,8 +125,19 @@ private fun RowScope.NavBarTab(item: NavBarItem, selected: Boolean, onClick: () 
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(painter = painterResource(item.icon), contentDescription = null, tint = tint)
-        Text(text = stringResource(item.label), style = MaterialTheme.typography.labelSmall, color = tint)
+        Icon(
+            painter = painterResource(item.icon),
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(NavIconSize),
+        )
+        Text(
+            text = stringResource(item.label),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            color = tint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

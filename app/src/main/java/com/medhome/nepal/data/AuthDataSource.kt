@@ -16,6 +16,7 @@ interface AuthDataSource {
     suspend fun reloadUser(): AuthUser
     suspend fun reauthenticate(email: String, password: String)
     suspend fun reauthenticateWithGoogle(idToken: String)
+    suspend fun updatePassword(newPassword: String)
     suspend fun deleteUser()
     fun signOut()
 }

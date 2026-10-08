@@ -97,9 +97,6 @@
 
     <!-- Profile -->
     <string name="profile_title">प्रोफाइल</string>
-    <string name="profile_edit_name">नाम सम्पादन गर्नुहोस्</string> <!-- review -->
-    <string name="profile_edit_name_title">आफ्नो नाम सम्पादन गर्नुहोस्</string> <!-- review -->
-    <string name="profile_name_updated">नाम अपडेट भयो</string> <!-- review -->
     <string name="profile_language">भाषा</string>
     <string name="profile_danger_zone">जोखिम क्षेत्र</string>
     <string name="profile_delete_hint">आफ्नो खाता र प्रोफाइल स्थायी रूपमा मेटाउनुहोस्। यो कार्य फिर्ता गर्न सकिँदैन।</string>
@@ -129,4 +126,94 @@
     <string name="error_profile_load_failed">तपाईं लगइन हुनुभयो, तर प्रोफाइल लोड गर्न नसकिएकाले लगआउट गरिएको छ। जडान जाँच गरी फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
     <string name="error_not_signed_in">तपाईं लगइन हुनुहुन्न।</string> <!-- review -->
     <string name="error_unknown">केही समस्या आयो। कृपया फेरि प्रयास गर्नुहोस्।</string>
+
+    <!-- Common (settings) -->
+    <string name="action_ok">ठीक छ</string>
+    <string name="action_clear">हटाउनुहोस्</string> <!-- review -->
+    <string name="action_done">भयो</string> <!-- review -->
+    <string name="state_expanded">खुलेको</string> <!-- review -->
+    <string name="state_collapsed">बन्द</string> <!-- review -->
+
+    <!-- Settings (Profile tab) -->
+    <string name="settings_account">खाता</string>
+    <string name="settings_appearance">देखावट</string> <!-- review -->
+    <string name="settings_support">मद्दत तथा समर्थन</string>
+    <string name="settings_edit_profile">प्रोफाइल सम्पादन गर्नुहोस्</string>
+    <string name="settings_edit_profile_hint">नाम, फोन, जन्म मिति र लिङ्ग</string> <!-- review -->
+    <string name="settings_change_password">पासवर्ड परिवर्तन गर्नुहोस्</string>
+    <string name="settings_change_password_hint">आफ्नो खाता सुरक्षित राख्न पासवर्ड अपडेट गर्नुहोस्</string>
+    <string name="settings_theme">थिम</string> <!-- review -->
+    <string name="theme_system">सिस्टम</string> <!-- review -->
+    <string name="theme_light">उज्यालो</string> <!-- review -->
+    <string name="theme_dark">अँध्यारो</string> <!-- review -->
+    <string name="settings_help_center">मद्दत केन्द्र</string>
+    <string name="settings_privacy_policy">गोपनीयता नीति</string>
+    <string name="settings_terms">सेवाका सर्तहरू</string>
+    <string name="settings_about">बारेमा</string> <!-- review -->
+
+    <!-- Edit profile -->
+    <string name="edit_profile_title">प्रोफाइल सम्पादन</string>
+    <string name="field_phone">मोबाइल नम्बर</string> <!-- review -->
+    <string name="field_phone_hint">नेपाली मोबाइल, जस्तै 98XXXXXXXX</string> <!-- review -->
+    <string name="validation_phone_invalid">९६, ९७ वा ९८ बाट सुरु हुने १० अंकको नेपाली मोबाइल नम्बर प्रविष्ट गर्नुहोस्</string> <!-- review -->
+    <string name="field_date_of_birth">जन्म मिति</string>
+    <string name="date_of_birth_not_set">सेट गरिएको छैन</string> <!-- review -->
+    <string name="validation_date_of_birth_invalid">पछिल्लो १२० वर्षभित्रको अघिल्लो मिति छान्नुहोस्</string> <!-- review -->
+    <string name="field_gender">लिङ्ग</string>
+    <string name="gender_male">पुरुष</string>
+    <string name="gender_female">महिला</string>
+    <string name="gender_other">अन्य</string>
+
+    <!-- Change password -->
+    <string name="change_password_title">पासवर्ड परिवर्तन</string>
+    <string name="change_password_subtitle">पहिले हालको पासवर्ड प्रविष्ट गर्नुहोस्, अनि नयाँ पासवर्ड छान्नुहोस्।</string> <!-- review -->
+    <string name="field_current_password">हालको पासवर्ड</string>
+    <string name="field_new_password">नयाँ पासवर्ड</string>
+    <string name="field_confirm_new_password">नयाँ पासवर्ड पुष्टि गर्नुहोस्</string>
+    <string name="validation_current_password_required">कृपया हालको पासवर्ड प्रविष्ट गर्नुहोस्</string>
+    <string name="validation_password_same">नयाँ पासवर्ड पुरानो भन्दा फरक हुनुपर्छ</string>
+    <string name="error_current_password_wrong">हालको पासवर्ड मिलेन।</string> <!-- review -->
+    <string name="change_password_done">पासवर्ड परिवर्तन भयो। अर्को पटक लगइन गर्दा नयाँ पासवर्ड प्रयोग गर्नुहोस्।</string> <!-- review -->
+
+    <!-- Help center -->
+    <string name="help_faq_title">बारम्बार सोधिने प्रश्नहरू</string>
+    <string name="faq_profile_q">आफ्नो नाम वा विवरण कसरी परिवर्तन गर्ने?</string> <!-- review -->
+    <string name="faq_profile_a">प्रोफाइलमा गएर प्रोफाइल सम्पादन गर्नुहोस् थिच्नुहोस्। त्यहाँ नाम परिवर्तन गर्न र मोबाइल नम्बर, जन्म मिति र लिङ्ग थप्न वा हटाउन सकिन्छ।</string> <!-- review -->
+    <string name="faq_password_q">पासवर्ड कसरी परिवर्तन गर्ने?</string> <!-- review -->
+    <string name="faq_password_a">प्रोफाइलमा गएर पासवर्ड परिवर्तन गर्नुहोस् थिच्नुहोस्। पहिले हालको पासवर्ड, अनि नयाँ पासवर्ड प्रविष्ट गर्नुहोस्। Google बाट लगइन गर्नुहुन्छ भने आफ्नो Google खातामा पासवर्ड व्यवस्थापन गर्नुहोस्।</string> <!-- review -->
+    <string name="faq_appearance_q">के म अँध्यारो थिम वा नेपाली भाषा प्रयोग गर्न सक्छु?</string> <!-- review -->
+    <string name="faq_appearance_a">सक्नुहुन्छ। प्रोफाइलको देखावट भागमा थिमका लागि सिस्टम, उज्यालो वा अँध्यारो, र भाषाका लागि अंग्रेजी वा नेपाली छान्नुहोस्।</string> <!-- review -->
+    <string name="faq_data_q">मेरो डेटा कहाँ राखिन्छ?</string> <!-- review -->
+    <string name="faq_data_a">तपाईंको खाता र प्रोफाइल Google Firebase (Authentication र Cloud Firestore) मा राखिन्छ। एपले तपाईंको पासवर्ड कहिल्यै राख्दैन; लगइन Firebase ले सम्हाल्छ। थप जानकारीका लागि गोपनीयता नीति हेर्नुहोस्।</string> <!-- review -->
+    <string name="faq_delete_q">खाता कसरी मेटाउने?</string> <!-- review -->
+    <string name="faq_delete_a">प्रोफाइलको जोखिम क्षेत्रमा गएर खाता मेटाउनुहोस् थिच्नुहोस्। पुष्टि गर्न सोधिनेछ। यसले तपाईंको प्रोफाइल र खाता स्थायी रूपमा हटाउँछ।</string> <!-- review -->
+    <string name="faq_coming_q">बुकिङ र स्वास्थ्य अभिलेख कहाँ छन्?</string> <!-- review -->
+    <string name="faq_coming_a">ती छिट्टै आउँदैछन्। ती सुविधाहरू बनेपछि बुकिङ र अभिलेख ट्याबमा देखिनेछन्।</string> <!-- review -->
+
+    <!-- Privacy policy and terms: DRAFT placeholders for a student project -->
+    <string name="legal_draft_banner">मस्यौदा: विद्यार्थी परियोजनाका लागि अस्थायी पाठ। कुनै पनि सार्वजनिक प्रकाशनअघि यसलाई बदल्नुपर्छ।</string> <!-- review -->
+    <string name="privacy_what_title">हामी के राख्छौं</string> <!-- review -->
+    <string name="privacy_what_body">तपाईंको नाम, इमेल ठेगाना र खाताको भूमिका। तपाईंले थप्नुभएमा मोबाइल नम्बर, जन्म मिति र लिङ्ग पनि।</string> <!-- review -->
+    <string name="privacy_where_title">कहाँ राखिन्छ</string> <!-- review -->
+    <string name="privacy_where_body">Google Firebase मा: लगइनका लागि Firebase Authentication र प्रोफाइलका लागि Cloud Firestore। एप अफलाइन चलोस् भनेर प्रोफाइलको एक प्रति तपाईंको फोनमा राखिन्छ; लगआउट गर्दा यो हटाइन्छ।</string> <!-- review -->
+    <string name="privacy_passwords_title">पासवर्ड</string>
+    <string name="privacy_passwords_body">एपले तपाईंको पासवर्ड कहिल्यै राख्दैन। यो Firebase ले सम्हाल्छ। तपाईंले अनुमति दिनुभयो भने फोनको पासवर्ड म्यानेजरले यसलाई सुरक्षित गर्न सक्छ।</string> <!-- review -->
+    <string name="privacy_sharing_title">साझेदारी</string> <!-- review -->
+    <string name="privacy_sharing_body">तपाईंको डेटा कसैलाई बेचिँदैन वा साझा गरिँदैन। यो यस एपमा तपाईंको खाता चलाउन मात्र प्रयोग हुन्छ।</string> <!-- review -->
+    <string name="privacy_delete_title">आफ्नो डेटा मेटाउने</string> <!-- review -->
+    <string name="privacy_delete_body">प्रोफाइलको जोखिम क्षेत्रमा गएर खाता मेटाउनुहोस् थिच्नुहोस्। यसले तपाईंको प्रोफाइल र खाता स्थायी रूपमा मेटाउँछ।</string> <!-- review -->
+    <string name="terms_project_title">विद्यार्थी परियोजना</string> <!-- review -->
+    <string name="terms_project_body">MedHome सिकाइका लागि बनाइएको विद्यार्थी परियोजना हो। यो जस्तो छ त्यस्तै, कुनै ग्यारेन्टीबिना उपलब्ध गराइएको छ।</string> <!-- review -->
+    <string name="terms_medical_title">चिकित्सकीय सल्लाह होइन</string> <!-- review -->
+    <string name="terms_medical_body">MedHome ले चिकित्सकीय सल्लाह दिँदैन र यो चिकित्सा उपकरण होइन। स्वास्थ्य समस्याका लागि सधैं योग्य स्वास्थ्यकर्मीसँग सम्पर्क गर्नुहोस्। आपतकालमा स्थानीय आपतकालीन नम्बरमा फोन गर्नुहोस्।</string> <!-- review -->
+    <string name="terms_account_title">तपाईंको खाता</string> <!-- review -->
+    <string name="terms_account_body">आफ्नो लगइन विवरण गोप्य राख्नुहोस्। प्रोफाइलबाट जुनसुकै बेला खाता मेटाउन सक्नुहुन्छ।</string> <!-- review -->
+    <string name="terms_changes_title">परिवर्तनहरू</string> <!-- review -->
+    <string name="terms_changes_body">एपको विकाससँगै यी सर्तहरू परिवर्तन हुन सक्छन्।</string> <!-- review -->
+
+    <!-- About -->
+    <string name="about_version">संस्करण %1$s</string> <!-- review -->
+    <string name="about_description">मेडहोमले तपाईंलाई डिजिटल रूपमा स्वास्थ्य व्यवस्थापन गर्न मद्दत गर्छ।</string>
+    <string name="about_student_project">विद्यार्थी परियोजना। यो चिकित्सा उपकरण होइन र व्यावसायिक चिकित्सकीय सल्लाहको विकल्प होइन।</string> <!-- review -->
+    <string name="about_fonts">फन्टहरू: Manrope र Noto Sans Devanagari, SIL Open Font License अन्तर्गत प्रयोग गरिएका।</string> <!-- review -->
 </resources>

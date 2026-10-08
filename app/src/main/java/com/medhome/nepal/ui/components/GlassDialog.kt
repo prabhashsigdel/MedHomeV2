@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -24,9 +23,6 @@ import com.medhome.nepal.ui.theme.GlassShapes
 import com.medhome.nepal.ui.theme.GlassTheme
 
 private val DialogMaxWidth = 420.dp
-
-/** Dialogs live in their own window, where no blur source exists, so the glass is denser. */
-private const val DIALOG_FILL_ALPHA = 0.88f
 
 /**
  * A platform Dialog (its own window: back and tapping outside call [onDismissRequest], and focus
@@ -50,7 +46,7 @@ fun GlassDialog(
                     .widthIn(max = DialogMaxWidth)
                     .fillMaxWidth()
                     .clip(GlassShapes.Card)
-                    .background(Color.White.copy(alpha = DIALOG_FILL_ALPHA))
+                    .background(colors.dialogFill)
                     .border(GlassDimens.BorderWidth, colors.glassBorder, GlassShapes.Card)
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(GlassDimens.ItemSpacing),

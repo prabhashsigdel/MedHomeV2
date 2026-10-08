@@ -60,6 +60,14 @@ class PasswordSaveOffers(private val history: SavePromptHistory) {
         _pending.value = PendingPasswordSave(email, password)
     }
 
+    /**
+     * After a password change: always offer, even if this account was asked before, because the
+     * saved password (if any) is now out of date. Saving replaces it in the password manager.
+     */
+    fun offerUpdate(email: String, password: String) {
+        _pending.value = PendingPasswordSave(email, password)
+    }
+
     /** Takes the pending offer (at most once) so the password doesn't linger in memory. */
     fun take(): PendingPasswordSave? = _pending.getAndUpdate { null }
 

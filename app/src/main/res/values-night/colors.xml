@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches darkGlassColors().backgroundBase: the starting window is dark in dark mode. -->
+    <color name="glass_background">#FF0E1320</color>
+</resources>

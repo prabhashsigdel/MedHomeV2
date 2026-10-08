@@ -39,14 +39,14 @@ import com.medhome.nepal.ui.theme.GlassTheme
 import com.medhome.nepal.ui.verify.VerifyEmailScreen
 import kotlinx.serialization.Serializable
 
-@Serializable private data object LoadingRoute
-@Serializable private data object AuthGraph
-@Serializable private data object LoginRoute
-@Serializable private data object SignUpRoute
-@Serializable private data class ForgotPasswordRoute(val email: String = "")
-@Serializable private data object VerifyEmailRoute
-@Serializable private data object ProfileUnavailableRoute
-@Serializable private data object MainGraph
+@Serializable internal data object LoadingRoute
+@Serializable internal data object AuthGraph
+@Serializable internal data object LoginRoute
+@Serializable internal data object SignUpRoute
+@Serializable internal data class ForgotPasswordRoute(val email: String = "")
+@Serializable internal data object VerifyEmailRoute
+@Serializable internal data object ProfileUnavailableRoute
+@Serializable internal data object MainGraph
 
 /**
  * The session decides which top-level destination is shown. Changing session state clears

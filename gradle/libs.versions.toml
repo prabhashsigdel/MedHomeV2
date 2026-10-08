@@ -20,6 +20,7 @@ kotlinxSerialization = "1.9.0"
 haze = "1.7.1"
 appcompat = "1.7.1"
 robolectric = "4.16.1"
+datastore = "1.2.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -48,6 +49,7 @@ firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }

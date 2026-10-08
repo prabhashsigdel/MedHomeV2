@@ -69,6 +69,11 @@ class FirebaseAuthDataSource(
         Unit
     }
 
+    override suspend fun updatePassword(newPassword: String) = mapErrors {
+        requireFirebaseUser().updatePassword(newPassword).await()
+        Unit
+    }
+
     override suspend fun deleteUser() = mapErrors {
         requireFirebaseUser().delete().await()
         Unit

@@ -10,6 +10,7 @@ import com.medhome.nepal.data.SavedCredential
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
 import com.medhome.nepal.domain.AuthUser
+import com.medhome.nepal.domain.ProfileDetails
 import com.medhome.nepal.domain.Role
 import com.medhome.nepal.domain.UserProfile
 import kotlinx.coroutines.flow.Flow
@@ -69,6 +70,8 @@ class FakeAuthDataSource(initialUser: AuthUser? = null) : AuthDataSource {
 
     override suspend fun reauthenticateWithGoogle(idToken: String) = record("reauthenticateWithGoogle")
 
+    override suspend fun updatePassword(newPassword: String) = record("updatePassword")
+
     override suspend fun deleteUser() {
         record("deleteUser")
         user.value = null
@@ -111,7 +114,7 @@ class FakeProfileStore : ProfileStore {
     var getError: AuthError? = null
     var ensureError: AuthError? = null
     var deleteError: AuthError? = null
-    var updateNameError: AuthError? = null
+    var updateDetailsError: AuthError? = null
     var clearCount = 0
         private set
 
@@ -133,10 +136,17 @@ class FakeProfileStore : ProfileStore {
         profiles.remove(uid)
     }
 
-    override suspend fun updateName(uid: String, name: String) {
-        calls += "updateName"
-        updateNameError?.let { throw AuthException(it) }
-        profiles[uid]?.let { profiles[uid] = it.copy(name = name) }
+    override suspend fun updateDetails(uid: String, details: ProfileDetails) {
+        calls += "updateDetails"
+        updateDetailsError?.let { throw AuthException(it) }
+        profiles[uid]?.let {
+            profiles[uid] = it.copy(
+                name = details.name,
+                phone = details.phone,
+                dateOfBirth = details.dateOfBirth,
+                gender = details.gender,
+            )
+        }
     }
 
     override suspend fun clearLocalData() {

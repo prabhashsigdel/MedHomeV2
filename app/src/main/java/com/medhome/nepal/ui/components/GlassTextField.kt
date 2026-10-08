@@ -92,7 +92,7 @@ fun GlassTextField(
     val borderColor by animateColorAsState(
         targetValue = when {
             error != null -> colors.error
-            focused -> colors.accent
+            focused -> colors.accentEmphasis
             else -> colors.fieldBorder
         },
         animationSpec = feedbackTween(),
@@ -108,7 +108,7 @@ fun GlassTextField(
             enabled = enabled,
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.textPrimary),
-            cursorBrush = SolidColor(colors.accent),
+            cursorBrush = SolidColor(colors.accentEmphasis),
             visualTransformation = if (isPassword && !passwordVisible) {
                 PasswordVisualTransformation()
             } else {

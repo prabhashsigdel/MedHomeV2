@@ -13,7 +13,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.medhome.nepal.R
 import com.medhome.nepal.ui.auth.SuppressAutofillSave
@@ -25,32 +24,6 @@ import com.medhome.nepal.ui.components.GlassTextField
 import com.medhome.nepal.ui.components.MessageKind
 import com.medhome.nepal.ui.components.StatusMessage
 import com.medhome.nepal.ui.theme.GlassTheme
-
-@Composable
-internal fun EditNameDialog(state: ProfileUiState, viewModel: ProfileViewModel) {
-    // Back and tapping outside go through dismissEditName, which ignores them mid-save.
-    GlassDialog(onDismissRequest = viewModel::dismissEditName) {
-        DialogTitle(R.string.profile_edit_name_title)
-        GlassTextField(
-            value = state.nameDraft,
-            onValueChange = viewModel::onNameDraftChange,
-            label = R.string.field_name,
-            error = state.nameError,
-            enabled = !state.isSavingName,
-            capitalization = KeyboardCapitalization.Words,
-            imeAction = ImeAction.Done,
-            onImeDone = viewModel::saveName,
-        )
-        state.saveNameError?.let { StatusMessage(message = it.messageRes, kind = MessageKind.Error) }
-        DialogButtons(
-            confirmText = R.string.action_save,
-            confirmStyle = GlassButtonStyle.Primary,
-            busy = state.isSavingName,
-            onCancel = viewModel::dismissEditName,
-            onConfirm = viewModel::saveName,
-        )
-    }
-}
 
 @Composable
 internal fun DeleteAccountDialog(state: ProfileUiState, usesPassword: Boolean, viewModel: ProfileViewModel) {

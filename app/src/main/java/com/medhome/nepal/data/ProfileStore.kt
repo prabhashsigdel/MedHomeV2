@@ -1,5 +1,6 @@
 package com.medhome.nepal.data
 
+import com.medhome.nepal.domain.ProfileDetails
 import com.medhome.nepal.domain.UserProfile
 
 /** Every method throws [com.medhome.nepal.domain.AuthException] on failure. */
@@ -15,8 +16,11 @@ interface ProfileStore {
 
     suspend fun deleteProfile(uid: String)
 
-    /** Changes only the name. Needs the server: fails straight away when offline. */
-    suspend fun updateName(uid: String, name: String)
+    /**
+     * Saves the user-editable fields; null optional fields are removed. Needs the server: fails
+     * straight away when offline rather than queueing.
+     */
+    suspend fun updateDetails(uid: String, details: ProfileDetails)
 
     /**
      * Wipes Firestore's on-device cache so a signed-out user's data doesn't stay on the phone.

@@ -46,10 +46,17 @@ import com.medhome.nepal.ui.motion.pressScale
 import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassShapes
 import com.medhome.nepal.ui.theme.GlassTheme
+import com.medhome.nepal.ui.theme.STATUS_TINT_ALPHA
 import dev.chrisbanes.haze.hazeSource
 
-/** Space kept free under scrolling content so the floating bar never covers the last item. */
-val FloatingBarClearance = 104.dp
+/**
+ * Estimated space for the floating bar (60dp bar + 2 x 16dp margin + 16dp gap), used only until
+ * the shell has measured the real bar. The shell then provides the exact value.
+ */
+val FloatingBarClearance = 108.dp
+
+/** Gap kept between the last item of a tab screen and the top of the floating bar. */
+val FloatingBarGap = 16.dp
 
 /**
  * Extra bottom space a parent with its own floating bar (the signed-in shell) asks screens to
@@ -92,8 +99,16 @@ fun GlassScreen(
                         .widthIn(max = GlassDimens.FormMaxWidth)
                         .fillMaxWidth()
                         .padding(horizontal = GlassDimens.ScreenPadding)
-                        .padding(top = if (showBack) 4.dp else 28.dp, bottom = 24.dp)
-                        .padding(bottom = if (bottomBar != null) FloatingBarClearance else parentBarClearance),
+                        // With a floating bar, the bottom padding is exactly the bar's clearance
+                        // (bar height + 16dp gap); otherwise the normal 24dp.
+                        .padding(
+                            top = if (showBack) 4.dp else 28.dp,
+                            bottom = when {
+                                bottomBar != null -> FloatingBarClearance
+                                parentBarClearance > 0.dp -> parentBarClearance
+                                else -> 24.dp
+                            },
+                        ),
                     verticalArrangement = Arrangement.spacedBy(GlassDimens.ItemSpacing),
                     content = content,
                 )
@@ -268,7 +283,7 @@ fun StatusMessage(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(tone.copy(alpha = 0.10f), GlassShapes.Input)
+            .background(tone.copy(alpha = STATUS_TINT_ALPHA), GlassShapes.Input)
             .padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = if (onDismiss != null || onRetry != null) 2.dp else 12.dp),
     ) {
         Text(
@@ -295,7 +310,7 @@ fun ErrorMessage(error: AuthError, onDismiss: () -> Unit, onRetry: (() -> Unit)?
 fun GlassLoadingScreen() {
     GlassBackground {
         CircularProgressIndicator(
-            color = GlassTheme.colors.accent,
+            color = GlassTheme.colors.accentEmphasis,
             modifier = Modifier
                 .align(Alignment.Center)
                 .size(40.dp)

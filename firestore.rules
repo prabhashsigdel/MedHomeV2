@@ -26,6 +26,27 @@ service cloud.firestore {
         && request.resource.data.name.size() <= 100;
     }
 
+    // Optional profile fields: each may be absent; if present it must be well formed.
+    // Must match Validators.normalizePhone (Nepali mobile: 10 digits starting 96, 97 or 98).
+    function hasValidPhone() {
+      return !('phone' in request.resource.data)
+        || (request.resource.data.phone is string
+          && request.resource.data.phone.matches('9[678][0-9]{8}'));
+    }
+
+    // ISO calendar date "YYYY-MM-DD" (BirthDate in the app).
+    function hasValidDateOfBirth() {
+      return !('dateOfBirth' in request.resource.data)
+        || (request.resource.data.dateOfBirth is string
+          && request.resource.data.dateOfBirth.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}'));
+    }
+
+    // Stored as a fixed key, never as translated text.
+    function hasValidGender() {
+      return !('gender' in request.resource.data)
+        || request.resource.data.gender in ['male', 'female', 'other'];
+    }
+
     match /users/{uid} {
       // Own document, or any document for admins. isOwner is checked first to skip the get().
       allow read: if isOwner(uid) || isAdmin();
@@ -39,9 +60,14 @@ service cloud.firestore {
         && request.resource.data.role == 'patient'
         && request.resource.data.createdAt == request.time;
 
-      // Owners may edit their name only: never their role, email or creation time.
-      // Admins may change only the role, and only to a known value.
-      allow update: if (isOwner(uid) && changedKeys().hasOnly(['name']) && hasValidName())
+      // Owners may edit (or clear) name, phone, date of birth and gender, nothing else: never
+      // their role, email or creation time. Admins may change only the role, to a known value.
+      allow update: if (isOwner(uid)
+          && changedKeys().hasOnly(['name', 'phone', 'dateOfBirth', 'gender'])
+          && hasValidName()
+          && hasValidPhone()
+          && hasValidDateOfBirth()
+          && hasValidGender())
         || (isAdmin()
           && changedKeys().hasOnly(['role'])
           && request.resource.data.role in ['patient', 'doctor', 'admin']);

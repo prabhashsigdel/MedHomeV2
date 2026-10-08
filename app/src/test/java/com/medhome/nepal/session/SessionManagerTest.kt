@@ -2,6 +2,8 @@ package com.medhome.nepal.session
 
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
+import com.medhome.nepal.domain.Gender
+import com.medhome.nepal.domain.ProfileDetails
 import com.medhome.nepal.domain.Role
 import com.medhome.nepal.domain.UserProfile
 import com.medhome.nepal.fakes.FakeAuthDataSource
@@ -389,36 +391,58 @@ class SessionManagerTest {
     }
 
     @Test
-    fun `updating the name saves it and updates the signed in profile`() = runTest {
+    fun `updating the profile saves it and keeps the role`() = runTest {
         val user = passwordUser()
         profiles.profiles[user.uid] = doctor(user.uid)
         withSession(FakeAuthDataSource(user)) { session ->
             session.start()
-            session.updateName("Dr Sita Rai")
-            assertEquals("Dr Sita Rai", (session.state.value as SessionState.SignedIn).profile.name)
-            assertEquals("Dr Sita Rai", profiles.profiles[user.uid]?.name)
-            assertEquals(Role.DOCTOR, (session.state.value as SessionState.SignedIn).profile.role)
+            session.updateProfile(ProfileDetails("Dr Sita Rai", "9841234567", "1990-05-01", Gender.FEMALE))
+            val profile = (session.state.value as SessionState.SignedIn).profile
+            assertEquals("Dr Sita Rai", profile.name)
+            assertEquals("9841234567", profile.phone)
+            assertEquals(Role.DOCTOR, profile.role)
+            assertEquals(profile, profiles.profiles[user.uid])
         }
     }
 
     @Test
-    fun `a failed name update leaves the profile unchanged`() = runTest {
+    fun `a failed profile update leaves the profile unchanged`() = runTest {
         val user = passwordUser()
         profiles.profiles[user.uid] = doctor(user.uid)
-        profiles.updateNameError = AuthError.NETWORK
+        profiles.updateDetailsError = AuthError.NETWORK
         withSession(FakeAuthDataSource(user)) { session ->
             session.start()
-            expectError(AuthError.NETWORK) { session.updateName("Someone Else") }
+            expectError(AuthError.NETWORK) { session.updateProfile(ProfileDetails("Someone Else", null, null, null)) }
             assertEquals("Dr Rai", (session.state.value as SessionState.SignedIn).profile.name)
         }
     }
 
     @Test
-    fun `updating the name requires being signed in`() = runTest {
+    fun `updating the profile requires being signed in`() = runTest {
         withSession(FakeAuthDataSource()) { session ->
             session.start()
-            expectError(AuthError.NOT_SIGNED_IN) { session.updateName("Asha") }
-            assertFalse("updateName" in profiles.calls)
+            expectError(AuthError.NOT_SIGNED_IN) { session.updateProfile(ProfileDetails("Asha", null, null, null)) }
+            assertFalse("updateDetails" in profiles.calls)
+        }
+    }
+
+    @Test
+    fun `changing the password reauthenticates before updating`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser())
+        withSession(auth) { session ->
+            session.start()
+            session.changePassword("old-password", "new-password1")
+            assertEquals(listOf("reauthenticate", "updatePassword"), auth.calls)
+        }
+    }
+
+    @Test
+    fun `a wrong current password never updates the password`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser()).apply { failures["reauthenticate"] = AuthError.INVALID_CREDENTIALS }
+        withSession(auth) { session ->
+            session.start()
+            expectError(AuthError.INVALID_CREDENTIALS) { session.changePassword("wrong", "new-password1") }
+            assertFalse("updatePassword" in auth.calls)
         }
     }
 

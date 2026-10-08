@@ -94,9 +94,6 @@
 
     <!-- Profile -->
     <string name="profile_title">Profile</string>
-    <string name="profile_edit_name">Edit name</string>
-    <string name="profile_edit_name_title">Edit your name</string>
-    <string name="profile_name_updated">Name updated</string>
     <string name="profile_language">Language</string>
     <string name="profile_danger_zone">Danger zone</string>
     <string name="profile_delete_hint">Permanently delete your account and profile. This can\'t be undone.</string>
@@ -130,4 +127,94 @@
     <string name="error_profile_load_failed">You signed in, but we couldn\'t load your profile, so you\'ve been signed out. Check your connection and try again.</string>
     <string name="error_not_signed_in">You\'re not signed in.</string>
     <string name="error_unknown">Something went wrong. Please try again.</string>
+
+    <!-- Common (settings) -->
+    <string name="action_ok">OK</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_done">Done</string>
+    <string name="state_expanded">Expanded</string>
+    <string name="state_collapsed">Collapsed</string>
+
+    <!-- Settings (Profile tab) -->
+    <string name="settings_account">Account</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_support">Support</string>
+    <string name="settings_edit_profile">Edit profile</string>
+    <string name="settings_edit_profile_hint">Name, phone, date of birth and gender</string>
+    <string name="settings_change_password">Change password</string>
+    <string name="settings_change_password_hint">Update your password to keep your account secure</string>
+    <string name="settings_theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_help_center">Help center</string>
+    <string name="settings_privacy_policy">Privacy policy</string>
+    <string name="settings_terms">Terms of service</string>
+    <string name="settings_about">About</string>
+
+    <!-- Edit profile -->
+    <string name="edit_profile_title">Edit profile</string>
+    <string name="field_phone">Mobile number</string>
+    <string name="field_phone_hint">Nepali mobile, e.g. 98XXXXXXXX</string>
+    <string name="validation_phone_invalid">Enter a 10-digit Nepali mobile number starting with 96, 97 or 98</string>
+    <string name="field_date_of_birth">Date of birth</string>
+    <string name="date_of_birth_not_set">Not set</string>
+    <string name="validation_date_of_birth_invalid">Choose a date in the past, within the last 120 years</string>
+    <string name="field_gender">Gender</string>
+    <string name="gender_male">Male</string>
+    <string name="gender_female">Female</string>
+    <string name="gender_other">Other</string>
+
+    <!-- Change password -->
+    <string name="change_password_title">Change password</string>
+    <string name="change_password_subtitle">Enter your current password, then choose a new one.</string>
+    <string name="field_current_password">Current password</string>
+    <string name="field_new_password">New password</string>
+    <string name="field_confirm_new_password">Confirm new password</string>
+    <string name="validation_current_password_required">Enter your current password</string>
+    <string name="validation_password_same">Your new password must be different from your current one</string>
+    <string name="error_current_password_wrong">Your current password is incorrect.</string>
+    <string name="change_password_done">Password changed. Use your new password the next time you log in.</string>
+
+    <!-- Help center -->
+    <string name="help_faq_title">Frequently asked questions</string>
+    <string name="faq_profile_q">How do I change my name or details?</string>
+    <string name="faq_profile_a">Go to Profile, then Edit profile. You can change your name and add or remove your mobile number, date of birth and gender.</string>
+    <string name="faq_password_q">How do I change my password?</string>
+    <string name="faq_password_a">Go to Profile, then Change password. Enter your current password, then your new one. If you sign in with Google, manage your password in your Google account instead.</string>
+    <string name="faq_appearance_q">Can I use dark mode or Nepali?</string>
+    <string name="faq_appearance_a">Yes. Go to Profile, then Appearance. Choose System, Light or Dark for the theme, and English or Nepali for the language.</string>
+    <string name="faq_data_q">Where is my data stored?</string>
+    <string name="faq_data_a">Your account and profile are stored with Google Firebase (Authentication and Cloud Firestore). The app never stores your password; Firebase handles sign-in. See the privacy policy for details.</string>
+    <string name="faq_delete_q">How do I delete my account?</string>
+    <string name="faq_delete_a">Go to Profile, then Danger zone, and tap Delete account. You\'ll be asked to confirm. This permanently removes your profile and your account.</string>
+    <string name="faq_coming_q">Where are bookings and health records?</string>
+    <string name="faq_coming_a">They\'re coming soon. The Bookings and Records tabs will fill in as those features are built.</string>
+
+    <!-- Privacy policy and terms: DRAFT placeholders for a student project -->
+    <string name="legal_draft_banner">Draft: placeholder text for a student project. It must be replaced before any public release.</string>
+    <string name="privacy_what_title">What we store</string>
+    <string name="privacy_what_body">Your name, email address and account role. If you add them, also your mobile number, date of birth and gender.</string>
+    <string name="privacy_where_title">Where it is stored</string>
+    <string name="privacy_where_body">With Google Firebase: Firebase Authentication for your sign-in, and Cloud Firestore for your profile. A copy of your profile is kept on your phone so the app works offline; it is removed when you sign out.</string>
+    <string name="privacy_passwords_title">Passwords</string>
+    <string name="privacy_passwords_body">The app never stores your password. Firebase handles it. If you allow it, your phone\'s password manager can save it for you.</string>
+    <string name="privacy_sharing_title">Sharing</string>
+    <string name="privacy_sharing_body">Your data is not sold or shared with anyone. It is only used to run your account in this app.</string>
+    <string name="privacy_delete_title">Deleting your data</string>
+    <string name="privacy_delete_body">Go to Profile, then Danger zone, and tap Delete account. This permanently deletes your profile and your account.</string>
+    <string name="terms_project_title">A student project</string>
+    <string name="terms_project_body">MedHome is a student project made for learning. It is provided as is, without any guarantee.</string>
+    <string name="terms_medical_title">Not medical advice</string>
+    <string name="terms_medical_body">MedHome does not give medical advice and is not a medical device. For health concerns, always contact a qualified health professional. In an emergency, call your local emergency number.</string>
+    <string name="terms_account_title">Your account</string>
+    <string name="terms_account_body">Keep your sign-in details private. You can delete your account at any time from Profile.</string>
+    <string name="terms_changes_title">Changes</string>
+    <string name="terms_changes_body">These terms may change as the app develops.</string>
+
+    <!-- About -->
+    <string name="about_version">Version %1$s</string>
+    <string name="about_description">MedHome helps you manage your health digitally.</string>
+    <string name="about_student_project">A student project. Not a medical device and not a substitute for professional medical advice.</string>
+    <string name="about_fonts">Fonts: Manrope and Noto Sans Devanagari, used under the SIL Open Font License.</string>
 </resources>

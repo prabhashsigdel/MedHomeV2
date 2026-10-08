@@ -12,9 +12,17 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -30,6 +38,7 @@ import com.medhome.nepal.R
 import com.medhome.nepal.domain.Role
 import com.medhome.nepal.session.SessionState
 import com.medhome.nepal.ui.components.FloatingBarClearance
+import com.medhome.nepal.ui.components.FloatingBarGap
 import com.medhome.nepal.ui.components.FloatingNavBar
 import com.medhome.nepal.ui.components.GlassBackground
 import com.medhome.nepal.ui.components.LocalBottomBarClearance
@@ -43,6 +52,8 @@ import com.medhome.nepal.ui.motion.materializeIn
 import com.medhome.nepal.ui.motion.materializeOut
 import com.medhome.nepal.ui.navigation.ScreenTransitions
 import com.medhome.nepal.ui.profile.ProfileScreen
+import com.medhome.nepal.ui.settings.SettingsPage
+import com.medhome.nepal.ui.settings.SettingsPageScreen
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KClass
@@ -64,15 +75,16 @@ fun MainShell(session: SessionState.SignedIn) {
 }
 
 // Tab graphs. Each tab is its own nested graph, so it keeps its own back stack.
-@Serializable private data object HomeTab
-@Serializable private data object HomeRoute
-@Serializable private data class ComingSoonRoute(val feature: ComingSoonFeature)
-@Serializable private data object BookingsTab
-@Serializable private data object BookingsRoute
-@Serializable private data object RecordsTab
-@Serializable private data object RecordsRoute
-@Serializable private data object ProfileTab
-@Serializable private data object ProfileRoute
+@Serializable internal data object HomeTab
+@Serializable internal data object HomeRoute
+@Serializable internal data class ComingSoonRoute(val feature: ComingSoonFeature)
+@Serializable internal data object BookingsTab
+@Serializable internal data object BookingsRoute
+@Serializable internal data object RecordsTab
+@Serializable internal data object RecordsRoute
+@Serializable internal data object ProfileTab
+@Serializable internal data object ProfileRoute
+@Serializable internal data class SettingsRoute(val page: SettingsPage)
 
 private enum class PatientTab(
     val graph: Any,
@@ -108,9 +120,16 @@ private fun PatientShell(session: SessionState.SignedIn) {
         flows = PatientTab.entries.map { it.graphClass },
     )
 
+    // The real bar height (its 16dp margins included; the navigation-bar inset is added by each
+    // screen's own safe-drawing padding), measured so content clears it at any font size.
+    var measuredBarHeight by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
+    val tabRootClearance = if (measuredBarHeight > 0.dp) measuredBarHeight + FloatingBarGap else FloatingBarClearance
+
     GlassBackground {
         val hazeState = LocalHazeState.current
-        NavHost(
+        CompositionLocalProvider(LocalTabRootClearance provides tabRootClearance) {
+            NavHost(
                 navController = navController,
                 startDestination = HomeTab,
                 // Content is a blur source above the background, so the bar blurs what scrolls under it.
@@ -143,10 +162,24 @@ private fun PatientShell(session: SessionState.SignedIn) {
                 }
                 navigation<ProfileTab>(startDestination = ProfileRoute) {
                     composable<ProfileRoute> {
-                        TabRoot { ProfileScreen(profile = session.profile, usesPassword = session.usesPassword) }
+                        TabRoot {
+                            ProfileScreen(
+                                profile = session.profile,
+                                usesPassword = session.usesPassword,
+                                onOpenPage = { navController.navigate(SettingsRoute(it)) },
+                            )
+                        }
+                    }
+                    composable<SettingsRoute> { entry ->
+                        SettingsPageScreen(
+                            page = entry.toRoute<SettingsRoute>().page,
+                            profile = session.profile,
+                            onDone = { navController.popBackStack() },
+                        )
                     }
                 }
             }
+        }
 
         AnimatedVisibility(
             visible = onTabRoot,
@@ -156,7 +189,14 @@ private fun PatientShell(session: SessionState.SignedIn) {
                 .align(Alignment.BottomCenter)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
         ) {
-            Box {
+            Box(
+                modifier = Modifier
+                    .testTag(FLOATING_NAV_BAR_TAG)
+                    .onSizeChanged { size ->
+                        // Hidden (0) while a pushed screen shows: keep the last real measurement.
+                        if (size.height > 0) measuredBarHeight = with(density) { size.height.toDp() }
+                    },
+            ) {
                 FloatingNavBar(
                     items = NavItems,
                     selectedIndex = currentTab.ordinal,
@@ -168,13 +208,20 @@ private fun PatientShell(session: SessionState.SignedIn) {
     }
 }
 
+/** Test tag on the floating tab bar, for layout tests. */
+const val FLOATING_NAV_BAR_TAG = "floating_nav_bar"
+
+/** The measured clearance for tab roots: bar height + [FloatingBarGap]. */
+private val LocalTabRootClearance = compositionLocalOf { FloatingBarClearance }
+
 /**
- * Tab roots keep space for the floating bar. Set per screen (not shell-wide) so a screen that is
- * sliding out keeps its own padding instead of jumping when the bar's visibility changes.
+ * Tab roots keep space for the floating bar so their last item can scroll fully above it. Set
+ * per screen (not shell-wide) so a screen sliding out keeps its own padding instead of jumping
+ * when the bar's visibility changes.
  */
 @Composable
 private fun TabRoot(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalBottomBarClearance provides FloatingBarClearance, content = content)
+    CompositionLocalProvider(LocalBottomBarClearance provides LocalTabRootClearance.current, content = content)
 }
 
 private fun NavDestination?.isIn(graph: KClass<*>): Boolean =

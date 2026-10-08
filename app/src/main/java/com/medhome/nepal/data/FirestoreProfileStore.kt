@@ -6,6 +6,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
+import com.medhome.nepal.domain.Gender
+import com.medhome.nepal.domain.ProfileDetails
 import com.medhome.nepal.domain.Role
 import com.medhome.nepal.domain.UserProfile
 import kotlinx.coroutines.CancellationException
@@ -68,12 +70,18 @@ class FirestoreProfileStore(
         Unit
     }
 
-    override suspend fun updateName(uid: String, name: String) = mapErrors {
+    override suspend fun updateDetails(uid: String, details: ProfileDetails) = mapErrors {
         val ref = document(uid)
+        val changes = mapOf<String, Any>(
+            FIELD_NAME to details.name,
+            FIELD_PHONE to (details.phone ?: FieldValue.delete()),
+            FIELD_DATE_OF_BIRTH to (details.dateOfBirth ?: FieldValue.delete()),
+            FIELD_GENDER to (details.gender?.key ?: FieldValue.delete()),
+        )
         // A transaction rather than update(): offline, update() would queue and never resolve,
         // leaving the save spinner running; a transaction fails fast with UNAVAILABLE.
         firestore().runTransaction { transaction ->
-            transaction.update(ref, FIELD_NAME, name)
+            transaction.update(ref, changes)
             null
         }.await()
         Unit
@@ -105,6 +113,10 @@ class FirestoreProfileStore(
             name = data?.get(FIELD_NAME) as? String ?: "",
             email = data?.get(FIELD_EMAIL) as? String ?: "",
             role = role,
+            // Optional fields: anything unexpected is treated as not set rather than an error.
+            phone = data?.get(FIELD_PHONE) as? String,
+            dateOfBirth = data?.get(FIELD_DATE_OF_BIRTH) as? String,
+            gender = Gender.fromKey(data?.get(FIELD_GENDER) as? String),
         )
     }
 
@@ -114,5 +126,8 @@ class FirestoreProfileStore(
         const val FIELD_EMAIL = "email"
         const val FIELD_ROLE = "role"
         const val FIELD_CREATED_AT = "createdAt"
+        const val FIELD_PHONE = "phone"
+        const val FIELD_DATE_OF_BIRTH = "dateOfBirth"
+        const val FIELD_GENDER = "gender"
     }
 }

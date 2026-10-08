@@ -21,19 +21,13 @@ import kotlinx.coroutines.launch
 data class ProfileUiState(
     val isSigningOut: Boolean = false,
     val signOutError: AuthError? = null,
-    val showEditName: Boolean = false,
-    val nameDraft: String = "",
-    @param:StringRes val nameError: Int? = null,
-    val isSavingName: Boolean = false,
-    val saveNameError: AuthError? = null,
-    val nameSaved: Boolean = false,
     val showDeleteDialog: Boolean = false,
     val deletePassword: String = "",
     @param:StringRes val deletePasswordError: Int? = null,
     val isDeleting: Boolean = false,
     val deleteError: AuthError? = null,
 ) {
-    val isBusy: Boolean get() = isSigningOut || isDeleting || isSavingName
+    val isBusy: Boolean get() = isSigningOut || isDeleting
 }
 
 class ProfileViewModel(
@@ -55,47 +49,6 @@ class ProfileViewModel(
     }
 
     fun dismissSignOutError() = _uiState.update { it.copy(signOutError = null) }
-
-    // Edit name
-
-    fun openEditName(currentName: String) {
-        if (_uiState.value.isBusy) return
-        _uiState.update {
-            it.copy(showEditName = true, nameDraft = currentName, nameError = null, saveNameError = null, nameSaved = false)
-        }
-    }
-
-    fun onNameDraftChange(value: String) = _uiState.update { it.copy(nameDraft = value, nameError = null) }
-
-    fun dismissEditName() {
-        if (_uiState.value.isSavingName) return
-        _uiState.update { it.copy(showEditName = false) }
-    }
-
-    fun saveName() {
-        val current = _uiState.value
-        if (current.isBusy) return
-        val name = current.nameDraft.trim()
-        val nameError = Validators.nameError(name)
-        if (nameError != null) {
-            _uiState.update { it.copy(nameError = nameError) }
-            return
-        }
-        _uiState.update { it.copy(isSavingName = true, saveNameError = null) }
-        viewModelScope.launch {
-            val error = runAuthAction { session.updateName(name) }
-            _uiState.update {
-                it.copy(
-                    isSavingName = false,
-                    saveNameError = error,
-                    showEditName = error != null,
-                    nameSaved = error == null,
-                )
-            }
-        }
-    }
-
-    fun dismissNameSaved() = _uiState.update { it.copy(nameSaved = false) }
 
     // Delete account
 

@@ -8,6 +8,7 @@ import com.medhome.nepal.data.ProfileStore
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
 import com.medhome.nepal.domain.AuthUser
+import com.medhome.nepal.domain.ProfileDetails
 import com.medhome.nepal.domain.UserProfile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -132,18 +133,36 @@ class SessionManager(
         _state.value = SessionState.SignedOut()
     }
 
-    /** Saves a new name and updates the signed-in profile in place. [name] is already validated. */
-    suspend fun updateName(name: String) = exclusive {
+    /** Saves the editable profile fields and updates the signed-in profile in place. Validated already. */
+    suspend fun updateProfile(details: ProfileDetails) = exclusive {
         val current = _state.value as? SessionState.SignedIn ?: throw AuthException(AuthError.NOT_SIGNED_IN)
-        profiles.updateName(current.profile.uid, name)
+        profiles.updateDetails(current.profile.uid, details)
         // Re-read the state: an external sign-out may have happened while saving.
         _state.update { latest ->
             if (latest is SessionState.SignedIn && latest.profile.uid == current.profile.uid) {
-                latest.copy(profile = latest.profile.copy(name = name))
+                latest.copy(
+                    profile = latest.profile.copy(
+                        name = details.name,
+                        phone = details.phone,
+                        dateOfBirth = details.dateOfBirth,
+                        gender = details.gender,
+                    ),
+                )
             } else {
                 latest
             }
         }
+    }
+
+    /**
+     * Re-authenticates with [currentPassword] (Firebase requires a recent sign-in, and it proves
+     * it's really the user), then sets [newPassword]. Wrong current password -> INVALID_CREDENTIALS.
+     */
+    suspend fun changePassword(currentPassword: String, newPassword: String) = exclusive {
+        val user = auth.currentUser ?: throw AuthException(AuthError.NOT_SIGNED_IN)
+        val email = user.email ?: throw AuthException(AuthError.UNKNOWN)
+        auth.reauthenticate(email, currentPassword)
+        auth.updatePassword(newPassword)
     }
 
     fun clearSignedOutError() {

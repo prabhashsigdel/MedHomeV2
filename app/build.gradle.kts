@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.haze)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.datastore.preferences)
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)

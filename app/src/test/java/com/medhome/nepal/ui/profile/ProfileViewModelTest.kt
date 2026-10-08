@@ -1,13 +1,19 @@
 package com.medhome.nepal.ui.profile
 
 import com.medhome.nepal.R
+import com.medhome.nepal.data.PasswordSaveOffers
 import com.medhome.nepal.domain.AuthError
+import com.medhome.nepal.domain.Gender
 import com.medhome.nepal.fakes.FakeAuthDataSource
 import com.medhome.nepal.fakes.FakeCredentialClient
 import com.medhome.nepal.fakes.FakeProfileStore
+import com.medhome.nepal.fakes.InMemorySavePromptHistory
 import com.medhome.nepal.fakes.passwordUser
 import com.medhome.nepal.session.SessionManager
 import com.medhome.nepal.session.SessionState
+import com.medhome.nepal.ui.common.BirthDate
+import com.medhome.nepal.ui.settings.ChangePasswordViewModel
+import com.medhome.nepal.ui.settings.EditProfileViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,6 +33,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
+/** Profile, Edit profile and Change password ViewModels against the real SessionManager. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileViewModelTest {
 
@@ -36,6 +43,8 @@ class ProfileViewModelTest {
     private val auth = FakeAuthDataSource(user)
     private val profiles = FakeProfileStore()
     private val session = SessionManager(auth, profiles, FakeCredentialClient(), sessionScope)
+    private val saveOffers = PasswordSaveOffers(InMemorySavePromptHistory())
+    private val today = checkNotNull(BirthDate.toUtcMillis("2026-10-08"))
 
     @Before
     fun setUp() = Dispatchers.setMain(dispatcher)
@@ -46,89 +55,173 @@ class ProfileViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private suspend fun TestScope.signedInViewModel(): ProfileViewModel {
+    private suspend fun TestScope.signedIn(): SessionState.SignedIn {
         session.restoreSession()
         advanceUntilIdle()
-        return ProfileViewModel(session)
+        return session.state.value as SessionState.SignedIn
     }
 
-    private fun signedInName(): String = (session.state.value as SessionState.SignedIn).profile.name
+    private suspend fun TestScope.editViewModel() = EditProfileViewModel(session, signedIn().profile) { today }
+
+    private fun signedInProfile() = (session.state.value as SessionState.SignedIn).profile
+
+    // Edit profile
 
     @Test
-    fun `saving a new name updates the session profile and closes the dialog`() = runTest(dispatcher) {
-        val viewModel = signedInViewModel()
-        viewModel.openEditName(signedInName())
-        viewModel.onNameDraftChange("  Asha Rai  ")
-        viewModel.saveName()
+    fun `saving updates the session profile with normalized values`() = runTest(dispatcher) {
+        val viewModel = editViewModel()
+        viewModel.onNameChange("  Asha Rai  ")
+        viewModel.onPhoneChange("+977 984-123 4567")
+        viewModel.onDateSelected(checkNotNull(BirthDate.toUtcMillis("2001-03-09")))
+        viewModel.onGenderChange(Gender.FEMALE)
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.saved)
+        val profile = signedInProfile()
+        assertEquals("Asha Rai", profile.name)
+        assertEquals("9841234567", profile.phone)
+        assertEquals("2001-03-09", profile.dateOfBirth)
+        assertEquals(Gender.FEMALE, profile.gender)
+        assertEquals(profile.copy(), profiles.profiles[user.uid])
+    }
+
+    @Test
+    fun `cleared optional fields are removed`() = runTest(dispatcher) {
+        val viewModel = editViewModel()
+        viewModel.onPhoneChange("9841234567")
+        viewModel.onGenderChange(Gender.OTHER)
+        viewModel.save()
+        advanceUntilIdle()
+
+        val again = EditProfileViewModel(session, signedInProfile()) { today }
+        again.onPhoneChange("")
+        again.onGenderChange(null)
+        again.clearDateOfBirth()
+        again.save()
+        advanceUntilIdle()
+
+        val profile = signedInProfile()
+        assertNull(profile.phone)
+        assertNull(profile.gender)
+        assertNull(profile.dateOfBirth)
+    }
+
+    @Test
+    fun `invalid name and phone are rejected before saving`() = runTest(dispatcher) {
+        val viewModel = editViewModel()
+        viewModel.onNameChange("   ")
+        viewModel.onPhoneChange("12345")
+        viewModel.save()
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assertFalse(state.showEditName)
-        assertTrue(state.nameSaved)
-        assertEquals("Asha Rai", signedInName())
-        assertEquals("Asha Rai", profiles.profiles[user.uid]?.name)
+        assertEquals(R.string.validation_name_required, state.nameError)
+        assertEquals(R.string.validation_phone_invalid, state.phoneError)
+        assertFalse("updateDetails" in profiles.calls)
     }
 
     @Test
-    fun `blank and overlong names are rejected before saving`() = runTest(dispatcher) {
-        val viewModel = signedInViewModel()
-        viewModel.openEditName(signedInName())
-
-        viewModel.onNameDraftChange("   ")
-        viewModel.saveName()
-        assertEquals(R.string.validation_name_required, viewModel.uiState.value.nameError)
-
-        viewModel.onNameDraftChange("a".repeat(101))
-        viewModel.saveName()
-        assertEquals(R.string.validation_name_too_long, viewModel.uiState.value.nameError)
-
-        advanceUntilIdle()
-        assertFalse("updateName" in profiles.calls)
-    }
-
-    @Test
-    fun `a failed save keeps the dialog open with the error and the old name`() = runTest(dispatcher) {
-        val viewModel = signedInViewModel()
-        val original = signedInName()
-        profiles.updateNameError = AuthError.NETWORK
-        viewModel.openEditName(original)
-        viewModel.onNameDraftChange("New Name")
-        viewModel.saveName()
-        advanceUntilIdle()
+    fun `a future birth date is rejected and the old value kept`() = runTest(dispatcher) {
+        val viewModel = editViewModel()
+        viewModel.onDateSelected(checkNotNull(BirthDate.toUtcMillis("2030-01-01")))
 
         val state = viewModel.uiState.value
-        assertTrue(state.showEditName)
-        assertEquals(AuthError.NETWORK, state.saveNameError)
-        assertFalse(state.nameSaved)
-        assertEquals(original, signedInName())
+        assertEquals(R.string.validation_date_of_birth_invalid, state.dateOfBirthError)
+        assertNull(state.dateOfBirth)
+        assertFalse(state.showDatePicker)
+    }
+
+    @Test
+    fun `a failed save shows the error and keeps the profile`() = runTest(dispatcher) {
+        val viewModel = editViewModel()
+        val original = signedInProfile().name
+        profiles.updateDetailsError = AuthError.NETWORK
+        viewModel.onNameChange("New Name")
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertEquals(AuthError.NETWORK, viewModel.uiState.value.error)
+        assertFalse(viewModel.uiState.value.saved)
+        assertEquals(original, signedInProfile().name)
     }
 
     @Test
     fun `save cannot be submitted twice while running`() = runTest(dispatcher) {
-        val viewModel = signedInViewModel()
-        viewModel.openEditName(signedInName())
-        viewModel.onNameDraftChange("New Name")
-        viewModel.saveName()
-        assertTrue(viewModel.uiState.value.isSavingName)
-        viewModel.saveName()
+        val viewModel = editViewModel()
+        viewModel.save()
+        assertTrue(viewModel.uiState.value.isSaving)
+        viewModel.save()
         advanceUntilIdle()
 
-        assertEquals(1, profiles.calls.count { it == "updateName" })
+        assertEquals(1, profiles.calls.count { it == "updateDetails" })
+    }
+
+    // Change password
+
+    private fun changePasswordViewModel() = ChangePasswordViewModel(session, saveOffers, user.email.orEmpty())
+
+    @Test
+    fun `changing the password reauthenticates first and offers to update the saved one`() = runTest(dispatcher) {
+        signedIn()
+        val viewModel = changePasswordViewModel()
+        viewModel.onCurrentChange("old-password")
+        viewModel.onNewChange("new-password1")
+        viewModel.onConfirmChange("new-password1")
+        viewModel.save()
+        advanceUntilIdle()
+
+        assertEquals(listOf("reauthenticate", "updatePassword"), auth.calls.filter { it != "signInWithEmail" })
+        val state = viewModel.uiState.value
+        assertTrue(state.done)
+        assertEquals("", state.current)
+        assertEquals("", state.new)
+        assertEquals("new-password1", saveOffers.take()?.password)
     }
 
     @Test
-    fun `dialogs cannot be closed or opened while saving`() = runTest(dispatcher) {
-        val viewModel = signedInViewModel()
-        viewModel.openEditName(signedInName())
-        viewModel.onNameDraftChange("New Name")
-        viewModel.saveName()
+    fun `a wrong current password is shown on that field`() = runTest(dispatcher) {
+        signedIn()
+        auth.failures["reauthenticate"] = AuthError.INVALID_CREDENTIALS
+        val viewModel = changePasswordViewModel()
+        viewModel.onCurrentChange("wrong")
+        viewModel.onNewChange("new-password1")
+        viewModel.onConfirmChange("new-password1")
+        viewModel.save()
+        advanceUntilIdle()
 
-        viewModel.dismissEditName()
-        assertTrue(viewModel.uiState.value.showEditName)
+        val state = viewModel.uiState.value
+        assertEquals(R.string.error_current_password_wrong, state.currentError)
+        assertNull(state.error)
+        assertFalse(state.done)
+        assertFalse("updatePassword" in auth.calls)
+    }
+
+    @Test
+    fun `new password rules are checked before any request`() = runTest(dispatcher) {
+        signedIn()
+        val viewModel = changePasswordViewModel()
+        viewModel.onCurrentChange("same-password")
+        viewModel.onNewChange("same-password")
+        viewModel.onConfirmChange("different")
+        viewModel.save()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(R.string.validation_password_same, state.newError)
+        assertEquals(R.string.validation_password_mismatch, state.confirmError)
+        assertFalse("reauthenticate" in auth.calls)
+    }
+
+    // Profile
+
+    @Test
+    fun `delete dialog cannot open while signing out`() = runTest(dispatcher) {
+        signedIn()
+        val viewModel = ProfileViewModel(session)
+        viewModel.signOut()
         viewModel.openDeleteDialog()
         assertFalse(viewModel.uiState.value.showDeleteDialog)
-
         advanceUntilIdle()
-        assertNull(viewModel.uiState.value.saveNameError)
     }
 }

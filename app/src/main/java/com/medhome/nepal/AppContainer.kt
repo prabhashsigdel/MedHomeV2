@@ -7,6 +7,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.medhome.nepal.data.CredentialClient
 import com.medhome.nepal.data.CredentialManagerClient
+import com.medhome.nepal.data.DataStoreThemeSettings
 import com.medhome.nepal.data.FirebaseAuthDataSource
 import com.medhome.nepal.data.FirestoreProfileStore
 import com.medhome.nepal.data.PasswordSaveOffers
@@ -37,6 +38,8 @@ class AppContainer(context: Context) {
     val passwordSaveOffers = PasswordSaveOffers(SharedPrefsSavePromptHistory(context))
 
     val savedAccountsPrompt = SavedAccountsPrompt()
+
+    val themeSettings = DataStoreThemeSettings(context)
 }
 
 val CreationExtras.appContainer: AppContainer

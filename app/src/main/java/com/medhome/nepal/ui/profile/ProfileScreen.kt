@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -18,49 +16,86 @@ import com.medhome.nepal.ui.components.ErrorMessage
 import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassButtonStyle
 import com.medhome.nepal.ui.components.GlassCard
-import com.medhome.nepal.ui.components.GlassLinkButton
 import com.medhome.nepal.ui.components.GlassScreen
-import com.medhome.nepal.ui.components.MessageKind
 import com.medhome.nepal.ui.components.ScreenTitle
 import com.medhome.nepal.ui.components.SectionTitle
-import com.medhome.nepal.ui.components.StatusMessage
+import com.medhome.nepal.ui.components.SettingsControl
+import com.medhome.nepal.ui.components.SettingsDivider
+import com.medhome.nepal.ui.components.SettingsRow
+import com.medhome.nepal.ui.components.SettingsSection
 import com.medhome.nepal.ui.language.LanguageSwitcher
 import com.medhome.nepal.ui.motion.entrance
+import com.medhome.nepal.ui.settings.SettingsPage
 import com.medhome.nepal.ui.theme.GlassTheme
-import kotlinx.coroutines.delay
+import com.medhome.nepal.ui.theme.ThemeSwitcher
 
-private const val NAME_SAVED_VISIBLE_MS = 4_000L
-
+/**
+ * Profile and settings, as grouped sections: account, appearance, support, sign out and the
+ * danger zone. Rows open [SettingsPage] screens inside the Profile tab.
+ */
 @Composable
 fun ProfileScreen(
     profile: UserProfile,
     usesPassword: Boolean,
+    onOpenPage: (SettingsPage) -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val enabled = !state.isBusy
 
     GlassScreen(drawBackground = false) {
         ScreenTitle(title = R.string.profile_title, modifier = Modifier.entrance(0))
+        AccountHeader(profile = profile, modifier = Modifier.entrance(1))
 
-        AccountCard(profile = profile, state = state, viewModel = viewModel, modifier = Modifier.entrance(1))
+        SettingsSection(title = R.string.settings_account, modifier = Modifier.entrance(2)) {
+            SettingsRow(
+                title = R.string.settings_edit_profile,
+                subtitle = R.string.settings_edit_profile_hint,
+                enabled = enabled,
+                onClick = { onOpenPage(SettingsPage.EDIT_PROFILE) },
+            )
+            // Only accounts with a password have one to change (Google-only accounts don't).
+            if (usesPassword) {
+                SettingsDivider()
+                SettingsRow(
+                    title = R.string.settings_change_password,
+                    subtitle = R.string.settings_change_password_hint,
+                    enabled = enabled,
+                    onClick = { onOpenPage(SettingsPage.CHANGE_PASSWORD) },
+                )
+            }
+        }
 
-        SectionTitle(text = R.string.profile_language, modifier = Modifier.entrance(2))
-        LanguageSwitcher(modifier = Modifier.entrance(2))
+        SettingsSection(title = R.string.settings_appearance, modifier = Modifier.entrance(3)) {
+            SettingsControl(label = R.string.settings_theme) { ThemeSwitcher() }
+            SettingsDivider()
+            SettingsControl(label = R.string.profile_language) { LanguageSwitcher() }
+        }
+
+        SettingsSection(title = R.string.settings_support, modifier = Modifier.entrance(4)) {
+            SettingsRow(title = R.string.settings_help_center, onClick = { onOpenPage(SettingsPage.HELP_CENTER) })
+            SettingsDivider()
+            SettingsRow(title = R.string.settings_privacy_policy, onClick = { onOpenPage(SettingsPage.PRIVACY_POLICY) })
+            SettingsDivider()
+            SettingsRow(title = R.string.settings_terms, onClick = { onOpenPage(SettingsPage.TERMS_OF_SERVICE) })
+            SettingsDivider()
+            SettingsRow(title = R.string.settings_about, onClick = { onOpenPage(SettingsPage.ABOUT) })
+        }
 
         GlassButton(
             text = R.string.action_sign_out,
             onClick = viewModel::signOut,
             style = GlassButtonStyle.Secondary,
             loading = state.isSigningOut,
-            enabled = !state.isBusy,
-            modifier = Modifier.entrance(3),
+            enabled = enabled,
+            modifier = Modifier.entrance(5),
         )
         state.signOutError?.let {
             ErrorMessage(error = it, onDismiss = viewModel::dismissSignOutError, onRetry = viewModel::signOut)
         }
 
-        SectionTitle(text = R.string.profile_danger_zone, modifier = Modifier.entrance(4))
-        GlassCard(modifier = Modifier.entrance(4), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionTitle(text = R.string.profile_danger_zone, modifier = Modifier.entrance(6))
+        GlassCard(modifier = Modifier.entrance(6), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = stringResource(R.string.profile_delete_hint),
                 style = MaterialTheme.typography.bodyMedium,
@@ -70,46 +105,19 @@ fun ProfileScreen(
                 text = R.string.action_delete_account,
                 onClick = viewModel::openDeleteDialog,
                 style = GlassButtonStyle.Danger,
-                enabled = !state.isBusy,
+                enabled = enabled,
             )
         }
     }
 
-    // "Name updated" is a passing confirmation: clear it after a moment, or when leaving Profile.
-    if (state.nameSaved) {
-        LaunchedEffect(Unit) {
-            delay(NAME_SAVED_VISIBLE_MS)
-            viewModel.dismissNameSaved()
-        }
-    }
-    DisposableEffect(Unit) { onDispose { viewModel.dismissNameSaved() } }
-
-    if (state.showEditName) EditNameDialog(state = state, viewModel = viewModel)
     if (state.showDeleteDialog) DeleteAccountDialog(state = state, usesPassword = usesPassword, viewModel = viewModel)
 }
 
 @Composable
-private fun AccountCard(
-    profile: UserProfile,
-    state: ProfileUiState,
-    viewModel: ProfileViewModel,
-    modifier: Modifier = Modifier,
-) {
+private fun AccountHeader(profile: UserProfile, modifier: Modifier = Modifier) {
     val colors = GlassTheme.colors
-    GlassCard(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    GlassCard(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(text = profile.name, style = MaterialTheme.typography.titleLarge, color = colors.textPrimary)
         Text(text = profile.email, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
-        if (state.nameSaved) {
-            StatusMessage(
-                message = R.string.profile_name_updated,
-                kind = MessageKind.Info,
-                onDismiss = viewModel::dismissNameSaved,
-            )
-        }
-        GlassLinkButton(
-            text = R.string.profile_edit_name,
-            onClick = { viewModel.openEditName(profile.name) },
-            enabled = !state.isBusy,
-        )
     }
 }
