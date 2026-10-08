@@ -191,7 +191,6 @@ private fun FloatingNavBarPreview() {
                     NavBarItem(R.string.nav_home, R.drawable.ic_nav_home),
                     NavBarItem(R.string.nav_bookings, R.drawable.ic_nav_calendar),
                     NavBarItem(R.string.nav_records, R.drawable.ic_nav_records),
-                    NavBarItem(R.string.nav_profile, R.drawable.ic_nav_person),
                 ),
                 selectedIndex = selected,
                 onSelect = { selected = it },

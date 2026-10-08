@@ -23,6 +23,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -46,12 +48,14 @@ import com.medhome.nepal.ui.components.LocalHazeState
 import com.medhome.nepal.ui.components.NavBarItem
 import com.medhome.nepal.ui.home.ComingSoonFeature
 import com.medhome.nepal.ui.home.ComingSoonScreen
+import com.medhome.nepal.ui.home.HomeShortcut
 import com.medhome.nepal.ui.home.PatientHomeScreen
 import com.medhome.nepal.ui.motion.LocalReducedMotion
 import com.medhome.nepal.ui.motion.materializeIn
 import com.medhome.nepal.ui.motion.materializeOut
 import com.medhome.nepal.ui.navigation.ScreenTransitions
 import com.medhome.nepal.ui.profile.ProfileScreen
+import com.medhome.nepal.ui.profile.ProfileViewModel
 import com.medhome.nepal.ui.settings.SettingsPage
 import com.medhome.nepal.ui.settings.SettingsPageScreen
 import dev.chrisbanes.haze.hazeSource
@@ -66,25 +70,32 @@ fun signedInHomeFor(role: Role): SignedInHome = when (role) {
     Role.DOCTOR, Role.ADMIN -> SignedInHome.STAFF_PLACEHOLDER
 }
 
+/**
+ * [profileViewModelFactory] is a seam for JVM tests, which have no Firebase-backed app container;
+ * the app always uses the default.
+ */
 @Composable
-fun MainShell(session: SessionState.SignedIn) {
+fun MainShell(
+    session: SessionState.SignedIn,
+    profileViewModelFactory: ViewModelProvider.Factory = ProfileViewModel.Factory,
+) {
     when (signedInHomeFor(session.profile.role)) {
-        SignedInHome.PATIENT_TABS -> PatientShell(session)
-        SignedInHome.STAFF_PLACEHOLDER -> StaffHomeScreen()
+        SignedInHome.PATIENT_TABS -> PatientShell(session, profileViewModelFactory)
+        SignedInHome.STAFF_PLACEHOLDER -> StaffHomeScreen(viewModel = viewModel(factory = profileViewModelFactory))
     }
 }
 
-// Tab graphs. Each tab is its own nested graph, so it keeps its own back stack.
+// Tab graphs. Each tab is its own nested graph, so it keeps its own back stack. Profile and its
+// settings pages are pushed on Home's stack (opened from the avatar).
 @Serializable internal data object HomeTab
 @Serializable internal data object HomeRoute
 @Serializable internal data class ComingSoonRoute(val feature: ComingSoonFeature)
+@Serializable internal data object ProfileRoute
+@Serializable internal data class SettingsRoute(val page: SettingsPage)
 @Serializable internal data object BookingsTab
 @Serializable internal data object BookingsRoute
 @Serializable internal data object RecordsTab
 @Serializable internal data object RecordsRoute
-@Serializable internal data object ProfileTab
-@Serializable internal data object ProfileRoute
-@Serializable internal data class SettingsRoute(val page: SettingsPage)
 
 private enum class PatientTab(
     val graph: Any,
@@ -95,7 +106,6 @@ private enum class PatientTab(
     HOME(HomeTab, HomeRoute, R.string.nav_home, R.drawable.ic_nav_home),
     BOOKINGS(BookingsTab, BookingsRoute, R.string.nav_bookings, R.drawable.ic_nav_calendar),
     RECORDS(RecordsTab, RecordsRoute, R.string.nav_records, R.drawable.ic_nav_records),
-    PROFILE(ProfileTab, ProfileRoute, R.string.nav_profile, R.drawable.ic_nav_person),
     ;
 
     val graphClass: KClass<*> get() = graph::class
@@ -109,7 +119,10 @@ private val NavItems = PatientTab.entries.map { NavBarItem(it.label, it.icon) }
  * Back from a non-Home tab root returns to Home, because tab switches keep Home underneath.
  */
 @Composable
-private fun PatientShell(session: SessionState.SignedIn) {
+private fun PatientShell(
+    session: SessionState.SignedIn,
+    profileViewModelFactory: ViewModelProvider.Factory,
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
@@ -146,29 +159,21 @@ private fun PatientShell(session: SessionState.SignedIn) {
                         TabRoot {
                             PatientHomeScreen(
                                 profile = session.profile,
-                                onOpenFeature = { navController.navigate(ComingSoonRoute(it)) },
+                                onOpenProfile = { navController.navigate(ProfileRoute) { launchSingleTop = true } },
+                                onShortcut = navController::openShortcut,
                             )
                         }
                     }
                     composable<ComingSoonRoute> { entry ->
                         ComingSoonScreen(title = entry.toRoute<ComingSoonRoute>().feature.title, showBack = true)
                     }
-                }
-                navigation<BookingsTab>(startDestination = BookingsRoute) {
-                    composable<BookingsRoute> { TabRoot { ComingSoonScreen(title = R.string.nav_bookings, showBack = false) } }
-                }
-                navigation<RecordsTab>(startDestination = RecordsRoute) {
-                    composable<RecordsRoute> { TabRoot { ComingSoonScreen(title = R.string.nav_records, showBack = false) } }
-                }
-                navigation<ProfileTab>(startDestination = ProfileRoute) {
                     composable<ProfileRoute> {
-                        TabRoot {
-                            ProfileScreen(
-                                profile = session.profile,
-                                usesPassword = session.usesPassword,
-                                onOpenPage = { navController.navigate(SettingsRoute(it)) },
-                            )
-                        }
+                        ProfileScreen(
+                            profile = session.profile,
+                            usesPassword = session.usesPassword,
+                            onOpenPage = { navController.navigate(SettingsRoute(it)) },
+                            viewModel = viewModel(factory = profileViewModelFactory),
+                        )
                     }
                     composable<SettingsRoute> { entry ->
                         SettingsPageScreen(
@@ -177,6 +182,12 @@ private fun PatientShell(session: SessionState.SignedIn) {
                             onDone = { navController.popBackStack() },
                         )
                     }
+                }
+                navigation<BookingsTab>(startDestination = BookingsRoute) {
+                    composable<BookingsRoute> { TabRoot { ComingSoonScreen(title = R.string.nav_bookings, showBack = false) } }
+                }
+                navigation<RecordsTab>(startDestination = RecordsRoute) {
+                    composable<RecordsRoute> { TabRoot { ComingSoonScreen(title = R.string.nav_records, showBack = false) } }
                 }
             }
         }
@@ -200,7 +211,7 @@ private fun PatientShell(session: SessionState.SignedIn) {
                 FloatingNavBar(
                     items = NavItems,
                     selectedIndex = currentTab.ordinal,
-                    onSelect = { navController.selectTab(PatientTab.entries[it], currentTab) },
+                    onSelect = { navController.selectTab(PatientTab.entries[it]) },
                     animateIn = false,
                 )
             }
@@ -227,11 +238,21 @@ private fun TabRoot(content: @Composable () -> Unit) {
 private fun NavDestination?.isIn(graph: KClass<*>): Boolean =
     this?.hierarchy?.any { it.hasRoute(graph) } == true
 
+/** Placeholders push a "coming soon" screen; Health records is a tab of its own. */
+private fun NavHostController.openShortcut(shortcut: HomeShortcut) {
+    when (shortcut) {
+        HomeShortcut.FIND_DOCTOR -> navigate(ComingSoonRoute(ComingSoonFeature.FIND_DOCTOR))
+        HomeShortcut.MEDICINE_REMINDERS -> navigate(ComingSoonRoute(ComingSoonFeature.MEDICINE_REMINDERS))
+        HomeShortcut.HEALTH_RECORDS -> selectTab(PatientTab.RECORDS)
+    }
+}
+
 /**
  * Standard multiple-back-stack switch: save the current tab's stack, restore the target's.
  * Re-selecting the current tab returns it to its root.
  */
-private fun NavHostController.selectTab(tab: PatientTab, currentTab: PatientTab) {
+private fun NavHostController.selectTab(tab: PatientTab) {
+    val currentTab = PatientTab.entries.firstOrNull { currentDestination.isIn(it.graphClass) }
     if (tab == currentTab) {
         popBackStack(tab.root, inclusive = false)
         return

@@ -15,8 +15,8 @@ import com.medhome.nepal.ui.components.GlassButtonStyle
 import com.medhome.nepal.ui.components.GlassCard
 import com.medhome.nepal.ui.components.GlassScreen
 import com.medhome.nepal.ui.components.ScreenTitle
-import com.medhome.nepal.ui.components.SectionTitle
-import com.medhome.nepal.ui.language.LanguageSwitcher
+import com.medhome.nepal.ui.components.SettingsSection
+import com.medhome.nepal.ui.language.LanguageSetting
 import com.medhome.nepal.ui.motion.entrance
 import com.medhome.nepal.ui.profile.ProfileViewModel
 import com.medhome.nepal.ui.theme.GlassTheme
@@ -37,8 +37,9 @@ fun StaffHomeScreen(
                 color = GlassTheme.colors.textPrimary,
             )
         }
-        SectionTitle(text = R.string.profile_language, modifier = Modifier.entrance(2))
-        LanguageSwitcher(modifier = Modifier.entrance(2))
+        SettingsSection(title = R.string.settings_appearance, modifier = Modifier.entrance(2)) {
+            LanguageSetting(enabled = !state.isBusy)
+        }
         GlassButton(
             text = R.string.action_sign_out,
             onClick = viewModel::signOut,

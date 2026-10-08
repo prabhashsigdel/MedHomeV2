@@ -22,7 +22,6 @@
     <string name="nav_home">होम</string>
     <string name="nav_bookings">बुकिङ</string> <!-- review -->
     <string name="nav_records">अभिलेख</string> <!-- review -->
-    <string name="nav_profile">प्रोफाइल</string>
 
     <!-- Fields -->
     <string name="field_name">पूरा नाम</string>

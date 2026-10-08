@@ -1,5 +1,6 @@
 package com.medhome.nepal.ui.components
 
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -12,16 +13,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -43,6 +48,7 @@ import com.medhome.nepal.ui.theme.GlassShapes
 import com.medhome.nepal.ui.theme.GlassTheme
 
 private val RowMinHeight = 56.dp
+private val RowIconSize = 22.dp
 
 /**
  * A titled group: heading plus one glass card holding its rows. One card per section keeps the
@@ -73,15 +79,70 @@ fun SettingsDivider() {
     )
 }
 
-/** A tappable row with a title, optional supporting line and a chevron. */
+/** A tappable row with an optional leading icon, a title, optional supporting line and a chevron. */
 @Composable
 fun SettingsRow(
     @StringRes title: Int,
     onClick: () -> Unit,
     @StringRes subtitle: Int? = null,
+    @DrawableRes icon: Int? = null,
     enabled: Boolean = true,
 ) {
     val colors = GlassTheme.colors
+    ChevronRow(onClick = onClick, enabled = enabled) {
+        if (icon != null) {
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = null,
+                tint = colors.accentEmphasis,
+                modifier = Modifier.size(RowIconSize),
+            )
+            Spacer(Modifier.width(14.dp))
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(text = stringResource(title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+            if (subtitle != null) {
+                Text(
+                    text = stringResource(subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A setting that opens a picker: "Theme   Dark  >". [value] is final text (language names are
+ * never translated). TalkBack reads label and value as one button.
+ */
+@Composable
+fun SettingsValueRow(
+    @StringRes label: Int,
+    value: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val colors = GlassTheme.colors
+    ChevronRow(onClick = onClick, enabled = enabled) {
+        Text(
+            text = stringResource(label),
+            style = MaterialTheme.typography.titleMedium,
+            color = colors.textPrimary,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+    }
+}
+
+/** Shared row frame: 56dp minimum, press feedback, the content, then a trailing chevron. */
+@Composable
+private fun ChevronRow(
+    onClick: () -> Unit,
+    enabled: Boolean,
+    content: @Composable RowScope.() -> Unit,
+) {
     val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
@@ -98,43 +159,59 @@ fun SettingsRow(
             .padding(horizontal = GlassDimens.CardPadding, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(text = stringResource(title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
-            if (subtitle != null) {
-                Text(
-                    text = stringResource(subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.textSecondary,
-                )
-            }
-        }
+        content()
         Spacer(Modifier.width(8.dp))
         Icon(
             painter = painterResource(R.drawable.ic_chevron_right),
             contentDescription = null,
-            tint = colors.link,
+            tint = GlassTheme.colors.link,
         )
     }
 }
 
-/** A labelled control inside a [SettingsSection] (e.g. Theme with its choices). */
+/** One option in a picker sheet: the label, and a radio mark. The whole row is the radio. */
 @Composable
-fun SettingsControl(
-    @StringRes label: Int,
-    content: @Composable () -> Unit,
+fun RadioOptionRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
 ) {
-    Column(
+    val colors = GlassTheme.colors
+    val interactionSource = remember { MutableInteractionSource() }
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = GlassDimens.CardPadding, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .heightIn(min = RowMinHeight)
+            .pressScale(interactionSource)
+            .selectable(
+                selected = selected,
+                interactionSource = interactionSource,
+                indication = ripple(),
+                role = Role.RadioButton,
+                onClick = onClick,
+            )
+            .padding(horizontal = GlassDimens.CardPadding, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = stringResource(label), style = MaterialTheme.typography.titleMedium, color = GlassTheme.colors.textPrimary)
-        content()
+        Text(
+            text = label,
+            style = MaterialTheme.typography.titleMedium,
+            color = colors.textPrimary,
+            modifier = Modifier.weight(1f),
+        )
+        RadioButton(
+            selected = selected,
+            // The row handles the click, so TalkBack sees one radio, not two controls.
+            onClick = null,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = colors.accentEmphasis,
+                unselectedColor = colors.textSecondary,
+            ),
+        )
     }
 }
 
-/** One option of a [SegmentedChoice]. [label] is final text (some labels are never translated). */
+/** One option of a [SegmentedChoice] or [GlassChoiceSheet]. [label] is final text (some labels are never translated). */
 class ChoiceOption<T>(val value: T, val label: String)
 
 /**

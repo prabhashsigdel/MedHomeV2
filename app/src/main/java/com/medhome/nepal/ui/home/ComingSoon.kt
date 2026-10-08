@@ -1,5 +1,6 @@
 package com.medhome.nepal.ui.home
 
+import androidx.annotation.DrawableRes
 import androidx.annotation.Keep
 import androidx.annotation.StringRes
 import androidx.compose.material3.MaterialTheme
@@ -21,8 +22,14 @@ import com.medhome.nepal.ui.theme.GlassTheme
 @Keep // Part of a navigation route: its serializer must survive minification.
 enum class ComingSoonFeature(@param:StringRes val title: Int) {
     FIND_DOCTOR(R.string.shortcut_find_doctor),
-    HEALTH_RECORDS(R.string.shortcut_health_records),
     MEDICINE_REMINDERS(R.string.shortcut_medicine_reminders),
+}
+
+/** Rows of the Home shortcuts card, in display order. The shell decides where each one goes. */
+enum class HomeShortcut(@param:StringRes val title: Int, @param:DrawableRes val icon: Int) {
+    FIND_DOCTOR(R.string.shortcut_find_doctor, R.drawable.ic_search),
+    HEALTH_RECORDS(R.string.shortcut_health_records, R.drawable.ic_nav_records),
+    MEDICINE_REMINDERS(R.string.shortcut_medicine_reminders, R.drawable.ic_alarm),
 }
 
 /** Placeholder screen: a title and a "coming soon" card. [showBack] for pushed screens. */

@@ -19,19 +19,19 @@ import com.medhome.nepal.ui.components.GlassCard
 import com.medhome.nepal.ui.components.GlassScreen
 import com.medhome.nepal.ui.components.ScreenTitle
 import com.medhome.nepal.ui.components.SectionTitle
-import com.medhome.nepal.ui.components.SettingsControl
 import com.medhome.nepal.ui.components.SettingsDivider
 import com.medhome.nepal.ui.components.SettingsRow
 import com.medhome.nepal.ui.components.SettingsSection
-import com.medhome.nepal.ui.language.LanguageSwitcher
+import com.medhome.nepal.ui.language.LanguageSetting
 import com.medhome.nepal.ui.motion.entrance
 import com.medhome.nepal.ui.settings.SettingsPage
 import com.medhome.nepal.ui.theme.GlassTheme
-import com.medhome.nepal.ui.theme.ThemeSwitcher
+import com.medhome.nepal.ui.theme.ThemeSetting
 
 /**
  * Profile and settings, as grouped sections: account, appearance, support, sign out and the
- * danger zone. Rows open [SettingsPage] screens inside the Profile tab.
+ * danger zone. Opened from the Home avatar (a pushed screen with a back arrow); rows push
+ * [SettingsPage] screens on top of it.
  */
 @Composable
 fun ProfileScreen(
@@ -43,7 +43,7 @@ fun ProfileScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val enabled = !state.isBusy
 
-    GlassScreen(drawBackground = false) {
+    GlassScreen(showBack = true, drawBackground = false) {
         ScreenTitle(title = R.string.profile_title, modifier = Modifier.entrance(0))
         AccountHeader(profile = profile, modifier = Modifier.entrance(1))
 
@@ -67,9 +67,9 @@ fun ProfileScreen(
         }
 
         SettingsSection(title = R.string.settings_appearance, modifier = Modifier.entrance(3)) {
-            SettingsControl(label = R.string.settings_theme) { ThemeSwitcher() }
+            ThemeSetting(enabled = enabled)
             SettingsDivider()
-            SettingsControl(label = R.string.profile_language) { LanguageSwitcher() }
+            LanguageSetting(enabled = enabled)
         }
 
         SettingsSection(title = R.string.settings_support, modifier = Modifier.entrance(4)) {

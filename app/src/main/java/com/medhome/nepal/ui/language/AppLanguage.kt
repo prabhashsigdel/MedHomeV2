@@ -38,7 +38,11 @@ object LanguageSettings {
         return AppLanguage.resolve(appTag, systemTag)
     }
 
-    /** Recreates the activity in the new language; screen and form state survive. */
+    /**
+     * Switches the app language. On Android 13+ the activity handles the change in place
+     * (manifest configChanges); below that MainActivity restarts itself. Call it through
+     * [LocalLanguageController] so the switch is covered by a fade.
+     */
     fun apply(language: AppLanguage) {
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(language.tag))
     }

@@ -4,6 +4,7 @@ import android.app.UiModeManager
 import android.content.res.Configuration
 import android.graphics.Color
 import androidx.core.graphics.drawable.toDrawable
+import androidx.core.os.LocaleListCompat
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
@@ -22,6 +23,7 @@ import androidx.lifecycle.lifecycleScope
 import com.medhome.nepal.data.ThemeMode
 import com.medhome.nepal.ui.MedHomeNavHost
 import com.medhome.nepal.ui.common.LocalCredentialClient
+import com.medhome.nepal.ui.language.LanguageSwitchHost
 import com.medhome.nepal.ui.theme.LocalThemeController
 import com.medhome.nepal.ui.theme.MedHomeTheme
 import com.medhome.nepal.ui.theme.ThemeController
@@ -32,11 +34,16 @@ import kotlinx.coroutines.runBlocking
 
 /**
  * AppCompatActivity so per-app language (AppCompatDelegate) also works on Android 12 and lower.
- * Handles uiMode changes itself (manifest), so a theme switch crossfades instead of restarting.
+ * Handles uiMode changes itself (manifest), so a theme switch crossfades instead of restarting,
+ * and locale changes, so a language switch on Android 13+ recomposes in place.
  */
 class MainActivity : AppCompatActivity() {
+    /** Set just before a language restart, so the new activity fades in. */
+    private var restartingForLanguage = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val fadeInOnStart = savedInstanceState?.getBoolean(KEY_LANGUAGE_RESTART) == true
         val container = (application as MedHomeApplication).container
         // One small read before the first frame, so that frame is already in the chosen theme.
         val initialMode = runBlocking { container.themeSettings.current() }
@@ -53,10 +60,30 @@ class MainActivity : AppCompatActivity() {
                     LocalCredentialClient provides container.credentialClient,
                     LocalThemeController provides themeController,
                 ) {
-                    MedHomeNavHost(passwordSaveOffers = container.passwordSaveOffers)
+                    LanguageSwitchHost(restartsActivity = !languageChangesInPlace, fadeInOnStart = fadeInOnStart) {
+                        MedHomeNavHost(passwordSaveOffers = container.passwordSaveOffers)
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * Android 12 and lower only (13+ handles the locale through the system). AppCompat has
+     * updated the resources in place, but only the activity hears about it, not the Compose
+     * views, so restart to redraw in the new language. The content has already faded out.
+     */
+    override fun onLocalesChanged(locales: LocaleListCompat) {
+        super.onLocalesChanged(locales)
+        if (!languageChangesInPlace) {
+            restartingForLanguage = true
+            recreate()
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_LANGUAGE_RESTART, restartingForLanguage)
     }
 
     /** Light icons on dark, dark icons on light. Called before the first frame and on changes. */
@@ -96,5 +123,12 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+    }
+
+    private companion object {
+        const val KEY_LANGUAGE_RESTART = "language_restart"
+
+        /** Android 13+ delivers the per-app locale as a normal configuration change. */
+        val languageChangesInPlace = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     }
 }

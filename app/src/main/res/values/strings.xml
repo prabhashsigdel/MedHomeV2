@@ -19,7 +19,6 @@
     <string name="nav_home">Home</string>
     <string name="nav_bookings">Bookings</string>
     <string name="nav_records">Records</string>
-    <string name="nav_profile">Profile</string>
 
     <!-- Fields -->
     <string name="field_name">Full name</string>
