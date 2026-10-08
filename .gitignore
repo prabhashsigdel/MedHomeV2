@@ -16,4 +16,4 @@ local.properties
 
 app/google-services.json
 
-.claude/
+/.idea/
