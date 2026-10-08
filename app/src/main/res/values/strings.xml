@@ -8,6 +8,13 @@
     <string name="action_show_password">Show</string>
     <string name="action_hide_password">Hide</string>
     <string name="action_back_to_login">Back to log in</string>
+    <string name="action_back">Back</string>
+    <string name="state_loading">Loading</string>
+
+    <!-- Floating nav bar (preview only for now) -->
+    <string name="nav_home">Home</string>
+    <string name="nav_appointments">Appointments</string>
+    <string name="nav_profile">Profile</string>
 
     <!-- Fields -->
     <string name="field_name">Full name</string>
@@ -77,7 +84,6 @@
     <string name="delete_body_password">This permanently deletes your profile and account. Enter your password to confirm.</string>
     <string name="delete_body_google">This permanently deletes your profile and account. You\'ll be asked to confirm with your Google account.</string>
     <string name="delete_confirm">Delete</string>
-    <string name="delete_in_progress">Deleting…</string>
 
     <!-- Errors -->
     <string name="error_invalid_credentials">Incorrect email or password.</string>

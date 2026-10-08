@@ -1,8 +1,13 @@
 package com.medhome.nepal.ui
 
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -11,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
@@ -24,12 +30,18 @@ import com.medhome.nepal.session.SessionState
 import com.medhome.nepal.ui.auth.ForgotPasswordScreen
 import com.medhome.nepal.ui.auth.LoginScreen
 import com.medhome.nepal.ui.auth.SignUpScreen
-import com.medhome.nepal.ui.common.ErrorCard
-import com.medhome.nepal.ui.common.FormScreen
-import com.medhome.nepal.ui.common.FullScreenLoading
-import com.medhome.nepal.ui.common.LoadingButton
-import com.medhome.nepal.ui.common.ScreenTitle
+import com.medhome.nepal.ui.components.ErrorMessage
+import com.medhome.nepal.ui.components.GlassButton
+import com.medhome.nepal.ui.components.GlassButtonStyle
+import com.medhome.nepal.ui.components.GlassCard
+import com.medhome.nepal.ui.components.GlassLoadingScreen
+import com.medhome.nepal.ui.components.GlassScreen
+import com.medhome.nepal.ui.components.ScreenTitle
 import com.medhome.nepal.ui.home.HomeScreen
+import com.medhome.nepal.ui.motion.LocalReducedMotion
+import com.medhome.nepal.ui.motion.MotionTokens
+import com.medhome.nepal.ui.motion.entrance
+import com.medhome.nepal.ui.theme.GlassTheme
 import com.medhome.nepal.ui.verify.VerifyEmailScreen
 import kotlinx.serialization.Serializable
 
@@ -61,9 +73,17 @@ fun MedHomeNavHost(
         is SessionState.SignedIn -> HomeRoute
     }
     LaunchedEffect(topLevelRoute) { navController.showTopLevel(topLevelRoute) }
+    val transitions = ScreenTransitions(reducedMotion = LocalReducedMotion.current)
 
-    NavHost(navController = navController, startDestination = LoadingRoute) {
-        composable<LoadingRoute> { FullScreenLoading() }
+    NavHost(
+        navController = navController,
+        startDestination = LoadingRoute,
+        enterTransition = { transitions.enter(this) },
+        exitTransition = { transitions.exit(this) },
+        popEnterTransition = { transitions.popEnter(this) },
+        popExitTransition = { transitions.popExit(this) },
+    ) {
+        composable<LoadingRoute> { GlassLoadingScreen() }
 
         navigation<AuthGraph>(startDestination = LoginRoute) {
             composable<LoginRoute> {
@@ -120,30 +140,78 @@ private fun NavHostController.showTopLevel(route: Any) {
     }
 }
 
+/**
+ * Steps inside the signed-out flow (Login, Sign up, Forgot password) push and pop: forward slides
+ * in from the right with a fade, back reverses it and follows the predictive back gesture.
+ * Session changes (e.g. Login to Home) are not navigation steps, so they crossfade.
+ */
+private class ScreenTransitions(private val reducedMotion: Boolean) {
+    private fun <T> spec() = tween<T>(MotionTokens.SCREEN_MS, easing = MotionTokens.EaseOut)
+
+    fun enter(scope: AnimatedContentTransitionScope<NavBackStackEntry>): EnterTransition = when {
+        reducedMotion -> EnterTransition.None
+        scope.isFlowStep() -> scope.slideIntoContainer(SlideDirection.Start, spec()) + fadeIn(spec())
+        else -> fadeIn(spec())
+    }
+
+    fun exit(scope: AnimatedContentTransitionScope<NavBackStackEntry>): ExitTransition = when {
+        reducedMotion -> ExitTransition.None
+        scope.isFlowStep() ->
+            scope.slideOutOfContainer(SlideDirection.Start, spec(), targetOffset = { it / PARALLAX }) + fadeOut(spec())
+        else -> fadeOut(spec())
+    }
+
+    fun popEnter(scope: AnimatedContentTransitionScope<NavBackStackEntry>): EnterTransition = when {
+        reducedMotion -> EnterTransition.None
+        scope.isFlowStep() ->
+            scope.slideIntoContainer(SlideDirection.End, spec(), initialOffset = { it / PARALLAX }) + fadeIn(spec())
+        else -> fadeIn(spec())
+    }
+
+    fun popExit(scope: AnimatedContentTransitionScope<NavBackStackEntry>): ExitTransition = when {
+        reducedMotion -> ExitTransition.None
+        scope.isFlowStep() -> scope.slideOutOfContainer(SlideDirection.End, spec()) + fadeOut(spec())
+        else -> fadeOut(spec())
+    }
+
+    private fun AnimatedContentTransitionScope<NavBackStackEntry>.isFlowStep(): Boolean =
+        initialState.isInAuthFlow() && targetState.isInAuthFlow()
+
+    private fun NavBackStackEntry.isInAuthFlow(): Boolean =
+        destination.hierarchy.any { it.hasRoute(AuthGraph::class) }
+
+    private companion object {
+        /** The screen underneath moves a quarter as far, for depth. */
+        const val PARALLAX = 4
+    }
+}
+
 @Composable
 private fun ProfileUnavailableScreen(viewModel: SessionViewModel) {
     val isBusy by viewModel.isBusy.collectAsStateWithLifecycle()
     val actionError by viewModel.actionError.collectAsStateWithLifecycle()
 
-    FormScreen {
-        ScreenTitle(title = R.string.profile_unavailable_title)
-        Text(
-            text = stringResource(R.string.profile_unavailable_body),
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        actionError?.let { ErrorCard(error = it, onDismiss = viewModel::dismissActionError) }
-        LoadingButton(
-            text = R.string.action_retry,
-            loading = isBusy,
-            enabled = !isBusy,
-            onClick = viewModel::retryProfile,
-        )
-        OutlinedButton(
-            onClick = viewModel::signOut,
-            enabled = !isBusy,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.home_sign_out))
+    GlassScreen {
+        ScreenTitle(title = R.string.profile_unavailable_title, modifier = Modifier.entrance(0))
+        GlassCard(modifier = Modifier.entrance(1)) {
+            Text(
+                text = stringResource(R.string.profile_unavailable_body),
+                style = MaterialTheme.typography.bodyLarge,
+                color = GlassTheme.colors.textPrimary,
+            )
+            actionError?.let { ErrorMessage(error = it, onDismiss = viewModel::dismissActionError) }
+            GlassButton(
+                text = R.string.action_retry,
+                onClick = viewModel::retryProfile,
+                loading = isBusy,
+                enabled = !isBusy,
+            )
+            GlassButton(
+                text = R.string.home_sign_out,
+                onClick = viewModel::signOut,
+                style = GlassButtonStyle.Secondary,
+                enabled = !isBusy,
+            )
         }
     }
 }
