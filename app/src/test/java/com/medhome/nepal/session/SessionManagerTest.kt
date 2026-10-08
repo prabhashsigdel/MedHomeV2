@@ -389,6 +389,40 @@ class SessionManagerTest {
     }
 
     @Test
+    fun `updating the name saves it and updates the signed in profile`() = runTest {
+        val user = passwordUser()
+        profiles.profiles[user.uid] = doctor(user.uid)
+        withSession(FakeAuthDataSource(user)) { session ->
+            session.start()
+            session.updateName("Dr Sita Rai")
+            assertEquals("Dr Sita Rai", (session.state.value as SessionState.SignedIn).profile.name)
+            assertEquals("Dr Sita Rai", profiles.profiles[user.uid]?.name)
+            assertEquals(Role.DOCTOR, (session.state.value as SessionState.SignedIn).profile.role)
+        }
+    }
+
+    @Test
+    fun `a failed name update leaves the profile unchanged`() = runTest {
+        val user = passwordUser()
+        profiles.profiles[user.uid] = doctor(user.uid)
+        profiles.updateNameError = AuthError.NETWORK
+        withSession(FakeAuthDataSource(user)) { session ->
+            session.start()
+            expectError(AuthError.NETWORK) { session.updateName("Someone Else") }
+            assertEquals("Dr Rai", (session.state.value as SessionState.SignedIn).profile.name)
+        }
+    }
+
+    @Test
+    fun `updating the name requires being signed in`() = runTest {
+        withSession(FakeAuthDataSource()) { session ->
+            session.start()
+            expectError(AuthError.NOT_SIGNED_IN) { session.updateName("Asha") }
+            assertFalse("updateName" in profiles.calls)
+        }
+    }
+
+    @Test
     fun `clearing the signed out error keeps the user signed out`() = runTest {
         profiles.getError = AuthError.PERMISSION_DENIED
         withSession(FakeAuthDataSource(passwordUser())) { session ->

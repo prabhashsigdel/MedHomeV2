@@ -1,5 +1,6 @@
 <resources>
-    <string name="app_name">MedHome</string>
+    <!-- Brand name: the same in every language. -->
+    <string name="app_name" translatable="false">MedHome</string>
 
     <!-- Common actions -->
     <string name="action_retry">Retry</string>
@@ -10,10 +11,14 @@
     <string name="action_back_to_login">Back to log in</string>
     <string name="action_back">Back</string>
     <string name="state_loading">Loading</string>
+    <string name="action_save">Save</string>
+    <string name="action_sign_out">Sign out</string>
+    <string name="action_delete_account">Delete account</string>
 
-    <!-- Floating nav bar (preview only for now) -->
+    <!-- Patient tabs -->
     <string name="nav_home">Home</string>
-    <string name="nav_appointments">Appointments</string>
+    <string name="nav_bookings">Bookings</string>
+    <string name="nav_records">Records</string>
     <string name="nav_profile">Profile</string>
 
     <!-- Fields -->
@@ -33,7 +38,7 @@
     <string name="validation_password_mismatch">Passwords don\'t match</string>
 
     <!-- Login -->
-    <string name="login_title">Welcome back</string>
+    <string name="login_title">Welcome</string>
     <string name="login_subtitle">Log in to your MedHome account</string>
     <string name="login_action">Log in</string>
     <string name="login_forgot_password">Forgot password?</string>
@@ -68,16 +73,37 @@
     <string name="profile_unavailable_title">Can\'t load your profile</string>
     <string name="profile_unavailable_body">You\'re signed in, but we couldn\'t reach the server to load your profile. Check your internet connection and try again.</string>
 
-    <!-- Home -->
-    <string name="home_title">MedHome</string>
-    <string name="home_role">Role: %1$s</string>
-    <string name="home_sign_out">Sign out</string>
-    <string name="home_delete_account">Delete account</string>
+    <!-- Patient home -->
+    <string name="home_greeting">Hello, %1$s</string>
+    <string name="home_greeting_no_name">Hello</string>
+    <string name="home_next_appointment">Next appointment</string>
+    <string name="home_no_appointments">No upcoming appointments</string>
+    <string name="home_no_appointments_body">When you book a consultation, it will show up here.</string>
+    <string name="home_todays_medicines">Today\'s medicines</string>
+    <string name="home_no_medicines">No medicines for today</string>
+    <string name="home_no_medicines_body">Medicine reminders you add will show up here.</string>
+    <string name="home_shortcuts">Shortcuts</string>
+    <string name="shortcut_find_doctor">Find a doctor</string>
+    <string name="shortcut_health_records">Health records</string>
+    <string name="shortcut_medicine_reminders">Medicine reminders</string>
+    <string name="coming_soon_body">This feature is coming soon.</string>
 
-    <!-- Roles -->
-    <string name="role_patient">Patient</string>
-    <string name="role_doctor">Doctor</string>
-    <string name="role_admin">Admin</string>
+    <!-- Doctor and admin placeholder -->
+    <string name="staff_home_title">Doctor tools are coming soon</string>
+    <string name="staff_home_body">We\'re building tools for doctors and admins. For now, you can change the language or sign out.</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_edit_name">Edit name</string>
+    <string name="profile_edit_name_title">Edit your name</string>
+    <string name="profile_name_updated">Name updated</string>
+    <string name="profile_language">Language</string>
+    <string name="profile_danger_zone">Danger zone</string>
+    <string name="profile_delete_hint">Permanently delete your account and profile. This can\'t be undone.</string>
+
+    <!-- Language names: each written in its own language so it is recognisable in either. -->
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_nepali" translatable="false">नेपाली</string>
 
     <!-- Delete account -->
     <string name="delete_title">Delete your account?</string>

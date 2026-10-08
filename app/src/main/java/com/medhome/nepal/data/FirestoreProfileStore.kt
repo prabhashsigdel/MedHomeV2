@@ -68,6 +68,17 @@ class FirestoreProfileStore(
         Unit
     }
 
+    override suspend fun updateName(uid: String, name: String) = mapErrors {
+        val ref = document(uid)
+        // A transaction rather than update(): offline, update() would queue and never resolve,
+        // leaving the save spinner running; a transaction fails fast with UNAVAILABLE.
+        firestore().runTransaction { transaction ->
+            transaction.update(ref, FIELD_NAME, name)
+            null
+        }.await()
+        Unit
+    }
+
     override suspend fun clearLocalData() = mapErrors {
         val instance = firestore()
         instance.terminate().await()

@@ -132,6 +132,20 @@ class SessionManager(
         _state.value = SessionState.SignedOut()
     }
 
+    /** Saves a new name and updates the signed-in profile in place. [name] is already validated. */
+    suspend fun updateName(name: String) = exclusive {
+        val current = _state.value as? SessionState.SignedIn ?: throw AuthException(AuthError.NOT_SIGNED_IN)
+        profiles.updateName(current.profile.uid, name)
+        // Re-read the state: an external sign-out may have happened while saving.
+        _state.update { latest ->
+            if (latest is SessionState.SignedIn && latest.profile.uid == current.profile.uid) {
+                latest.copy(profile = latest.profile.copy(name = name))
+            } else {
+                latest
+            }
+        }
+    }
+
     fun clearSignedOutError() {
         _state.update { current ->
             if (current is SessionState.SignedOut && current.error != null) {

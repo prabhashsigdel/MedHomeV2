@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,6 +39,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.medhome.nepal.R
 import com.medhome.nepal.ui.motion.feedbackTween
@@ -56,7 +58,7 @@ private val IndicatorInset = 6.dp
 
 /**
  * Floating glass tab bar, inset 16dp from the screen edges. The selected-tab indicator slides
- * between tabs and icon colors animate. Not wired into the app yet (only one signed-in screen).
+ * between tabs and icon colors animate. Used by the patient shell.
  */
 @Composable
 fun FloatingNavBar(
@@ -64,9 +66,10 @@ fun FloatingNavBar(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    animateIn: Boolean = true,
 ) {
-    FloatingContainer(modifier = modifier) {
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(NavBarHeight)) {
+    FloatingContainer(modifier = modifier, animateIn = animateIn) {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(NavBarHeight).selectableGroup()) {
             val itemWidth = maxWidth / items.size
             val indicatorOffset by animateDpAsState(
                 targetValue = itemWidth * selectedIndex,
@@ -75,7 +78,8 @@ fun FloatingNavBar(
             )
             Box(
                 modifier = Modifier
-                    .offset(x = indicatorOffset)
+                    // Lambda overload: the animated offset only re-places, it doesn't recompose.
+                    .offset { IntOffset(indicatorOffset.roundToPx(), 0) }
                     .width(itemWidth)
                     .fillMaxHeight()
                     .padding(IndicatorInset)
@@ -126,9 +130,11 @@ private fun RowScope.NavBarTab(item: NavBarItem, selected: Boolean, onClick: () 
 @Composable
 fun FloatingContainer(
     modifier: Modifier = Modifier,
+    /** False when a parent already animates the bar in and out. */
+    animateIn: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
+    val visibleState = remember { MutableTransitionState(!animateIn).apply { targetState = true } }
     AnimatedVisibility(visibleState = visibleState, enter = materializeIn(), modifier = modifier) {
         Box(
             modifier = Modifier
@@ -165,7 +171,8 @@ private fun FloatingNavBarPreview() {
             FloatingNavBar(
                 items = listOf(
                     NavBarItem(R.string.nav_home, R.drawable.ic_nav_home),
-                    NavBarItem(R.string.nav_appointments, R.drawable.ic_nav_calendar),
+                    NavBarItem(R.string.nav_bookings, R.drawable.ic_nav_calendar),
+                    NavBarItem(R.string.nav_records, R.drawable.ic_nav_records),
                     NavBarItem(R.string.nav_profile, R.drawable.ic_nav_person),
                 ),
                 selectedIndex = selected,

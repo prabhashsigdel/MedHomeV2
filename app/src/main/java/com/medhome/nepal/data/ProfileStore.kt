@@ -15,6 +15,9 @@ interface ProfileStore {
 
     suspend fun deleteProfile(uid: String)
 
+    /** Changes only the name. Needs the server: fails straight away when offline. */
+    suspend fun updateName(uid: String, name: String)
+
     /**
      * Wipes Firestore's on-device cache so a signed-out user's data doesn't stay on the phone.
      * Cache reads bypass security rules, so this matters on shared devices.

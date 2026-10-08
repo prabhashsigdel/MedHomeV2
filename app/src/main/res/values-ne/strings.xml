@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Nepali strings. Wording is reused from the previous MedHome app where an equivalent existed.
+    Strings marked <!- - review - -> after them were written new for this version and should be
+    checked by a native speaker.
+-->
+<resources>
+    <!-- Common actions -->
+    <string name="action_retry">पुनः प्रयास गर्नुहोस्</string> <!-- review -->
+    <string name="action_dismiss">हटाउनुहोस्</string> <!-- review -->
+    <string name="action_cancel">रद्द गर्नुहोस्</string>
+    <string name="action_show_password">देखाउनुहोस्</string>
+    <string name="action_hide_password">लुकाउनुहोस्</string>
+    <string name="action_back_to_login">लगइनमा फर्कनुहोस्</string>
+    <string name="action_back">पछाडि</string>
+    <string name="state_loading">लोड हुँदैछ</string>
+    <string name="action_save">सुरक्षित गर्नुहोस्</string> <!-- review -->
+    <string name="action_sign_out">लगआउट</string>
+    <string name="action_delete_account">खाता मेटाउनुहोस्</string>
+
+    <!-- Patient tabs -->
+    <string name="nav_home">होम</string>
+    <string name="nav_bookings">बुकिङ</string> <!-- review -->
+    <string name="nav_records">अभिलेख</string> <!-- review -->
+    <string name="nav_profile">प्रोफाइल</string>
+
+    <!-- Fields -->
+    <string name="field_name">पूरा नाम</string>
+    <string name="field_email">इमेल</string>
+    <string name="field_password">पासवर्ड</string>
+    <string name="field_confirm_password">पासवर्ड पुष्टि गर्नुहोस्</string>
+
+    <!-- Validation -->
+    <string name="validation_name_required">कृपया आफ्नो नाम प्रविष्ट गर्नुहोस्</string>
+    <string name="validation_name_too_long">नाम १०० अक्षरभन्दा लामो हुन सक्दैन</string> <!-- review -->
+    <string name="validation_email_required">कृपया इमेल प्रविष्ट गर्नुहोस्</string>
+    <string name="validation_email_invalid">मान्य इमेल प्रविष्ट गर्नुहोस्</string>
+    <string name="validation_password_required">कृपया पासवर्ड प्रविष्ट गर्नुहोस्</string>
+    <string name="validation_password_too_short">पासवर्ड कम्तिमा ८ अक्षरको हुनुपर्छ</string>
+    <string name="validation_password_hint">कम्तिमा ८ अक्षर</string> <!-- review -->
+    <string name="validation_password_mismatch">पासवर्ड मिलेन</string>
+
+    <!-- Login -->
+    <string name="login_title">स्वागत छ</string>
+    <string name="login_subtitle">आफ्नो MedHome खातामा लगइन गर्नुहोस्</string> <!-- review -->
+    <string name="login_action">लगइन</string>
+    <string name="login_forgot_password">पासवर्ड बिर्सनुभयो?</string>
+    <string name="login_google">Google सँग जारी राख्नुहोस्</string>
+    <string name="login_no_account">खाता छैन?</string>
+    <string name="login_sign_up">साइन अप गर्नुहोस्</string> <!-- review -->
+
+    <!-- Sign up -->
+    <string name="signup_title">आफ्नो खाता बनाउनुहोस्</string> <!-- review -->
+    <string name="signup_subtitle">तपाईंको इमेल ठेगाना पुष्टि गर्न हामी एउटा इमेल पठाउनेछौं</string> <!-- review -->
+    <string name="signup_action">खाता सिर्जना गर्नुहोस्</string>
+    <string name="signup_have_account">पहिले नै खाता छ?</string>
+    <string name="signup_log_in">लगइन</string>
+
+    <!-- Forgot password -->
+    <string name="forgot_title">पासवर्ड रिसेट गर्नुहोस्</string>
+    <string name="forgot_subtitle">आफ्नो इमेल लेख्नुहोस्, हामी पासवर्ड रिसेट गर्ने लिंक पठाउनेछौं।</string> <!-- review -->
+    <string name="forgot_action">रिसेट लिंक पठाउनुहोस्</string>
+    <string name="forgot_link_sent">यो इमेलमा खाता भएमा रिसेट लिंक पठाइएको छ। आफ्नो इनबक्स र स्पाम फोल्डर जाँच गर्नुहोस्।</string> <!-- review -->
+
+    <!-- Verify email -->
+    <string name="verify_title">आफ्नो इमेल पुष्टि गर्नुहोस्</string> <!-- review -->
+    <string name="verify_body">हामीले %1$s मा पुष्टि लिंक पठाएका छौं। लिंक खोल्नुहोस्, अनि यहाँ फर्केर \"पुष्टि गरें\" थिच्नुहोस्।</string> <!-- review -->
+    <string name="verify_check_action">पुष्टि गरें</string> <!-- review -->
+    <string name="verify_resend_action">इमेल फेरि पठाउनुहोस्</string> <!-- review -->
+    <string name="verify_use_other_account">लगआउट</string>
+    <string name="verify_email_resent">पुष्टि इमेल पठाइयो। आफ्नो इनबक्स र स्पाम फोल्डर जाँच गर्नुहोस्।</string> <!-- review -->
+    <string name="verify_not_yet">तपाईंको इमेल अझै पुष्टि भएको छैन। इमेलको लिंक खोल्नुहोस्, अनि फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="verify_initial_send_failed">पुष्टि इमेल पठाउन सकिएन। फेरि प्रयास गर्न \"इमेल फेरि पठाउनुहोस्\" थिच्नुहोस्।</string> <!-- review -->
+
+    <!-- Profile unavailable -->
+    <string name="profile_unavailable_title">प्रोफाइल लोड गर्न सकिएन</string> <!-- review -->
+    <string name="profile_unavailable_body">तपाईं लगइन हुनुहुन्छ, तर प्रोफाइल लोड गर्न सर्भरसँग जोडिन सकिएन। इन्टरनेट जडान जाँच गरी फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+
+    <!-- Patient home -->
+    <string name="home_greeting">नमस्ते, %1$s</string> <!-- review -->
+    <string name="home_greeting_no_name">नमस्ते</string> <!-- review -->
+    <string name="home_next_appointment">अर्को अपोइन्टमेन्ट</string> <!-- review -->
+    <string name="home_no_appointments">कुनै आउँदै गरेको अपोइन्टमेन्ट छैन</string>
+    <string name="home_no_appointments_body">परामर्श बुक गरेपछि यहाँ देखिनेछ।</string> <!-- review -->
+    <string name="home_todays_medicines">आजका औषधिहरू</string> <!-- review -->
+    <string name="home_no_medicines">आजका लागि कुनै औषधि छैन</string> <!-- review -->
+    <string name="home_no_medicines_body">तपाईंले थप्नुभएका औषधि सम्झनाहरू यहाँ देखिनेछन्।</string> <!-- review -->
+    <string name="home_shortcuts">छिटो पहुँच</string> <!-- review -->
+    <string name="shortcut_find_doctor">डाक्टर खोज्नुहोस्</string>
+    <string name="shortcut_health_records">स्वास्थ्य अभिलेख</string>
+    <string name="shortcut_medicine_reminders">औषधि सम्झनाहरू</string>
+    <string name="coming_soon_body">यो सुविधा छिट्टै आउँदैछ।</string> <!-- review -->
+
+    <!-- Doctor and admin placeholder -->
+    <string name="staff_home_title">डाक्टरका उपकरणहरू छिट्टै आउँदैछन्</string> <!-- review -->
+    <string name="staff_home_body">हामी डाक्टर र एडमिनका लागि उपकरणहरू बनाउँदैछौं। अहिलेका लागि तपाईं भाषा परिवर्तन गर्न वा लगआउट गर्न सक्नुहुन्छ।</string> <!-- review -->
+
+    <!-- Profile -->
+    <string name="profile_title">प्रोफाइल</string>
+    <string name="profile_edit_name">नाम सम्पादन गर्नुहोस्</string> <!-- review -->
+    <string name="profile_edit_name_title">आफ्नो नाम सम्पादन गर्नुहोस्</string> <!-- review -->
+    <string name="profile_name_updated">नाम अपडेट भयो</string> <!-- review -->
+    <string name="profile_language">भाषा</string>
+    <string name="profile_danger_zone">जोखिम क्षेत्र</string>
+    <string name="profile_delete_hint">आफ्नो खाता र प्रोफाइल स्थायी रूपमा मेटाउनुहोस्। यो कार्य फिर्ता गर्न सकिँदैन।</string>
+
+    <!-- Delete account -->
+    <string name="delete_title">खाता मेटाउने हो?</string> <!-- review -->
+    <string name="delete_body_password">यसले तपाईंको प्रोफाइल र खाता स्थायी रूपमा मेटाउँछ। पुष्टि गर्न आफ्नो पासवर्ड प्रविष्ट गर्नुहोस्।</string> <!-- review -->
+    <string name="delete_body_google">यसले तपाईंको प्रोफाइल र खाता स्थायी रूपमा मेटाउँछ। तपाईंलाई Google खाताबाट पुष्टि गर्न भनिनेछ।</string> <!-- review -->
+    <string name="delete_confirm">मेटाउनुहोस्</string>
+
+    <!-- Errors -->
+    <string name="error_invalid_credentials">इमेल वा पासवर्ड मिलेन।</string> <!-- review -->
+    <string name="error_user_not_found">यो इमेलमा कुनै खाता भेटिएन।</string> <!-- review -->
+    <string name="error_user_disabled">यो खाता निष्क्रिय गरिएको छ। सहयोगका लागि सम्पर्क गर्नुहोस्।</string> <!-- review -->
+    <string name="error_invalid_email">यो इमेल ठेगाना मान्य छैन।</string> <!-- review -->
+    <string name="error_email_in_use">यो इमेल पहिले नै दर्ता गरिएको छ। कृपया लगइन गर्नुहोस् वा पासवर्ड रिसेट गर्नुहोस्।</string>
+    <string name="error_weak_password">यो पासवर्ड कमजोर छ। अक्षर र अङ्क मिलाएर कम्तिमा ८ अक्षरको पासवर्ड प्रयोग गर्नुहोस्।</string> <!-- review -->
+    <string name="error_account_exists_with_password">यो इमेलमा पहिले नै पासवर्ड भएको खाता छ। कृपया इमेल र पासवर्डबाट लगइन गर्नुहोस्।</string> <!-- review -->
+    <string name="error_wrong_account">यो फरक खाता हो। तपाईं लगइन भएकै खाताबाट पुष्टि गर्नुहोस्।</string> <!-- review -->
+    <string name="error_requires_recent_login">सुरक्षाका लागि कृपया फेरि लगइन गरी पुनः प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="error_too_many_requests">धेरै पटक प्रयास भयो। केही मिनेट पर्खेर फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="error_network">इन्टरनेट जडान छैन। जडान जाँच गरी फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="error_google_no_account">यो फोनमा कुनै Google खाता भेटिएन। सेटिङ्समा खाता थप्नुहोस्, वा इमेलबाट लगइन गर्नुहोस्।</string> <!-- review -->
+    <string name="error_google_failed">Google लगइन असफल भयो। कृपया फेरि प्रयास गर्नुहोस्।</string>
+    <string name="error_permission_denied">यो खाताको प्रोफाइल हेर्ने अनुमति तपाईंसँग छैन।</string> <!-- review -->
+    <string name="error_profile_invalid">तपाईंको खाताको प्रोफाइल सही रूपमा मिलाइएको छैन। कृपया सहयोगका लागि सम्पर्क गर्नुहोस्।</string> <!-- review -->
+    <string name="error_profile_load_failed">तपाईं लगइन हुनुभयो, तर प्रोफाइल लोड गर्न नसकिएकाले लगआउट गरिएको छ। जडान जाँच गरी फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="error_not_signed_in">तपाईं लगइन हुनुहुन्न।</string> <!-- review -->
+    <string name="error_unknown">केही समस्या आयो। कृपया फेरि प्रयास गर्नुहोस्।</string>
+</resources>

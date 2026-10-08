@@ -1,0 +1,44 @@
+package com.medhome.nepal.ui.home
+
+import androidx.annotation.Keep
+import androidx.annotation.StringRes
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.medhome.nepal.R
+import com.medhome.nepal.ui.components.GlassCard
+import com.medhome.nepal.ui.components.GlassScreen
+import com.medhome.nepal.ui.components.ScreenTitle
+import com.medhome.nepal.ui.motion.entrance
+import com.medhome.nepal.ui.theme.GlassTheme
+
+/**
+ * Features that exist only as placeholders for now. Navigation routes carry the enum, never a
+ * string resource id, because ids can change between builds and routes are saved state.
+ */
+@Keep // Part of a navigation route: its serializer must survive minification.
+enum class ComingSoonFeature(@param:StringRes val title: Int) {
+    FIND_DOCTOR(R.string.shortcut_find_doctor),
+    HEALTH_RECORDS(R.string.shortcut_health_records),
+    MEDICINE_REMINDERS(R.string.shortcut_medicine_reminders),
+}
+
+/** Placeholder screen: a title and a "coming soon" card. [showBack] for pushed screens. */
+@Composable
+fun ComingSoonScreen(
+    @StringRes title: Int,
+    showBack: Boolean,
+) {
+    GlassScreen(showBack = showBack, drawBackground = false) {
+        ScreenTitle(title = title, modifier = Modifier.entrance(0))
+        GlassCard(modifier = Modifier.entrance(1)) {
+            Text(
+                text = stringResource(R.string.coming_soon_body),
+                style = MaterialTheme.typography.bodyLarge,
+                color = GlassTheme.colors.textPrimary,
+            )
+        }
+    }
+}

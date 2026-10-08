@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -57,6 +58,8 @@ fun SignUpScreen(
                 label = R.string.field_name,
                 error = state.nameError,
                 enabled = enabled,
+                // Keyboard hint only; the name is stored exactly as typed.
+                capitalization = KeyboardCapitalization.Words,
             )
             GlassTextField(
                 value = state.email,

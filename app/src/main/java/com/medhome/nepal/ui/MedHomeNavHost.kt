@@ -1,12 +1,5 @@
 package com.medhome.nepal.ui
 
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,7 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
@@ -37,14 +29,13 @@ import com.medhome.nepal.ui.components.GlassCard
 import com.medhome.nepal.ui.components.GlassLoadingScreen
 import com.medhome.nepal.ui.components.GlassScreen
 import com.medhome.nepal.ui.components.ScreenTitle
-import com.medhome.nepal.ui.home.HomeScreen
+import com.medhome.nepal.ui.navigation.ScreenTransitions
+import com.medhome.nepal.ui.shell.MainShell
 import com.medhome.nepal.ui.motion.LocalReducedMotion
-import com.medhome.nepal.ui.motion.MotionTokens
 import com.medhome.nepal.ui.motion.entrance
 import com.medhome.nepal.ui.theme.GlassTheme
 import com.medhome.nepal.ui.verify.VerifyEmailScreen
 import kotlinx.serialization.Serializable
-import kotlin.reflect.KClass
 
 @Serializable private data object LoadingRoute
 @Serializable private data object AuthGraph
@@ -54,7 +45,6 @@ import kotlin.reflect.KClass
 @Serializable private data object VerifyEmailRoute
 @Serializable private data object ProfileUnavailableRoute
 @Serializable private data object MainGraph
-@Serializable private data object HomeRoute
 
 /**
  * The session decides which top-level destination is shown. Changing session state clears
@@ -75,7 +65,10 @@ fun MedHomeNavHost(
         is SessionState.SignedIn -> MainGraph
     }
     LaunchedEffect(topLevelRoute) { navController.showTopLevel(topLevelRoute) }
-    val transitions = ScreenTransitions(reducedMotion = LocalReducedMotion.current)
+    val transitions = ScreenTransitions(
+        reducedMotion = LocalReducedMotion.current,
+        flows = listOf(AuthGraph::class, MainGraph::class),
+    )
 
     NavHost(
         navController = navController,
@@ -120,14 +113,10 @@ fun MedHomeNavHost(
             ProfileUnavailableScreen(sessionViewModel)
         }
 
-        // Every signed-in screen goes inside this graph, so session updates and rotation never
-        // reset a deeper screen back to Home (showTopLevel sees we're already in MainGraph).
-        navigation<MainGraph>(startDestination = HomeRoute) {
-            composable<HomeRoute> {
-                (session as? SessionState.SignedIn)?.let {
-                    HomeScreen(profile = it.profile, usesPassword = it.usesPassword)
-                }
-            }
+        // The whole signed-in app (tabs and their own back stacks) lives in MainShell's nested
+        // NavHost, so session updates and rotation never reset it: showTopLevel sees MainGraph.
+        composable<MainGraph> {
+            (session as? SessionState.SignedIn)?.let { MainShell(it) }
         }
     }
 }
@@ -143,56 +132,6 @@ private fun NavHostController.showTopLevel(route: Any) {
     navigate(route) {
         popUpTo(graph.id) { inclusive = true }
         launchSingleTop = true
-    }
-}
-
-/**
- * Steps inside one flow (the signed-out AuthGraph or the signed-in MainGraph) push and pop:
- * forward slides in from the right with a fade, back reverses it and follows the predictive back
- * gesture. Session changes (e.g. Login to Home) are not navigation steps, so they crossfade.
- */
-private class ScreenTransitions(private val reducedMotion: Boolean) {
-    private fun <T> spec() = tween<T>(MotionTokens.SCREEN_MS, easing = MotionTokens.EaseOut)
-
-    fun enter(scope: AnimatedContentTransitionScope<NavBackStackEntry>): EnterTransition = when {
-        reducedMotion -> EnterTransition.None
-        scope.isFlowStep() -> scope.slideIntoContainer(SlideDirection.Start, spec()) + fadeIn(spec())
-        else -> fadeIn(spec())
-    }
-
-    fun exit(scope: AnimatedContentTransitionScope<NavBackStackEntry>): ExitTransition = when {
-        reducedMotion -> ExitTransition.None
-        scope.isFlowStep() ->
-            scope.slideOutOfContainer(SlideDirection.Start, spec(), targetOffset = { it / PARALLAX }) + fadeOut(spec())
-        else -> fadeOut(spec())
-    }
-
-    fun popEnter(scope: AnimatedContentTransitionScope<NavBackStackEntry>): EnterTransition = when {
-        reducedMotion -> EnterTransition.None
-        scope.isFlowStep() ->
-            scope.slideIntoContainer(SlideDirection.End, spec(), initialOffset = { it / PARALLAX }) + fadeIn(spec())
-        else -> fadeIn(spec())
-    }
-
-    fun popExit(scope: AnimatedContentTransitionScope<NavBackStackEntry>): ExitTransition = when {
-        reducedMotion -> ExitTransition.None
-        scope.isFlowStep() -> scope.slideOutOfContainer(SlideDirection.End, spec()) + fadeOut(spec())
-        else -> fadeOut(spec())
-    }
-
-    private fun AnimatedContentTransitionScope<NavBackStackEntry>.isFlowStep(): Boolean {
-        val flow = initialState.flow()
-        return flow != null && flow == targetState.flow()
-    }
-
-    private fun NavBackStackEntry.flow(): KClass<*>? =
-        FLOW_GRAPHS.firstOrNull { graph -> destination.hierarchy.any { it.hasRoute(graph) } }
-
-    private companion object {
-        /** The screen underneath moves a quarter as far, for depth. */
-        const val PARALLAX = 4
-
-        val FLOW_GRAPHS: List<KClass<*>> = listOf(AuthGraph::class, MainGraph::class)
     }
 }
 
@@ -217,7 +156,7 @@ private fun ProfileUnavailableScreen(viewModel: SessionViewModel) {
                 enabled = !isBusy,
             )
             GlassButton(
-                text = R.string.home_sign_out,
+                text = R.string.action_sign_out,
                 onClick = viewModel::signOut,
                 style = GlassButtonStyle.Secondary,
                 enabled = !isBusy,

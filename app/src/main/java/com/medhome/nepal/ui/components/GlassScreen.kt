@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -29,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,7 +49,13 @@ import com.medhome.nepal.ui.theme.GlassTheme
 import dev.chrisbanes.haze.hazeSource
 
 /** Space kept free under scrolling content so the floating bar never covers the last item. */
-private val FloatingBarClearance = 104.dp
+val FloatingBarClearance = 104.dp
+
+/**
+ * Extra bottom space a parent with its own floating bar (the signed-in shell) asks screens to
+ * keep free. 0 when no bar is showing.
+ */
+val LocalBottomBarClearance = staticCompositionLocalOf { 0.dp }
 
 /**
  * Glass background, optional top bar, scrollable keyboard-aware content and an optional
@@ -57,10 +65,13 @@ private val FloatingBarClearance = 104.dp
 fun GlassScreen(
     modifier: Modifier = Modifier,
     showBack: Boolean = false,
+    /** False inside a parent that already draws the glass background (the signed-in shell). */
+    drawBackground: Boolean = true,
     bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    GlassBackground(modifier = modifier) {
+    val parentBarClearance = LocalBottomBarClearance.current
+    MaybeGlassBackground(drawBackground = drawBackground, modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -82,7 +93,7 @@ fun GlassScreen(
                         .fillMaxWidth()
                         .padding(horizontal = GlassDimens.ScreenPadding)
                         .padding(top = if (showBack) 4.dp else 28.dp, bottom = 24.dp)
-                        .padding(bottom = if (bottomBar != null) FloatingBarClearance else 0.dp),
+                        .padding(bottom = if (bottomBar != null) FloatingBarClearance else parentBarClearance),
                     verticalArrangement = Arrangement.spacedBy(GlassDimens.ItemSpacing),
                     content = content,
                 )
@@ -97,6 +108,19 @@ fun GlassScreen(
                 bottomBar()
             }
         }
+    }
+}
+
+@Composable
+private fun MaybeGlassBackground(
+    drawBackground: Boolean,
+    modifier: Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    if (drawBackground) {
+        GlassBackground(modifier = modifier, content = content)
+    } else {
+        Box(modifier = modifier.fillMaxSize(), content = content)
     }
 }
 
@@ -157,6 +181,22 @@ fun ScreenTitle(
             )
         }
     }
+}
+
+/** Small heading above a group of cards ("Language", "Danger zone"). */
+@Composable
+fun SectionTitle(
+    @StringRes text: Int,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = stringResource(text),
+        style = MaterialTheme.typography.titleSmall,
+        color = GlassTheme.colors.textSecondary,
+        modifier = modifier
+            .padding(top = 8.dp)
+            .semantics { heading() },
+    )
 }
 
 /** Accent-colored text action (darker accent, readable on glass), at least 48dp tall. */

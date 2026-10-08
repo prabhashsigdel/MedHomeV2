@@ -39,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -70,6 +71,7 @@ fun GlassTextField(
     imeAction: ImeAction = ImeAction.Next,
     onImeDone: () -> Unit = {},
     isPassword: Boolean = false,
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.None,
 ) {
     val colors = GlassTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
@@ -103,6 +105,7 @@ fun GlassTextField(
             keyboardOptions = KeyboardOptions(
                 keyboardType = if (isPassword) KeyboardType.Password else keyboardType,
                 imeAction = imeAction,
+                capitalization = capitalization,
             ),
             keyboardActions = KeyboardActions(onDone = { onImeDone() }),
             interactionSource = interactionSource,

@@ -100,6 +100,7 @@ class FakeProfileStore : ProfileStore {
     var getError: AuthError? = null
     var ensureError: AuthError? = null
     var deleteError: AuthError? = null
+    var updateNameError: AuthError? = null
     var clearCount = 0
         private set
 
@@ -119,6 +120,12 @@ class FakeProfileStore : ProfileStore {
         calls += "deleteProfile"
         deleteError?.let { throw AuthException(it) }
         profiles.remove(uid)
+    }
+
+    override suspend fun updateName(uid: String, name: String) {
+        calls += "updateName"
+        updateNameError?.let { throw AuthException(it) }
+        profiles[uid]?.let { profiles[uid] = it.copy(name = name) }
     }
 
     override suspend fun clearLocalData() {
