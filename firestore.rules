@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function hasValidName() {
+      return request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 100;
+    }
+
+    match /users/{uid} {
+      // Own document, or any document for admins. isOwner is checked first to skip the get().
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Self-signup always creates a patient. createdAt must be the server timestamp.
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['name', 'email', 'role', 'createdAt'])
+        && hasValidName()
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'patient'
+        && request.resource.data.createdAt == request.time;
+
+      // Owners may edit their name only: never their role, email or creation time.
+      // Admins may change only the role, and only to a known value.
+      allow update: if (isOwner(uid) && changedKeys().hasOnly(['name']) && hasValidName())
+        || (isAdmin()
+          && changedKeys().hasOnly(['role'])
+          && request.resource.data.role in ['patient', 'doctor', 'admin']);
+
+      // Needed for in-app account deletion.
+      allow delete: if isOwner(uid);
+    }
+
+    // Everything else is denied by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,3 +1,101 @@
 <resources>
     <string name="app_name">MedHome</string>
+
+    <!-- Common actions -->
+    <string name="action_retry">Retry</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_show_password">Show</string>
+    <string name="action_hide_password">Hide</string>
+    <string name="action_back_to_login">Back to log in</string>
+
+    <!-- Fields -->
+    <string name="field_name">Full name</string>
+    <string name="field_email">Email</string>
+    <string name="field_password">Password</string>
+    <string name="field_confirm_password">Confirm password</string>
+
+    <!-- Validation -->
+    <string name="validation_name_required">Enter your name</string>
+    <string name="validation_name_too_long">Name must be 100 characters or fewer</string>
+    <string name="validation_email_required">Enter your email</string>
+    <string name="validation_email_invalid">Enter a valid email address</string>
+    <string name="validation_password_required">Enter your password</string>
+    <string name="validation_password_too_short">Password must be at least 8 characters</string>
+    <string name="validation_password_hint">At least 8 characters</string>
+    <string name="validation_password_mismatch">Passwords don\'t match</string>
+
+    <!-- Login -->
+    <string name="login_title">Welcome back</string>
+    <string name="login_subtitle">Log in to your MedHome account</string>
+    <string name="login_action">Log in</string>
+    <string name="login_forgot_password">Forgot password?</string>
+    <string name="login_google">Continue with Google</string>
+    <string name="login_no_account">Don\'t have an account?</string>
+    <string name="login_sign_up">Sign up</string>
+
+    <!-- Sign up -->
+    <string name="signup_title">Create your account</string>
+    <string name="signup_subtitle">We\'ll send you an email to confirm your address</string>
+    <string name="signup_action">Create account</string>
+    <string name="signup_have_account">Already have an account?</string>
+    <string name="signup_log_in">Log in</string>
+
+    <!-- Forgot password -->
+    <string name="forgot_title">Reset your password</string>
+    <string name="forgot_subtitle">Enter your email and we\'ll send you a link to reset your password.</string>
+    <string name="forgot_action">Send reset link</string>
+    <string name="forgot_link_sent">If an account exists for this email, a reset link is on its way. Check your inbox and spam folder.</string>
+
+    <!-- Verify email -->
+    <string name="verify_title">Verify your email</string>
+    <string name="verify_body">We sent a verification link to %1$s. Open it, then come back and tap \"I\'ve verified\".</string>
+    <string name="verify_check_action">I\'ve verified</string>
+    <string name="verify_resend_action">Resend email</string>
+    <string name="verify_use_other_account">Sign out</string>
+    <string name="verify_email_resent">Verification email sent. Check your inbox and spam folder.</string>
+    <string name="verify_not_yet">Your email isn\'t verified yet. Open the link in the email, then try again.</string>
+    <string name="verify_initial_send_failed">We couldn\'t send the verification email. Tap \"Resend email\" to try again.</string>
+
+    <!-- Profile unavailable -->
+    <string name="profile_unavailable_title">Can\'t load your profile</string>
+    <string name="profile_unavailable_body">You\'re signed in, but we couldn\'t reach the server to load your profile. Check your internet connection and try again.</string>
+
+    <!-- Home -->
+    <string name="home_title">MedHome</string>
+    <string name="home_role">Role: %1$s</string>
+    <string name="home_sign_out">Sign out</string>
+    <string name="home_delete_account">Delete account</string>
+
+    <!-- Roles -->
+    <string name="role_patient">Patient</string>
+    <string name="role_doctor">Doctor</string>
+    <string name="role_admin">Admin</string>
+
+    <!-- Delete account -->
+    <string name="delete_title">Delete your account?</string>
+    <string name="delete_body_password">This permanently deletes your profile and account. Enter your password to confirm.</string>
+    <string name="delete_body_google">This permanently deletes your profile and account. You\'ll be asked to confirm with your Google account.</string>
+    <string name="delete_confirm">Delete</string>
+    <string name="delete_in_progress">Deleting…</string>
+
+    <!-- Errors -->
+    <string name="error_invalid_credentials">Incorrect email or password.</string>
+    <string name="error_user_not_found">No account found with this email.</string>
+    <string name="error_user_disabled">This account has been disabled. Contact support for help.</string>
+    <string name="error_invalid_email">This email address isn\'t valid.</string>
+    <string name="error_email_in_use">An account with this email already exists. Log in instead, or reset your password.</string>
+    <string name="error_weak_password">This password is too weak. Use at least 8 characters with a mix of letters and numbers.</string>
+    <string name="error_account_exists_with_password">This email already has a password account. Log in with your email and password instead.</string>
+    <string name="error_wrong_account">That\'s a different account. Confirm with the account you\'re signed in with.</string>
+    <string name="error_requires_recent_login">For your security, please sign in again and retry.</string>
+    <string name="error_too_many_requests">Too many attempts. Please wait a few minutes and try again.</string>
+    <string name="error_network">No internet connection. Check your connection and try again.</string>
+    <string name="error_google_no_account">No Google account found on this device. Add one in Settings, or log in with email.</string>
+    <string name="error_google_failed">Google sign-in didn\'t work. Please try again.</string>
+    <string name="error_permission_denied">You don\'t have permission to access this account\'s profile.</string>
+    <string name="error_profile_invalid">Your account profile is set up incorrectly. Please contact support.</string>
+    <string name="error_profile_load_failed">You signed in, but we couldn\'t load your profile, so you\'ve been signed out. Check your connection and try again.</string>
+    <string name="error_not_signed_in">You\'re not signed in.</string>
+    <string name="error_unknown">Something went wrong. Please try again.</string>
 </resources>
