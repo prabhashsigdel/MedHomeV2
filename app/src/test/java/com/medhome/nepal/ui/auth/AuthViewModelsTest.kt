@@ -3,9 +3,14 @@ package com.medhome.nepal.ui.auth
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.fakes.FakeAuthDataSource
-import com.medhome.nepal.fakes.FakeGoogleCredentialClient
+import com.medhome.nepal.fakes.FakeCredentialClient
 import com.medhome.nepal.fakes.FakeProfileStore
+import com.medhome.nepal.data.PasswordSaveOffers
+import com.medhome.nepal.data.SaveOutcome
+import com.medhome.nepal.data.SavedCredential
+import com.medhome.nepal.fakes.InMemorySavePromptHistory
 import com.medhome.nepal.fakes.googleUser
+import com.medhome.nepal.fakes.passwordUser
 import com.medhome.nepal.session.SessionManager
 import com.medhome.nepal.session.SessionState
 import com.medhome.nepal.ui.common.GoogleIdTokenResult
@@ -34,8 +39,13 @@ class AuthViewModelsTest {
     private val sessionScope = CoroutineScope(SupervisorJob() + dispatcher)
     private val auth = FakeAuthDataSource()
     private val profiles = FakeProfileStore()
-    private val google = FakeGoogleCredentialClient()
+    private val google = FakeCredentialClient()
     private val session = SessionManager(auth, profiles, google, sessionScope)
+    private val history = InMemorySavePromptHistory()
+    private val saveOffers = PasswordSaveOffers(history)
+    private val savedAccountsPrompt = SavedAccountsPrompt()
+
+    private fun loginViewModel() = LoginViewModel(session, saveOffers, savedAccountsPrompt)
 
     @Before
     fun setUp() = Dispatchers.setMain(dispatcher)
@@ -48,7 +58,7 @@ class AuthViewModelsTest {
 
     @Test
     fun `login validates fields before calling firebase`() = runTest(dispatcher) {
-        val viewModel = LoginViewModel(session)
+        val viewModel = loginViewModel()
         viewModel.signInWithEmail()
         advanceUntilIdle()
 
@@ -60,7 +70,7 @@ class AuthViewModelsTest {
 
     @Test
     fun `login ignores a second submit while the first is running`() = runTest(dispatcher) {
-        val viewModel = LoginViewModel(session)
+        val viewModel = loginViewModel()
         viewModel.onEmailChange("asha@example.com")
         viewModel.onPasswordChange("password123")
 
@@ -76,7 +86,7 @@ class AuthViewModelsTest {
     @Test
     fun `profile failure after login offers a retry`() = runTest(dispatcher) {
         profiles.ensureError = AuthError.NETWORK
-        val viewModel = LoginViewModel(session)
+        val viewModel = loginViewModel()
         viewModel.onEmailChange("asha@example.com")
         viewModel.onPasswordChange("password123")
         viewModel.signInWithEmail()
@@ -91,7 +101,7 @@ class AuthViewModelsTest {
     @Test
     fun `wrong password does not offer retry`() = runTest(dispatcher) {
         auth.failures["signInWithEmail"] = AuthError.INVALID_CREDENTIALS
-        val viewModel = LoginViewModel(session)
+        val viewModel = loginViewModel()
         viewModel.onEmailChange("asha@example.com")
         viewModel.onPasswordChange("wrong-pass")
         viewModel.signInWithEmail()
@@ -103,7 +113,7 @@ class AuthViewModelsTest {
 
     @Test
     fun `google picker cannot start twice and cancel clears loading`() = runTest(dispatcher) {
-        val viewModel = LoginViewModel(session)
+        val viewModel = loginViewModel()
         assertTrue(viewModel.beginGoogleSignIn())
         assertFalse(viewModel.beginGoogleSignIn())
 
@@ -116,7 +126,7 @@ class AuthViewModelsTest {
     @Test
     fun `google token signs in through the session`() = runTest(dispatcher) {
         auth.nextUser = googleUser()
-        val viewModel = LoginViewModel(session)
+        val viewModel = loginViewModel()
         viewModel.beginGoogleSignIn()
         viewModel.onGoogleResult(GoogleIdTokenResult.Token("id-token"))
         advanceUntilIdle()
@@ -128,7 +138,7 @@ class AuthViewModelsTest {
 
     @Test
     fun `google picker failure offers retry`() = runTest(dispatcher) {
-        val viewModel = LoginViewModel(session)
+        val viewModel = loginViewModel()
         viewModel.beginGoogleSignIn()
         viewModel.onGoogleResult(GoogleIdTokenResult.Failed(AuthError.GOOGLE_FAILED))
 
@@ -137,8 +147,111 @@ class AuthViewModelsTest {
     }
 
     @Test
+    fun `typed login success offers to save the password once`() = runTest(dispatcher) {
+        val viewModel = loginViewModel()
+        viewModel.onEmailChange("asha@example.com")
+        viewModel.onPasswordChange("password123")
+        viewModel.signInWithEmail()
+        advanceUntilIdle()
+
+        val offer = saveOffers.take()
+        assertEquals("asha@example.com", offer?.email)
+        assertEquals("password123", offer?.password)
+        assertNull("taken offers don't linger", saveOffers.take())
+    }
+
+    @Test
+    fun `failed login does not offer to save`() = runTest(dispatcher) {
+        auth.failures["signInWithEmail"] = AuthError.INVALID_CREDENTIALS
+        val viewModel = loginViewModel()
+        viewModel.onEmailChange("asha@example.com")
+        viewModel.onPasswordChange("wrong-pass")
+        viewModel.signInWithEmail()
+        advanceUntilIdle()
+
+        assertNull(saveOffers.pending.value)
+    }
+
+    @Test
+    fun `an account already offered is not offered again`() = runTest(dispatcher) {
+        saveOffers.record("Asha@Example.com", SaveOutcome.DECLINED)
+        val viewModel = loginViewModel()
+        viewModel.onEmailChange("asha@example.com")
+        viewModel.onPasswordChange("password123")
+        viewModel.signInWithEmail()
+        advanceUntilIdle()
+
+        assertNull(saveOffers.pending.value)
+    }
+
+    @Test
+    fun `signing in with a saved password does not offer to save it again`() = runTest(dispatcher) {
+        val viewModel = loginViewModel()
+        assertTrue(viewModel.beginSavedAccounts())
+        viewModel.onSavedCredential(SavedCredential.Password("asha@example.com", "password123"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("signInWithEmail"), auth.calls)
+        assertTrue(session.state.value is SessionState.SignedIn)
+        assertNull(saveOffers.pending.value)
+    }
+
+    @Test
+    fun `a saved Google account signs in with Google`() = runTest(dispatcher) {
+        auth.nextUser = googleUser()
+        val viewModel = loginViewModel()
+        viewModel.beginSavedAccounts()
+        viewModel.onSavedCredential(SavedCredential.Google("id-token"))
+        advanceUntilIdle()
+
+        assertEquals(listOf("signInWithGoogle"), auth.calls)
+    }
+
+    @Test
+    fun `saved accounts sheet opens once and not again after it is dismissed`() = runTest(dispatcher) {
+        val viewModel = loginViewModel()
+        assertTrue(viewModel.shouldOfferSavedAccounts())
+        assertTrue(viewModel.beginSavedAccounts())
+        assertFalse(viewModel.beginSavedAccounts())
+
+        viewModel.onSavedCredential(null)
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertFalse("a new visit this session stays quiet", loginViewModel().shouldOfferSavedAccounts())
+    }
+
+    @Test
+    fun `editing the password after picking a saved one offers to save the new one`() = runTest(dispatcher) {
+        auth.failures["signInWithEmail"] = AuthError.INVALID_CREDENTIALS
+        val viewModel = loginViewModel()
+        viewModel.beginSavedAccounts()
+        viewModel.onSavedCredential(SavedCredential.Password("asha@example.com", "old-password"))
+        advanceUntilIdle()
+
+        auth.failures.clear()
+        viewModel.onPasswordChange("new-password1")
+        viewModel.signInWithEmail()
+        advanceUntilIdle()
+
+        assertEquals("new-password1", saveOffers.take()?.password)
+    }
+
+    @Test
+    fun `sign up success offers to save the new password`() = runTest(dispatcher) {
+        auth.nextUser = passwordUser(verified = false)
+        val viewModel = SignUpViewModel(session, saveOffers)
+        viewModel.onNameChange("Asha")
+        viewModel.onEmailChange("asha@example.com")
+        viewModel.onPasswordChange("password123")
+        viewModel.onConfirmPasswordChange("password123")
+        viewModel.signUp()
+        advanceUntilIdle()
+
+        assertEquals("asha@example.com", saveOffers.take()?.email)
+    }
+
+    @Test
     fun `sign up rejects short passwords and mismatches`() = runTest(dispatcher) {
-        val viewModel = SignUpViewModel(session)
+        val viewModel = SignUpViewModel(session, saveOffers)
         viewModel.onNameChange("Asha")
         viewModel.onEmailChange("asha@example.com")
         viewModel.onPasswordChange("short")
@@ -155,7 +268,7 @@ class AuthViewModelsTest {
     @Test
     fun `sign up profile failure retries by signing in`() = runTest(dispatcher) {
         profiles.ensureError = AuthError.NETWORK
-        val viewModel = SignUpViewModel(session)
+        val viewModel = SignUpViewModel(session, saveOffers)
         viewModel.onNameChange("Asha")
         viewModel.onEmailChange("asha@example.com")
         viewModel.onPasswordChange("password123")

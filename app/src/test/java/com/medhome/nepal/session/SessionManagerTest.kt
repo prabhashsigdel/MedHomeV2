@@ -5,7 +5,7 @@ import com.medhome.nepal.domain.AuthException
 import com.medhome.nepal.domain.Role
 import com.medhome.nepal.domain.UserProfile
 import com.medhome.nepal.fakes.FakeAuthDataSource
-import com.medhome.nepal.fakes.FakeGoogleCredentialClient
+import com.medhome.nepal.fakes.FakeCredentialClient
 import com.medhome.nepal.fakes.FakeProfileStore
 import com.medhome.nepal.fakes.googleUser
 import com.medhome.nepal.fakes.passwordUser
@@ -27,7 +27,7 @@ import org.junit.Test
 class SessionManagerTest {
 
     private val profiles = FakeProfileStore()
-    private val google = FakeGoogleCredentialClient()
+    private val google = FakeCredentialClient()
 
     private suspend fun TestScope.withSession(
         auth: FakeAuthDataSource,

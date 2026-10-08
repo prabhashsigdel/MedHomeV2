@@ -3,7 +3,7 @@ package com.medhome.nepal.session
 import android.util.Log
 import com.medhome.nepal.data.AuthDataSource
 import com.medhome.nepal.data.AuthErrorMapper
-import com.medhome.nepal.data.GoogleCredentialClient
+import com.medhome.nepal.data.CredentialClient
 import com.medhome.nepal.data.ProfileStore
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
@@ -30,7 +30,7 @@ import kotlinx.coroutines.sync.withLock
 class SessionManager(
     private val auth: AuthDataSource,
     private val profiles: ProfileStore,
-    private val google: GoogleCredentialClient,
+    private val credentials: CredentialClient,
     private val scope: CoroutineScope,
 ) {
     private val _state = MutableStateFlow<SessionState>(SessionState.Loading)
@@ -202,7 +202,7 @@ class SessionManager(
     }
 
     private suspend fun clearCredentials() {
-        logFailure("clearCredentialState") { google.clearCredentialState() }
+        logFailure("clearCredentialState") { credentials.clearCredentialState() }
     }
 
     private fun onExternalSignOut() {

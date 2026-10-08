@@ -3,7 +3,7 @@ package com.medhome.nepal.ui.profile
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.fakes.FakeAuthDataSource
-import com.medhome.nepal.fakes.FakeGoogleCredentialClient
+import com.medhome.nepal.fakes.FakeCredentialClient
 import com.medhome.nepal.fakes.FakeProfileStore
 import com.medhome.nepal.fakes.passwordUser
 import com.medhome.nepal.session.SessionManager
@@ -35,7 +35,7 @@ class ProfileViewModelTest {
     private val user = passwordUser()
     private val auth = FakeAuthDataSource(user)
     private val profiles = FakeProfileStore()
-    private val session = SessionManager(auth, profiles, FakeGoogleCredentialClient(), sessionScope)
+    private val session = SessionManager(auth, profiles, FakeCredentialClient(), sessionScope)
 
     @Before
     fun setUp() = Dispatchers.setMain(dispatcher)

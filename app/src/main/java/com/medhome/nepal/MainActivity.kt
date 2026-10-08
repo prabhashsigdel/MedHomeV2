@@ -6,7 +6,9 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.CompositionLocalProvider
 import com.medhome.nepal.ui.MedHomeNavHost
+import com.medhome.nepal.ui.common.LocalCredentialClient
 import com.medhome.nepal.ui.theme.MedHomeTheme
 
 /** AppCompatActivity so per-app language (AppCompatDelegate) also works on Android 12 and lower. */
@@ -19,9 +21,12 @@ class MainActivity : AppCompatActivity() {
             statusBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
         )
+        val container = (application as MedHomeApplication).container
         setContent {
             MedHomeTheme {
-                MedHomeNavHost()
+                CompositionLocalProvider(LocalCredentialClient provides container.credentialClient) {
+                    MedHomeNavHost(passwordSaveOffers = container.passwordSaveOffers)
+                }
             }
         }
     }

@@ -20,6 +20,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.text.lerp
+import androidx.compose.ui.text.style.TextOverflow
+import kotlin.math.roundToInt
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
@@ -33,9 +39,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -55,8 +63,10 @@ import com.medhome.nepal.ui.theme.GlassTheme
 private val FocusedBorderWidth = 1.5.dp
 
 /**
- * 52dp field with a white 50% fill and white border, labelled above. An error message fades in
- * with a small height expand below the field (no shaking). [hint] shows there when there is no error.
+ * 52dp field with a white 50% fill and white border. The label sits inside the field: centred
+ * like a placeholder when empty, floating small to the top once focused or filled (as Material's
+ * filled text field), which saves a label line above every field. An error message fades in with
+ * a small height expand below the field (no shaking). [hint] shows there when there is no error.
  */
 @Composable
 fun GlassTextField(
@@ -72,6 +82,8 @@ fun GlassTextField(
     onImeDone: () -> Unit = {},
     isPassword: Boolean = false,
     capitalization: KeyboardCapitalization = KeyboardCapitalization.None,
+    /** Autofill hint, e.g. ContentType.Username + ContentType.EmailAddress, or NewPassword. */
+    contentType: ContentType? = null,
 ) {
     val colors = GlassTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
@@ -89,7 +101,7 @@ fun GlassTextField(
     val errorText = error?.let { stringResource(it) }
     val labelText = stringResource(label)
 
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier = modifier.fillMaxWidth()) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -111,27 +123,37 @@ fun GlassTextField(
             interactionSource = interactionSource,
             modifier = Modifier
                 .fillMaxWidth()
-                .semantics { if (errorText != null) error(errorText) },
+                .semantics {
+                    if (errorText != null) error(errorText)
+                    if (contentType != null) this.contentType = contentType
+                },
             // The label lives inside the decoration: text fields merge their decoration into one
             // TalkBack item, so it is announced with the typed value (as Material's TextField does).
             decorationBox = { innerTextField ->
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(text = labelText, style = MaterialTheme.typography.labelMedium, color = colors.textPrimary)
-                    FieldBox(
-                        focused = focused,
-                        hasError = error != null,
-                        borderColor = borderColor,
-                        isPassword = isPassword,
-                        innerTextField = innerTextField,
-                        trailing = {
-                            if (isPassword) {
-                                PasswordToggle(
-                                    visible = passwordVisible,
-                                    enabled = enabled,
-                                    onToggle = { passwordVisible = !passwordVisible },
-                                )
-                            }
+                FieldBox(
+                    focused = focused,
+                    hasError = error != null,
+                    borderColor = borderColor,
+                    isPassword = isPassword,
+                    trailing = {
+                        if (isPassword) {
+                            PasswordToggle(
+                                visible = passwordVisible,
+                                enabled = enabled,
+                                onToggle = { passwordVisible = !passwordVisible },
+                            )
+                        }
+                    },
+                ) {
+                    FloatingLabelLayout(
+                        label = labelText,
+                        floated = focused || value.isNotEmpty(),
+                        labelColor = when {
+                            error != null -> colors.error
+                            focused -> colors.link
+                            else -> colors.textSecondary
                         },
+                        innerTextField = innerTextField,
                     )
                 }
             },
@@ -146,8 +168,8 @@ private fun FieldBox(
     hasError: Boolean,
     borderColor: Color,
     isPassword: Boolean,
-    innerTextField: @Composable () -> Unit,
     trailing: @Composable () -> Unit,
+    content: @Composable () -> Unit,
 ) {
     val colors = GlassTheme.colors
     Row(
@@ -163,8 +185,61 @@ private fun FieldBox(
             .padding(start = 16.dp, end = if (isPassword) 4.dp else 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(modifier = Modifier.weight(1f)) { innerTextField() }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+        ) { content() }
         trailing()
+    }
+}
+
+/**
+ * Places the label and the input inside the field. Floated: label (small) above the input, the
+ * pair centred vertically. Resting: label (body size) centred alone. Positions come from the
+ * measured line heights, so it works for Manrope and the taller Devanagari lines alike.
+ */
+@Composable
+private fun FloatingLabelLayout(
+    label: String,
+    floated: Boolean,
+    labelColor: Color,
+    innerTextField: @Composable () -> Unit,
+) {
+    val progress by animateFloatAsState(
+        targetValue = if (floated) 1f else 0f,
+        animationSpec = feedbackTween(),
+        label = "floatingLabel",
+    )
+    val color by animateColorAsState(labelColor, animationSpec = feedbackTween(), label = "labelColor")
+    val restingStyle = MaterialTheme.typography.bodyLarge
+    val floatedStyle = MaterialTheme.typography.labelSmall
+    Layout(
+        content = {
+            Text(
+                text = label,
+                style = lerp(restingStyle, floatedStyle, progress),
+                color = color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Box { innerTextField() }
+        },
+    ) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val labelPlaceable = measurables[0].measure(loose)
+        val inputPlaceable = measurables[1].measure(loose.copy(minWidth = constraints.maxWidth))
+        val height = constraints.maxHeight
+        val floatedLabelHeight = floatedStyle.lineHeight.roundToPx()
+        // Floated: label and input as one block, centred in the field.
+        val floatedTop = ((height - floatedLabelHeight - inputPlaceable.height) / 2).coerceAtLeast(0)
+        val restingLabelY = (height - labelPlaceable.height) / 2
+        val labelY = (restingLabelY + (floatedTop - restingLabelY) * progress).roundToInt()
+        val inputY = floatedTop + floatedLabelHeight
+        layout(constraints.maxWidth, height) {
+            inputPlaceable.placeRelative(0, inputY)
+            labelPlaceable.placeRelative(0, labelY)
+        }
     }
 }
 
@@ -195,7 +270,7 @@ private fun SupportingText(errorText: String?, @StringRes hint: Int?) {
             text = lastError.orEmpty(),
             style = MaterialTheme.typography.bodySmall,
             color = colors.error,
-            modifier = Modifier.padding(start = 4.dp),
+            modifier = Modifier.padding(start = 4.dp, top = 4.dp),
         )
     }
     if (errorText == null && hint != null) {
@@ -203,7 +278,7 @@ private fun SupportingText(errorText: String?, @StringRes hint: Int?) {
             text = stringResource(hint),
             style = MaterialTheme.typography.bodySmall,
             color = colors.textSecondary,
-            modifier = Modifier.padding(start = 4.dp),
+            modifier = Modifier.padding(start = 4.dp, top = 4.dp),
         )
     }
 }

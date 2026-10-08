@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.medhome.nepal.appContainer
+import com.medhome.nepal.data.PasswordSaveOffers
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.session.SessionManager
 import com.medhome.nepal.ui.common.Validators
@@ -36,6 +37,7 @@ data class SignUpUiState(
 
 class SignUpViewModel(
     private val session: SessionManager,
+    private val saveOffers: PasswordSaveOffers,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SignUpUiState())
@@ -72,19 +74,22 @@ class SignUpViewModel(
             _uiState.value = validated
             return
         }
-        launchRequest { session.signUp(name, email, current.password) }
+        launchRequest(offerToSave = email to current.password) { session.signUp(name, email, current.password) }
     }
 
     fun retryWithSignIn() {
         val current = _uiState.value
-        launchRequest { session.signInWithEmail(current.email.trim(), current.password) }
+        val email = current.email.trim()
+        launchRequest(offerToSave = email to current.password) { session.signInWithEmail(email, current.password) }
     }
 
-    private fun launchRequest(block: suspend () -> Unit) {
+    /** [offerToSave] is the email and password to offer to the password manager on success. */
+    private fun launchRequest(offerToSave: Pair<String, String>, block: suspend () -> Unit) {
         if (_uiState.value.isLoading) return
         _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             val error = runAuthAction(block)
+            if (error == null) saveOffers.offer(offerToSave.first, offerToSave.second)
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -97,7 +102,10 @@ class SignUpViewModel(
 
     companion object {
         val Factory = viewModelFactory {
-            initializer { SignUpViewModel(appContainer.sessionManager) }
+            initializer {
+                val container = appContainer
+                SignUpViewModel(container.sessionManager, container.passwordSaveOffers)
+            }
         }
     }
 }

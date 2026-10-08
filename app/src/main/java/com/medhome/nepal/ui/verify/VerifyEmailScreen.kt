@@ -12,7 +12,7 @@ import com.medhome.nepal.R
 import com.medhome.nepal.ui.components.ErrorMessage
 import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassButtonStyle
-import com.medhome.nepal.ui.components.GlassCard
+import com.medhome.nepal.ui.components.AuthFormCard
 import com.medhome.nepal.ui.components.GlassLinkButton
 import com.medhome.nepal.ui.components.GlassAuthScreen
 import com.medhome.nepal.ui.components.MessageKind
@@ -42,7 +42,7 @@ fun VerifyEmailScreen(
     ) {
         ScreenTitle(title = R.string.verify_title, modifier = Modifier.entrance(1))
 
-        GlassCard(modifier = Modifier.entrance(2)) {
+        AuthFormCard(modifier = Modifier.entrance(2)) {
             Text(
                 text = stringResource(R.string.verify_body, email),
                 style = MaterialTheme.typography.bodyLarge,

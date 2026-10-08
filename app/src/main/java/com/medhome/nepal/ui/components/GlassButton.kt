@@ -1,7 +1,7 @@
 package com.medhome.nepal.ui.components
 
 import androidx.annotation.StringRes
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,22 +9,27 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.medhome.nepal.R
 import com.medhome.nepal.ui.motion.MotionTokens
@@ -38,10 +43,12 @@ import com.medhome.nepal.ui.theme.GlassTheme
 enum class GlassButtonStyle { Primary, Secondary, Danger }
 
 private const val DISABLED_ALPHA = 0.5f
+private const val MAX_LABEL_LINES = 2
 
 /**
- * 54dp button. Primary is filled accent with white text; Secondary is glass. While [loading]
- * the label crossfades into a spinner in the same fixed-size box, and clicks are ignored.
+ * At least 54dp tall; grows (up to two lines) when a translated label doesn't fit, instead of
+ * clipping. Primary is filled accent with white text; Secondary is glass. While [loading] the
+ * label fades out under a spinner but keeps its place, so the button never changes size.
  * Click semantics come from clickable (Role.Button); pressScale only adds the visual effect.
  */
 @Composable
@@ -68,7 +75,7 @@ fun GlassButton(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(GlassDimens.ButtonHeight)
+            .heightIn(min = GlassDimens.ButtonHeight)
             .pressScale(interactionSource)
             .alpha(if (enabled || loading) 1f else DISABLED_ALPHA)
             .clip(shape)
@@ -83,26 +90,28 @@ fun GlassButton(
             .semantics { if (loading) stateDescription = loadingLabel },
         contentAlignment = Alignment.Center,
     ) {
-        Crossfade(
-            targetState = loading,
-            animationSpec = motionSpec(tween(MotionTokens.FEEDBACK_MS, easing = MotionTokens.EaseOut)),
-            label = "buttonLoading",
-        ) { isLoading ->
-            Box(contentAlignment = Alignment.Center) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        color = contentColor,
-                        strokeWidth = 2.5.dp,
-                    )
-                } else {
-                    Text(
-                        text = stringResource(text),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = contentColor,
-                    )
-                }
-            }
+        val spec = motionSpec(tween<Float>(MotionTokens.FEEDBACK_MS, easing = MotionTokens.EaseOut))
+        val labelAlpha by animateFloatAsState(if (loading) 0f else 1f, spec, label = "buttonLabel")
+        val spinnerAlpha by animateFloatAsState(if (loading) 1f else 0f, spec, label = "buttonSpinner")
+        Text(
+            text = stringResource(text),
+            style = MaterialTheme.typography.labelLarge,
+            color = contentColor,
+            textAlign = TextAlign.Center,
+            maxLines = MAX_LABEL_LINES,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .graphicsLayer { alpha = labelAlpha },
+        )
+        if (spinnerAlpha > 0f) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .size(22.dp)
+                    .graphicsLayer { alpha = spinnerAlpha },
+                color = contentColor,
+                strokeWidth = 2.5.dp,
+            )
         }
     }
 }

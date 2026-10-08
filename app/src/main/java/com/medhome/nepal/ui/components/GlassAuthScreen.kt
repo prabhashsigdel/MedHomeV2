@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,8 +41,8 @@ import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassTheme
 
 private val TopSpace = 32.dp
-private val MinGap = 24.dp
-private val BottomSpace = 16.dp
+private val MinGap = 16.dp
+private val BottomSpace = 8.dp
 private val LogoSize = 32.dp
 
 /** Share of the free space above the form; the rest goes below, so it sits slightly high. */
@@ -88,7 +89,7 @@ fun GlassAuthScreen(
                     Spacer(Modifier.height(MinGap))
                     Spacer(Modifier.weight(SPACE_ABOVE_WEIGHT))
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(GlassDimens.ItemSpacing),
+                        verticalArrangement = Arrangement.spacedBy(GlassDimens.CompactItemSpacing),
                         content = content,
                     )
                     Spacer(Modifier.height(MinGap))
@@ -103,6 +104,20 @@ fun GlassAuthScreen(
             }
         }
     }
+}
+
+/** The form card on sign-in screens: the compact padding and spacing that let them fit. */
+@Composable
+fun AuthFormCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    GlassCard(
+        modifier = modifier,
+        contentPadding = PaddingValues(GlassDimens.CompactCardPadding),
+        verticalArrangement = Arrangement.spacedBy(GlassDimens.CompactItemSpacing),
+        content = content,
+    )
 }
 
 /** Optional back arrow, then the logo mark and "MedHome" wordmark. */

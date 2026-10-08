@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.medhome.nepal.appContainer
+import com.medhome.nepal.data.PasswordSaveOffers
+import com.medhome.nepal.data.SavedCredential
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.session.SessionManager
 import com.medhome.nepal.ui.common.GoogleIdTokenResult
@@ -32,14 +34,23 @@ data class LoginUiState(
 
 class LoginViewModel(
     private val session: SessionManager,
+    private val saveOffers: PasswordSaveOffers,
+    private val savedAccountsPrompt: SavedAccountsPrompt,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
+    /** True while the password in the form came from the password manager, so there's nothing to save. */
+    private var passwordFromManager = false
+    private var savedAccountsOffered = false
+
     fun onEmailChange(value: String) = _uiState.update { it.copy(email = value, emailError = null) }
 
-    fun onPasswordChange(value: String) = _uiState.update { it.copy(password = value, passwordError = null) }
+    fun onPasswordChange(value: String) {
+        passwordFromManager = false
+        _uiState.update { it.copy(password = value, passwordError = null) }
+    }
 
     fun dismissError() = _uiState.update { it.copy(error = null, retryAttempt = null) }
 
@@ -53,8 +64,39 @@ class LoginViewModel(
             return
         }
         if (!markBusy()) return
+        val offerToSave = !passwordFromManager
         viewModelScope.launch {
-            finish(LoginAttempt.EMAIL, runAuthAction { session.signInWithEmail(email, current.password) })
+            val error = runAuthAction { session.signInWithEmail(email, current.password) }
+            if (error == null && offerToSave) saveOffers.offer(email, current.password)
+            finish(LoginAttempt.EMAIL, error)
+        }
+    }
+
+    /** Whether the screen should open the saved-accounts sheet by itself (once per visit). */
+    fun shouldOfferSavedAccounts(): Boolean = !savedAccountsOffered && !savedAccountsPrompt.dismissedThisSession
+
+    /** Called before the saved-accounts sheet opens. Returns false if it shouldn't or can't. */
+    fun beginSavedAccounts(): Boolean {
+        if (!shouldOfferSavedAccounts()) return false
+        savedAccountsOffered = true
+        return markBusy()
+    }
+
+    fun onSavedCredential(credential: SavedCredential?) {
+        when (credential) {
+            null -> {
+                // Nothing saved, or the user closed the sheet: don't open it again this session.
+                savedAccountsPrompt.onDismissed()
+                _uiState.update { it.copy(isLoading = false) }
+            }
+            is SavedCredential.Password -> {
+                passwordFromManager = true
+                _uiState.update {
+                    it.copy(isLoading = false, email = credential.id, password = credential.password)
+                }
+                signInWithEmail()
+            }
+            is SavedCredential.Google -> onGoogleResult(GoogleIdTokenResult.Token(credential.idToken))
         }
     }
 
@@ -89,7 +131,10 @@ class LoginViewModel(
 
     companion object {
         val Factory = viewModelFactory {
-            initializer { LoginViewModel(appContainer.sessionManager) }
+            initializer {
+                val container = appContainer
+                LoginViewModel(container.sessionManager, container.passwordSaveOffers, container.savedAccountsPrompt)
+            }
         }
     }
 }

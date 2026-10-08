@@ -43,6 +43,8 @@ android {
     testOptions {
         // Firebase exception constructors call android.text.TextUtils; return defaults in JVM tests.
         unitTests.isReturnDefaultValues = true
+        // Robolectric layout tests render real screens with the app's resources.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -73,6 +75,10 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.junit)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -1,9 +1,11 @@
 package com.medhome.nepal.ui.auth
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -11,10 +13,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.ui.common.rememberGoogleIdTokenRequest
+import com.medhome.nepal.ui.common.rememberSavedCredentialRequest
 import com.medhome.nepal.ui.components.ErrorMessage
 import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassButtonStyle
-import com.medhome.nepal.ui.components.GlassCard
+import com.medhome.nepal.ui.components.AuthFormCard
 import com.medhome.nepal.ui.components.GlassLinkButton
 import com.medhome.nepal.ui.components.GlassAuthScreen
 import com.medhome.nepal.ui.components.GlassTextField
@@ -35,7 +38,17 @@ fun LoginScreen(
         onStart = viewModel::beginGoogleSignIn,
         onResult = viewModel::onGoogleResult,
     )
+    val offerSavedAccounts = rememberSavedCredentialRequest(
+        onStart = viewModel::beginSavedAccounts,
+        onResult = viewModel::onSavedCredential,
+    )
     val enabled = !state.isLoading
+
+    // Open the saved-accounts sheet by itself once per visit (not after the user dismissed it).
+    LaunchedEffect(Unit) {
+        if (viewModel.shouldOfferSavedAccounts()) offerSavedAccounts()
+    }
+    SuppressAutofillSave()
 
     GlassAuthScreen(
         footer = {
@@ -54,7 +67,7 @@ fun LoginScreen(
             modifier = Modifier.entrance(1),
         )
 
-        GlassCard(modifier = Modifier.entrance(2)) {
+        AuthFormCard(modifier = Modifier.entrance(2)) {
             if (sessionError != null) {
                 ErrorMessage(error = sessionError, onDismiss = onDismissSessionError)
             }
@@ -76,6 +89,7 @@ fun LoginScreen(
                 error = state.emailError,
                 enabled = enabled,
                 keyboardType = KeyboardType.Email,
+                contentType = ContentType.Username + ContentType.EmailAddress,
             )
             GlassTextField(
                 value = state.password,
@@ -86,6 +100,7 @@ fun LoginScreen(
                 isPassword = true,
                 imeAction = ImeAction.Done,
                 onImeDone = viewModel::signInWithEmail,
+                contentType = ContentType.Password,
             )
             GlassLinkButton(
                 text = R.string.login_forgot_password,

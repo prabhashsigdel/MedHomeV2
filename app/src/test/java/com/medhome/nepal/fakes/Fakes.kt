@@ -2,8 +2,11 @@ package com.medhome.nepal.fakes
 
 import android.content.Context
 import com.medhome.nepal.data.AuthDataSource
-import com.medhome.nepal.data.GoogleCredentialClient
+import com.medhome.nepal.data.CredentialClient
 import com.medhome.nepal.data.ProfileStore
+import com.medhome.nepal.data.SaveOutcome
+import com.medhome.nepal.data.SavePromptHistory
+import com.medhome.nepal.data.SavedCredential
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
 import com.medhome.nepal.domain.AuthUser
@@ -94,6 +97,14 @@ class FakeAuthDataSource(initialUser: AuthUser? = null) : AuthDataSource {
 }
 
 /** In-memory store with the same create-only-if-missing semantics as Firestore. */
+class InMemorySavePromptHistory : SavePromptHistory {
+    val offered = mutableSetOf<String>()
+    override fun wasOffered(email: String) = email.lowercase() in offered
+    override fun markOffered(email: String) {
+        offered += email.lowercase()
+    }
+}
+
 class FakeProfileStore : ProfileStore {
     val profiles = mutableMapOf<String, UserProfile>()
     val calls = mutableListOf<String>()
@@ -133,12 +144,22 @@ class FakeProfileStore : ProfileStore {
     }
 }
 
-class FakeGoogleCredentialClient : GoogleCredentialClient {
+class FakeCredentialClient : CredentialClient {
     var idToken: String? = "google-id-token"
+    var savedCredential: SavedCredential? = null
+    var saveOutcome: SaveOutcome = SaveOutcome.SAVED
+    val savedPasswords = mutableListOf<Pair<String, String>>()
     var clearCount = 0
         private set
 
-    override suspend fun requestIdToken(activityContext: Context): String? = idToken
+    override suspend fun requestGoogleIdToken(activityContext: Context): String? = idToken
+
+    override suspend fun requestSavedCredential(activityContext: Context): SavedCredential? = savedCredential
+
+    override suspend fun savePassword(activityContext: Context, id: String, password: String): SaveOutcome {
+        savedPasswords += id to password
+        return saveOutcome
+    }
 
     override suspend fun clearCredentialState() {
         clearCount++

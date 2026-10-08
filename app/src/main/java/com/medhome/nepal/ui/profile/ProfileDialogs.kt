@@ -2,12 +2,13 @@ package com.medhome.nepal.ui.profile
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -15,6 +16,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.medhome.nepal.R
+import com.medhome.nepal.ui.auth.SuppressAutofillSave
 import com.medhome.nepal.ui.common.rememberGoogleIdTokenRequest
 import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassButtonStyle
@@ -58,6 +60,7 @@ internal fun DeleteAccountDialog(state: ProfileUiState, usesPassword: Boolean, v
     )
     // Back and tapping outside go through dismissDeleteDialog, which ignores them mid-delete.
     GlassDialog(onDismissRequest = viewModel::dismissDeleteDialog) {
+        SuppressAutofillSave()
         DialogTitle(R.string.delete_title)
         Text(
             text = stringResource(if (usesPassword) R.string.delete_body_password else R.string.delete_body_google),
@@ -74,6 +77,7 @@ internal fun DeleteAccountDialog(state: ProfileUiState, usesPassword: Boolean, v
                 isPassword = true,
                 imeAction = ImeAction.Done,
                 onImeDone = viewModel::confirmDeleteWithPassword,
+                contentType = ContentType.Password,
             )
         }
         state.deleteError?.let { StatusMessage(message = it.messageRes, kind = MessageKind.Error) }
@@ -105,20 +109,9 @@ private fun DialogButtons(
     onCancel: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        GlassButton(
-            text = R.string.action_cancel,
-            onClick = onCancel,
-            style = GlassButtonStyle.Secondary,
-            enabled = !busy,
-            modifier = Modifier.weight(1f),
-        )
-        GlassButton(
-            text = confirmText,
-            onClick = onConfirm,
-            style = confirmStyle,
-            loading = busy,
-            modifier = Modifier.weight(1f),
-        )
+    // Stacked full width (confirm first) so translated labels never get squeezed side by side.
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        GlassButton(text = confirmText, onClick = onConfirm, style = confirmStyle, loading = busy)
+        GlassButton(text = R.string.action_cancel, onClick = onCancel, style = GlassButtonStyle.Secondary, enabled = !busy)
     }
 }

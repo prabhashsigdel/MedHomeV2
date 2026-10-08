@@ -14,6 +14,9 @@ object GlassShapes {
 object GlassDimens {
     val ScreenPadding = 24.dp
     val ItemSpacing = 16.dp
+    /** Tighter rhythm for the sign-in forms, so they fit a 360x740dp phone without scrolling. */
+    val CompactItemSpacing = 12.dp
+    val CompactCardPadding = 20.dp
     val CardPadding = 22.dp
     val FloatingInset = 16.dp
     val ButtonHeight = 54.dp

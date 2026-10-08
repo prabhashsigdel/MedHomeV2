@@ -15,7 +15,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -111,8 +110,7 @@ private fun PatientShell(session: SessionState.SignedIn) {
 
     GlassBackground {
         val hazeState = LocalHazeState.current
-        CompositionLocalProvider(LocalBottomBarClearance provides if (onTabRoot) FloatingBarClearance else 0.dp) {
-            NavHost(
+        NavHost(
                 navController = navController,
                 startDestination = HomeTab,
                 // Content is a blur source above the background, so the bar blurs what scrolls under it.
@@ -126,28 +124,29 @@ private fun PatientShell(session: SessionState.SignedIn) {
             ) {
                 navigation<HomeTab>(startDestination = HomeRoute) {
                     composable<HomeRoute> {
-                        PatientHomeScreen(
-                            profile = session.profile,
-                            onOpenFeature = { navController.navigate(ComingSoonRoute(it)) },
-                        )
+                        TabRoot {
+                            PatientHomeScreen(
+                                profile = session.profile,
+                                onOpenFeature = { navController.navigate(ComingSoonRoute(it)) },
+                            )
+                        }
                     }
                     composable<ComingSoonRoute> { entry ->
                         ComingSoonScreen(title = entry.toRoute<ComingSoonRoute>().feature.title, showBack = true)
                     }
                 }
                 navigation<BookingsTab>(startDestination = BookingsRoute) {
-                    composable<BookingsRoute> { ComingSoonScreen(title = R.string.nav_bookings, showBack = false) }
+                    composable<BookingsRoute> { TabRoot { ComingSoonScreen(title = R.string.nav_bookings, showBack = false) } }
                 }
                 navigation<RecordsTab>(startDestination = RecordsRoute) {
-                    composable<RecordsRoute> { ComingSoonScreen(title = R.string.nav_records, showBack = false) }
+                    composable<RecordsRoute> { TabRoot { ComingSoonScreen(title = R.string.nav_records, showBack = false) } }
                 }
                 navigation<ProfileTab>(startDestination = ProfileRoute) {
                     composable<ProfileRoute> {
-                        ProfileScreen(profile = session.profile, usesPassword = session.usesPassword)
+                        TabRoot { ProfileScreen(profile = session.profile, usesPassword = session.usesPassword) }
                     }
                 }
             }
-        }
 
         AnimatedVisibility(
             visible = onTabRoot,
@@ -167,6 +166,15 @@ private fun PatientShell(session: SessionState.SignedIn) {
             }
         }
     }
+}
+
+/**
+ * Tab roots keep space for the floating bar. Set per screen (not shell-wide) so a screen that is
+ * sliding out keeps its own padding instead of jumping when the bar's visibility changes.
+ */
+@Composable
+private fun TabRoot(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalBottomBarClearance provides FloatingBarClearance, content = content)
 }
 
 private fun NavDestination?.isIn(graph: KClass<*>): Boolean =

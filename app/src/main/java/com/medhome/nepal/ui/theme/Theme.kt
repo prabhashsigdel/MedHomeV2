@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import com.medhome.nepal.ui.motion.LocalReducedMotion
 import com.medhome.nepal.ui.motion.isReducedMotion
@@ -22,6 +23,7 @@ fun MedHomeTheme(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
+    val languageTag = LocalConfiguration.current.locales.takeIf { !it.isEmpty }?.get(0)?.language
     val reducedMotion = remember(context) {
         isReducedMotion(
             Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f),
@@ -33,7 +35,7 @@ fun MedHomeTheme(
     ) {
         MaterialTheme(
             colorScheme = colors.toColorScheme(),
-            typography = Typography,
+            typography = typographyFor(languageTag),
             shapes = MedHomeShapes,
             content = content,
         )

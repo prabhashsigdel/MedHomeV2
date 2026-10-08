@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -25,6 +27,9 @@ import com.medhome.nepal.ui.components.StatusMessage
 import com.medhome.nepal.ui.language.LanguageSwitcher
 import com.medhome.nepal.ui.motion.entrance
 import com.medhome.nepal.ui.theme.GlassTheme
+import kotlinx.coroutines.delay
+
+private const val NAME_SAVED_VISIBLE_MS = 4_000L
 
 @Composable
 fun ProfileScreen(
@@ -69,6 +74,15 @@ fun ProfileScreen(
             )
         }
     }
+
+    // "Name updated" is a passing confirmation: clear it after a moment, or when leaving Profile.
+    if (state.nameSaved) {
+        LaunchedEffect(Unit) {
+            delay(NAME_SAVED_VISIBLE_MS)
+            viewModel.dismissNameSaved()
+        }
+    }
+    DisposableEffect(Unit) { onDispose { viewModel.dismissNameSaved() } }
 
     if (state.showEditName) EditNameDialog(state = state, viewModel = viewModel)
     if (state.showDeleteDialog) DeleteAccountDialog(state = state, usesPassword = usesPassword, viewModel = viewModel)

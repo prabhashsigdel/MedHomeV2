@@ -13,7 +13,7 @@ import com.medhome.nepal.R
 import com.medhome.nepal.appContainer
 import com.medhome.nepal.ui.components.ErrorMessage
 import com.medhome.nepal.ui.components.GlassButton
-import com.medhome.nepal.ui.components.GlassCard
+import com.medhome.nepal.ui.components.AuthFormCard
 import com.medhome.nepal.ui.components.GlassLinkButton
 import com.medhome.nepal.ui.components.GlassAuthScreen
 import com.medhome.nepal.ui.components.GlassTextField
@@ -51,7 +51,7 @@ fun ForgotPasswordScreen(
             modifier = Modifier.entrance(1),
         )
 
-        GlassCard(modifier = Modifier.entrance(2)) {
+        AuthFormCard(modifier = Modifier.entrance(2)) {
             state.error?.let { ErrorMessage(error = it, onDismiss = viewModel::dismissError) }
             if (state.linkSent) {
                 StatusMessage(message = R.string.forgot_link_sent, kind = MessageKind.Info)

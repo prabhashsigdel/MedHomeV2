@@ -3,6 +3,7 @@ package com.medhome.nepal.ui.auth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -11,7 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.medhome.nepal.R
 import com.medhome.nepal.ui.components.ErrorMessage
 import com.medhome.nepal.ui.components.GlassButton
-import com.medhome.nepal.ui.components.GlassCard
+import com.medhome.nepal.ui.components.AuthFormCard
 import com.medhome.nepal.ui.components.GlassAuthScreen
 import com.medhome.nepal.ui.components.GlassTextField
 import com.medhome.nepal.ui.components.PromptWithLink
@@ -25,6 +26,7 @@ fun SignUpScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val enabled = !state.isLoading
+    SuppressAutofillSave()
 
     GlassAuthScreen(
         showBack = true,
@@ -44,7 +46,7 @@ fun SignUpScreen(
             modifier = Modifier.entrance(1),
         )
 
-        GlassCard(modifier = Modifier.entrance(2)) {
+        AuthFormCard(modifier = Modifier.entrance(2)) {
             state.error?.let { error ->
                 ErrorMessage(
                     error = error,
@@ -60,6 +62,7 @@ fun SignUpScreen(
                 enabled = enabled,
                 // Keyboard hint only; the name is stored exactly as typed.
                 capitalization = KeyboardCapitalization.Words,
+                contentType = ContentType.PersonFullName,
             )
             GlassTextField(
                 value = state.email,
@@ -68,6 +71,7 @@ fun SignUpScreen(
                 error = state.emailError,
                 enabled = enabled,
                 keyboardType = KeyboardType.Email,
+                contentType = ContentType.NewUsername + ContentType.EmailAddress,
             )
             GlassTextField(
                 value = state.password,
@@ -77,6 +81,7 @@ fun SignUpScreen(
                 hint = R.string.validation_password_hint,
                 enabled = enabled,
                 isPassword = true,
+                contentType = ContentType.NewPassword,
             )
             GlassTextField(
                 value = state.confirmPassword,
@@ -87,6 +92,7 @@ fun SignUpScreen(
                 isPassword = true,
                 imeAction = ImeAction.Done,
                 onImeDone = viewModel::signUp,
+                contentType = ContentType.NewPassword,
             )
             GlassButton(
                 text = R.string.signup_action,

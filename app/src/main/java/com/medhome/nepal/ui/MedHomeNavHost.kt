@@ -20,7 +20,9 @@ import androidx.navigation.toRoute
 import com.medhome.nepal.R
 import com.medhome.nepal.session.SessionState
 import com.medhome.nepal.ui.auth.ForgotPasswordScreen
+import com.medhome.nepal.data.PasswordSaveOffers
 import com.medhome.nepal.ui.auth.LoginScreen
+import com.medhome.nepal.ui.auth.PasswordSavePrompter
 import com.medhome.nepal.ui.auth.SignUpScreen
 import com.medhome.nepal.ui.components.ErrorMessage
 import com.medhome.nepal.ui.components.GlassButton
@@ -52,6 +54,7 @@ import kotlinx.serialization.Serializable
  */
 @Composable
 fun MedHomeNavHost(
+    passwordSaveOffers: PasswordSaveOffers,
     sessionViewModel: SessionViewModel = viewModel(factory = SessionViewModel.Factory),
 ) {
     val navController = rememberNavController()
@@ -65,6 +68,10 @@ fun MedHomeNavHost(
         is SessionState.SignedIn -> MainGraph
     }
     LaunchedEffect(topLevelRoute) { navController.showTopLevel(topLevelRoute) }
+    PasswordSavePrompter(
+        offers = passwordSaveOffers,
+        signedIn = session is SessionState.SignedIn || session is SessionState.NeedsVerification,
+    )
     val transitions = ScreenTransitions(
         reducedMotion = LocalReducedMotion.current,
         flows = listOf(AuthGraph::class, MainGraph::class),
