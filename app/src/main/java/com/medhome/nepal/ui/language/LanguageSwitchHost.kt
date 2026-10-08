@@ -17,6 +17,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import com.medhome.nepal.ui.motion.LocalReducedMotion
 import com.medhome.nepal.ui.motion.MotionTokens
 import kotlinx.coroutines.CancellationException
@@ -62,12 +64,34 @@ fun LanguageSwitchHost(
     fadeInOnStart: Boolean,
     content: @Composable () -> Unit,
 ) {
+    LanguageSwitchHost(
+        restartsActivity = restartsActivity,
+        fadeInOnStart = fadeInOnStart,
+        applyLanguage = LanguageSettings::apply,
+        captureFrame = ::captureOrNull,
+        content = content,
+    )
+}
+
+/**
+ * [LanguageSwitchHost] with its two side effects passed in, for tests: JVM tests can neither
+ * change the app locale nor capture a frame (Robolectric has no hardware renderer).
+ */
+@Composable
+internal fun LanguageSwitchHost(
+    restartsActivity: Boolean,
+    fadeInOnStart: Boolean,
+    applyLanguage: (AppLanguage) -> Unit,
+    captureFrame: suspend (GraphicsLayer) -> ImageBitmap?,
+    content: @Composable () -> Unit,
+) {
     val reducedMotion = LocalReducedMotion.current
     val scope = rememberCoroutineScope()
     val layer = rememberGraphicsLayer()
     val contentAlpha = remember { Animatable(if (fadeInOnStart && !reducedMotion) 0f else 1f) }
     val coverAlpha = remember { Animatable(1f) }
     var cover by remember { mutableStateOf<ImageBitmap?>(null) }
+    val currentApplyLanguage by rememberUpdatedState(applyLanguage)
     val configuration = LocalConfiguration.current
     val languageTag by rememberUpdatedState(configuration.locales.takeIf { !it.isEmpty }?.get(0)?.language)
 
@@ -78,18 +102,21 @@ fun LanguageSwitchHost(
     val controller = remember(reducedMotion, restartsActivity) {
         LanguageController { language ->
             when {
-                reducedMotion -> LanguageSettings.apply(language)
+                reducedMotion -> currentApplyLanguage(language)
                 restartsActivity -> scope.launch {
                     contentAlpha.animateTo(0f, tween(FADE_OUT_MS, easing = MotionTokens.EaseOut))
-                    LanguageSettings.apply(language)
+                    currentApplyLanguage(language)
                     // The restart cancels this scope. If none comes, don't leave the app invisible.
                     delay(MAX_WAIT_MS)
                     contentAlpha.animateTo(1f, tween(FADE_IN_MS, easing = MotionTokens.EaseOut))
                 }
                 else -> scope.launch {
-                    cover = captureOrNull(layer)
+                    cover = captureFrame(layer)
                     coverAlpha.snapTo(1f)
-                    LanguageSettings.apply(language)
+                    // The new language can arrive before the next frame; switch only once the
+                    // cover has been composed and drawn, or the text would change under no cover.
+                    if (cover != null) awaitFrames(COVER_FRAMES)
+                    currentApplyLanguage(language)
                     withTimeoutOrNull(MAX_WAIT_MS) { snapshotFlow { languageTag }.first { it == language.tag } }
                     coverAlpha.animateTo(0f, tween(CROSSFADE_MS, easing = MotionTokens.EaseOut))
                     cover = null
@@ -115,11 +142,20 @@ fun LanguageSwitchHost(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .testTag(LANGUAGE_COVER_TAG)
                     .blockTouches()
                     .drawBehind { drawImage(image, alpha = coverAlpha.value) },
             )
         }
     }
+}
+
+/** Test tag on the frozen frame shown during a switch. */
+const val LANGUAGE_COVER_TAG = "language_cover"
+
+/** Waits for [count] frames: the first composes the new state, the next has drawn it. */
+private suspend fun awaitFrames(count: Int) {
+    repeat(count) { withFrameNanos {} }
 }
 
 /** A frozen copy of the current frame, or null if capturing fails (the switch then just pops). */
@@ -140,6 +176,7 @@ private fun Modifier.blockTouches(): Modifier = pointerInput(Unit) {
 }
 
 private const val TAG = "LanguageSwitch"
+private const val COVER_FRAMES = 2
 private const val CROSSFADE_MS = 220
 private const val FADE_OUT_MS = 150
 private const val FADE_IN_MS = 220

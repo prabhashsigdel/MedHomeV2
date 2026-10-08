@@ -54,6 +54,9 @@ import com.medhome.nepal.ui.motion.LocalReducedMotion
 import com.medhome.nepal.ui.motion.materializeIn
 import com.medhome.nepal.ui.motion.materializeOut
 import com.medhome.nepal.ui.navigation.ScreenTransitions
+import com.medhome.nepal.ui.navigation.navigateOnce
+import com.medhome.nepal.ui.navigation.navigateOnceWith
+import com.medhome.nepal.ui.navigation.popIfTop
 import com.medhome.nepal.ui.profile.ProfileScreen
 import com.medhome.nepal.ui.profile.ProfileViewModel
 import com.medhome.nepal.ui.settings.SettingsPage
@@ -159,8 +162,8 @@ private fun PatientShell(
                         TabRoot {
                             PatientHomeScreen(
                                 profile = session.profile,
-                                onOpenProfile = { navController.navigate(ProfileRoute) { launchSingleTop = true } },
-                                onShortcut = navController::openShortcut,
+                                onOpenProfile = navigateOnce { navController.navigate(ProfileRoute) { launchSingleTop = true } },
+                                onShortcut = navigateOnceWith(navController::openShortcut),
                             )
                         }
                     }
@@ -171,7 +174,7 @@ private fun PatientShell(
                         ProfileScreen(
                             profile = session.profile,
                             usesPassword = session.usesPassword,
-                            onOpenPage = { navController.navigate(SettingsRoute(it)) },
+                            onOpenPage = navigateOnceWith { page: SettingsPage -> navController.navigate(SettingsRoute(page)) },
                             viewModel = viewModel(factory = profileViewModelFactory),
                         )
                     }
@@ -179,7 +182,7 @@ private fun PatientShell(
                         SettingsPageScreen(
                             page = entry.toRoute<SettingsRoute>().page,
                             profile = session.profile,
-                            onDone = { navController.popBackStack() },
+                            onDone = { navController.popIfTop(entry) },
                         )
                     }
                 }

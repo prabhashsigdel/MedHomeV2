@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -98,6 +99,18 @@ class PatientShellNavigationTest {
         performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
     }
 
+    /**
+     * Two taps in a row with the clock stopped, so the second lands while the first navigation
+     * is still running (as a real double tap does).
+     */
+    private fun SemanticsNodeInteraction.doubleTap() {
+        compose.mainClock.autoAdvance = false
+        performSemanticsAction(SemanticsActions.OnClick)
+        performSemanticsAction(SemanticsActions.OnClick)
+        compose.mainClock.autoAdvance = true
+        settle()
+    }
+
     private fun pressBack() {
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         settle()
@@ -172,6 +185,44 @@ class PatientShellNavigationTest {
 
         pressBack()
         assertOnHome()
+    }
+
+    @Test
+    fun `a double tap on a shortcut opens one screen`() {
+        compose.onNodeWithText(text(R.string.shortcut_find_doctor)).performScrollTo().doubleTap()
+        compose.onNodeWithText(text(R.string.coming_soon_body)).assertIsDisplayed()
+
+        pressBack()
+        assertOnHome()
+    }
+
+    @Test
+    fun `a double tap on a Profile row opens one page`() {
+        openProfile()
+        compose.onNodeWithText(text(R.string.settings_help_center)).performScrollTo().doubleTap()
+        compose.onNodeWithText(text(R.string.help_faq_title)).assertIsDisplayed()
+
+        pressBack()
+        assertOnProfile()
+    }
+
+    @Test
+    fun `a double tap on the avatar opens Profile once`() {
+        compose.onNodeWithTag(HOME_AVATAR_TAG).doubleTap()
+        assertOnProfile()
+
+        pressBack()
+        assertOnHome()
+    }
+
+    @Test
+    fun `a double tap on the back arrow goes back one screen`() {
+        openProfile()
+        compose.onNodeWithText(text(R.string.settings_help_center)).clickRow()
+        settle()
+
+        compose.onNodeWithContentDescription(text(R.string.action_back)).doubleTap()
+        assertOnProfile()
     }
 
     private companion object {

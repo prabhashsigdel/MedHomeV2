@@ -43,6 +43,7 @@ import com.medhome.nepal.R
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.ui.motion.entrance
 import com.medhome.nepal.ui.motion.pressScale
+import com.medhome.nepal.ui.navigation.navigateOnce
 import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassShapes
 import com.medhome.nepal.ui.theme.GlassTheme
@@ -161,11 +162,14 @@ fun GlassTopBar(modifier: Modifier = Modifier) {
     }
 }
 
-/** 48dp back arrow routed through the system back dispatcher (same as the back gesture). */
+/**
+ * 48dp back arrow routed through the system back dispatcher (same as the back gesture). Guarded
+ * by [navigateOnce], so a double tap goes back one screen, not two.
+ */
 @Composable
 fun BackButton(modifier: Modifier = Modifier) {
     val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
-    IconButton(onClick = { dispatcher?.onBackPressed() }, modifier = modifier) {
+    IconButton(onClick = navigateOnce { dispatcher?.onBackPressed() }, modifier = modifier) {
         Icon(
             painter = painterResource(R.drawable.ic_arrow_back),
             contentDescription = stringResource(R.string.action_back),

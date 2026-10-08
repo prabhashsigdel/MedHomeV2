@@ -35,8 +35,8 @@ class HomeFormatTest {
     }
 
     @Test
-    fun `Devanagari names give their first letters, without vowel signs or viramas`() {
-        assertEquals("पस", initialsOf("प्रभाष सिग्देल"))
+    fun `Devanagari names give one letter, without vowel signs or viramas`() {
+        assertEquals("प", initialsOf("प्रभाष सिग्देल"))
         assertEquals("क", initialsOf("किरण"))
     }
 

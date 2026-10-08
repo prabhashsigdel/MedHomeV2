@@ -54,6 +54,9 @@ private val AvatarSize = 48.dp
 /** Test tag on the Home avatar (the way into Profile). */
 const val HOME_AVATAR_TAG = "home_avatar"
 
+/** Test tag on the avatar's person icon, shown when the name has no initials. */
+const val HOME_AVATAR_ICON_TAG = "home_avatar_icon"
+
 /** Today's date over the greeting on the left, the profile avatar on the right. */
 @Composable
 fun HomeHeader(
@@ -123,6 +126,7 @@ private fun ProfileAvatar(name: String, onClick: () -> Unit) {
                 painter = painterResource(R.drawable.ic_nav_person),
                 contentDescription = null,
                 tint = colors.onAccent,
+                modifier = Modifier.testTag(HOME_AVATAR_ICON_TAG),
             )
         }
     }

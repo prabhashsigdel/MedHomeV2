@@ -4,7 +4,10 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
@@ -20,7 +23,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -31,10 +36,18 @@ import kotlinx.coroutines.launch
 
 private val SheetShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
 
+/** Test tag on the sheet's bordered body. */
+const val GLASS_SHEET_TAG = "glass_sheet"
+
 /**
  * Modal sheet in the glass style: the same dense fill and border as [GlassDialog]. It is its own
  * window, so (like the dialog) it cannot blur the app behind it. Drag, scrim, back and
  * predictive back come from Material's sheet.
+ *
+ * The border is drawn on our own body, inside the sheet, with our own drag handle and insets:
+ * Material places the sheet with an offset inside its surface, so a border on the sheet's
+ * modifier would be drawn where the sheet starts, not where it is (it would float at the top of
+ * the screen and not follow drags).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,19 +65,32 @@ fun GlassBottomSheet(
         containerColor = colors.dialogFill,
         contentColor = colors.textPrimary,
         tonalElevation = 0.dp,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = colors.textSecondary.copy(alpha = 0.4f)) },
-        modifier = Modifier.border(GlassDimens.BorderWidth, colors.glassBorder, SheetShape),
+        dragHandle = null,
+        contentWindowInsets = { WindowInsets(0) },
     ) {
-        Text(
-            text = stringResource(title),
-            style = MaterialTheme.typography.titleLarge,
-            color = colors.textPrimary,
+        Column(
             modifier = Modifier
-                .padding(horizontal = GlassDimens.CardPadding)
-                .padding(bottom = 8.dp)
-                .semantics { heading() },
-        )
-        Column(modifier = Modifier.padding(bottom = 16.dp), content = content)
+                .fillMaxWidth()
+                .border(GlassDimens.BorderWidth, colors.glassBorder, SheetShape)
+                .windowInsetsPadding(BottomSheetDefaults.windowInsets)
+                .padding(bottom = 16.dp)
+                .testTag(GLASS_SHEET_TAG),
+        ) {
+            BottomSheetDefaults.DragHandle(
+                color = colors.textSecondary.copy(alpha = 0.4f),
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            Text(
+                text = stringResource(title),
+                style = MaterialTheme.typography.titleLarge,
+                color = colors.textPrimary,
+                modifier = Modifier
+                    .padding(horizontal = GlassDimens.CardPadding)
+                    .padding(bottom = 8.dp)
+                    .semantics { heading() },
+            )
+            content()
+        }
     }
 }
 

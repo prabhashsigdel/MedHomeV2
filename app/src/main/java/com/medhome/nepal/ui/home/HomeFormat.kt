@@ -7,18 +7,23 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Up to two initials for the avatar: the first letter of the first and the last word, so
- * "Prabhash Kumar Sigdel" gives "PS" and "प्रभाष सिग्देल" gives "पस". Null for a name with no
- * letters (the avatar then shows a person icon).
+ * Initials for the avatar: the first letter of the first and the last word, so "Prabhash Kumar
+ * Sigdel" gives "PS". Devanagari names get one letter ("प्रभाष सिग्देल" gives "प"), because two
+ * letters side by side read as a word. Null for a name with no letters (the avatar then shows a
+ * person icon).
  */
 fun initialsOf(name: String): String? {
     val letters = name.trim()
         .split(WHITESPACE)
         .mapNotNull(::firstLetter)
     if (letters.isEmpty()) return null
-    val initials = if (letters.size == 1) letters.first() else letters.first() + letters.last()
+    val single = letters.size == 1 || letters.first().isDevanagari()
+    val initials = if (single) letters.first() else letters.first() + letters.last()
     return initials.uppercase()
 }
+
+private fun String.isDevanagari(): Boolean =
+    Character.UnicodeScript.of(codePointAt(0)) == Character.UnicodeScript.DEVANAGARI
 
 /** The first letter or digit of [word] (a whole code point, so emoji-safe), or null. */
 private fun firstLetter(word: String): String? {

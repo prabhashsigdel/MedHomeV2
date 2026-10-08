@@ -32,6 +32,9 @@ import com.medhome.nepal.ui.components.GlassLoadingScreen
 import com.medhome.nepal.ui.components.GlassScreen
 import com.medhome.nepal.ui.components.ScreenTitle
 import com.medhome.nepal.ui.navigation.ScreenTransitions
+import com.medhome.nepal.ui.navigation.navigateOnce
+import com.medhome.nepal.ui.navigation.navigateOnceWith
+import com.medhome.nepal.ui.navigation.popIfTop
 import com.medhome.nepal.ui.shell.MainShell
 import com.medhome.nepal.ui.motion.LocalReducedMotion
 import com.medhome.nepal.ui.motion.entrance
@@ -92,17 +95,17 @@ fun MedHomeNavHost(
                 LoginScreen(
                     sessionError = (session as? SessionState.SignedOut)?.error,
                     onDismissSessionError = sessionViewModel::clearSignedOutError,
-                    onSignUp = { navController.navigate(SignUpRoute) },
-                    onForgotPassword = { email -> navController.navigate(ForgotPasswordRoute(email)) },
+                    onSignUp = navigateOnce { navController.navigate(SignUpRoute) },
+                    onForgotPassword = navigateOnceWith { email: String -> navController.navigate(ForgotPasswordRoute(email)) },
                 )
             }
-            composable<SignUpRoute> {
-                SignUpScreen(onBackToLogin = { navController.popBackStack() })
+            composable<SignUpRoute> { entry ->
+                SignUpScreen(onBackToLogin = { navController.popIfTop(entry) })
             }
             composable<ForgotPasswordRoute> { entry ->
                 ForgotPasswordScreen(
                     initialEmail = entry.toRoute<ForgotPasswordRoute>().email,
-                    onBackToLogin = { navController.popBackStack() },
+                    onBackToLogin = { navController.popIfTop(entry) },
                 )
             }
         }
