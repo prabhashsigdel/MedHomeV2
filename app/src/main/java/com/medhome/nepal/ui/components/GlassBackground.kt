@@ -43,9 +43,9 @@ fun GlassBackground(
             drawRect(colors.backgroundBase)
             val unit = max(size.width, size.height)
             val softEdge = GlassDimens.BackgroundBlobBlur.toPx()
-            drawBlob(colors.blobAccent, Offset(size.width * 0.05f, size.height * 0.10f), unit * 0.42f, softEdge)
-            drawBlob(colors.blobPeach, Offset(size.width * 1.00f, size.height * 0.42f), unit * 0.36f, softEdge)
-            drawBlob(colors.blobBlue, Offset(size.width * 0.15f, size.height * 0.92f), unit * 0.40f, softEdge)
+            drawBlob(colors.blobLavender, Offset(size.width * 0.05f, size.height * 0.10f), unit * 0.42f, softEdge)
+            drawBlob(colors.blobPink, Offset(size.width * 1.00f, size.height * 0.45f), unit * 0.36f, softEdge)
+            drawBlob(colors.blobSky, Offset(size.width * 0.15f, size.height * 0.92f), unit * 0.40f, softEdge)
         }
         CompositionLocalProvider(LocalHazeState provides hazeState) {
             content()

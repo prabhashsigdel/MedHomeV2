@@ -112,20 +112,26 @@ private fun Modifier.hazeContentLayer(): Modifier {
  */
 @Composable
 fun GlassTopBar(modifier: Modifier = Modifier) {
-    val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = { dispatcher?.onBackPressed() }) {
-            Icon(
-                painter = painterResource(R.drawable.ic_arrow_back),
-                contentDescription = stringResource(R.string.action_back),
-                tint = GlassTheme.colors.textPrimary,
-            )
-        }
+        BackButton()
+    }
+}
+
+/** 48dp back arrow routed through the system back dispatcher (same as the back gesture). */
+@Composable
+fun BackButton(modifier: Modifier = Modifier) {
+    val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    IconButton(onClick = { dispatcher?.onBackPressed() }, modifier = modifier) {
+        Icon(
+            painter = painterResource(R.drawable.ic_arrow_back),
+            contentDescription = stringResource(R.string.action_back),
+            tint = GlassTheme.colors.textPrimary,
+        )
     }
 }
 

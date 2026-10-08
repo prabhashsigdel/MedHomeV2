@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -41,7 +42,7 @@ private val FloatingElevation = 14.dp
 /**
  * Translucent white surface with a real backdrop blur (Android 12+), a white border, a top
  * highlight and a soft shadow. Below Android 12 it falls back to a denser white with no blur.
- * Use it for cards and floating bars only, never for individual list items.
+ * Fills the available width. Use it for cards and floating bars only, never for list items.
  *
  * Haze 1.x has no saturation control on Android, so the boost from the design is not applied.
  */
@@ -70,6 +71,7 @@ fun GlassCard(
     }
     Column(
         modifier = modifier
+            .fillMaxWidth()
             .then(clickModifier)
             .glassSurface(level, shape)
             .padding(contentPadding),

@@ -16,7 +16,7 @@ import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassButtonStyle
 import com.medhome.nepal.ui.components.GlassCard
 import com.medhome.nepal.ui.components.GlassLinkButton
-import com.medhome.nepal.ui.components.GlassScreen
+import com.medhome.nepal.ui.components.GlassAuthScreen
 import com.medhome.nepal.ui.components.GlassTextField
 import com.medhome.nepal.ui.components.PromptWithLink
 import com.medhome.nepal.ui.components.ScreenTitle
@@ -37,14 +37,24 @@ fun LoginScreen(
     )
     val enabled = !state.isLoading
 
-    GlassScreen {
+    GlassAuthScreen(
+        footer = {
+            PromptWithLink(
+                prompt = R.string.login_no_account,
+                link = R.string.login_sign_up,
+                onClick = onSignUp,
+                enabled = enabled,
+                modifier = Modifier.entrance(4),
+            )
+        },
+    ) {
         ScreenTitle(
             title = R.string.login_title,
             subtitle = R.string.login_subtitle,
-            modifier = Modifier.entrance(0),
+            modifier = Modifier.entrance(1),
         )
 
-        GlassCard(modifier = Modifier.entrance(1)) {
+        GlassCard(modifier = Modifier.entrance(2)) {
             if (sessionError != null) {
                 ErrorMessage(error = sessionError, onDismiss = onDismissSessionError)
             }
@@ -95,14 +105,6 @@ fun LoginScreen(
             text = R.string.login_google,
             onClick = signInWithGoogle,
             style = GlassButtonStyle.Secondary,
-            enabled = enabled,
-            modifier = Modifier.entrance(2),
-        )
-
-        PromptWithLink(
-            prompt = R.string.login_no_account,
-            link = R.string.login_sign_up,
-            onClick = onSignUp,
             enabled = enabled,
             modifier = Modifier.entrance(3),
         )

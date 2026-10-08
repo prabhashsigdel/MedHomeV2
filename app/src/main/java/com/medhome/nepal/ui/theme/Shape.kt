@@ -12,7 +12,7 @@ object GlassShapes {
 }
 
 object GlassDimens {
-    val ScreenPadding = 22.dp
+    val ScreenPadding = 24.dp
     val ItemSpacing = 16.dp
     val CardPadding = 22.dp
     val FloatingInset = 16.dp

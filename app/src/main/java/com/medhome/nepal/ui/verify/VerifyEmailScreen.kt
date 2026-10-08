@@ -4,7 +4,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -15,7 +14,7 @@ import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassButtonStyle
 import com.medhome.nepal.ui.components.GlassCard
 import com.medhome.nepal.ui.components.GlassLinkButton
-import com.medhome.nepal.ui.components.GlassScreen
+import com.medhome.nepal.ui.components.GlassAuthScreen
 import com.medhome.nepal.ui.components.MessageKind
 import com.medhome.nepal.ui.components.ScreenTitle
 import com.medhome.nepal.ui.components.StatusMessage
@@ -31,10 +30,19 @@ fun VerifyEmailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val enabled = !state.isBusy
 
-    GlassScreen {
-        ScreenTitle(title = R.string.verify_title, modifier = Modifier.entrance(0))
+    GlassAuthScreen(
+        footer = {
+            GlassLinkButton(
+                text = R.string.verify_use_other_account,
+                onClick = viewModel::signOut,
+                enabled = enabled,
+                modifier = Modifier.entrance(3),
+            )
+        },
+    ) {
+        ScreenTitle(title = R.string.verify_title, modifier = Modifier.entrance(1))
 
-        GlassCard(modifier = Modifier.entrance(1)) {
+        GlassCard(modifier = Modifier.entrance(2)) {
             Text(
                 text = stringResource(R.string.verify_body, email),
                 style = MaterialTheme.typography.bodyLarge,
@@ -60,14 +68,5 @@ fun VerifyEmailScreen(
                 enabled = enabled,
             )
         }
-
-        GlassLinkButton(
-            text = R.string.verify_use_other_account,
-            onClick = viewModel::signOut,
-            enabled = enabled,
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .entrance(2),
-        )
     }
 }

@@ -5,7 +5,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /** The one place to change the brand color. Links and accent text derive from it. */
-val DefaultAccent = Color(0xFF2F7D74)
+val DefaultAccent = Color(0xFF4F5BD5)
 
 /** How much darker links are than the accent, so they stay readable on glass. */
 const val LINK_DARKEN_FRACTION = 0.28f
@@ -24,9 +24,9 @@ data class GlassColors(
     val warning: Color,
     val error: Color,
     val backgroundBase: Color,
-    val blobAccent: Color,
-    val blobPeach: Color,
-    val blobBlue: Color,
+    val blobLavender: Color,
+    val blobSky: Color,
+    val blobPink: Color,
     /** Cards. */
     val glassFill: Color,
     /** Floating bars: the most transparent surface. */
@@ -55,9 +55,9 @@ fun lightGlassColors(accent: Color = DefaultAccent): GlassColors = GlassColors(
     warning = Color(0xFF9A4508),
     error = Color(0xFFA3231B),
     backgroundBase = Color(0xFFE3E8E6),
-    blobAccent = accent.copy(alpha = 0.55f),
-    blobPeach = Color(red = 244, green = 176, blue = 142).copy(alpha = 0.55f),
-    blobBlue = Color(red = 118, green = 148, blue = 204).copy(alpha = 0.5f),
+    blobLavender = Color(red = 156, green = 140, blue = 230).copy(alpha = 0.50f),
+    blobSky = Color(red = 120, green = 170, blue = 235).copy(alpha = 0.45f),
+    blobPink = Color(red = 240, green = 170, blue = 200).copy(alpha = 0.40f),
     glassFill = Color.White.copy(alpha = 0.38f),
     glassFillFloating = Color.White.copy(alpha = 0.30f),
     glassFallback = Color.White.copy(alpha = 0.70f),

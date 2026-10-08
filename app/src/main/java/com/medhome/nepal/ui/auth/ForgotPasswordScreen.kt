@@ -2,7 +2,6 @@ package com.medhome.nepal.ui.auth
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -16,7 +15,7 @@ import com.medhome.nepal.ui.components.ErrorMessage
 import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassCard
 import com.medhome.nepal.ui.components.GlassLinkButton
-import com.medhome.nepal.ui.components.GlassScreen
+import com.medhome.nepal.ui.components.GlassAuthScreen
 import com.medhome.nepal.ui.components.GlassTextField
 import com.medhome.nepal.ui.components.MessageKind
 import com.medhome.nepal.ui.components.ScreenTitle
@@ -36,14 +35,23 @@ fun ForgotPasswordScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val enabled = !state.isLoading
 
-    GlassScreen(showBack = true) {
+    GlassAuthScreen(
+        showBack = true,
+        footer = {
+            GlassLinkButton(
+                text = R.string.action_back_to_login,
+                onClick = onBackToLogin,
+                modifier = Modifier.entrance(3),
+            )
+        },
+    ) {
         ScreenTitle(
             title = R.string.forgot_title,
             subtitle = R.string.forgot_subtitle,
-            modifier = Modifier.entrance(0),
+            modifier = Modifier.entrance(1),
         )
 
-        GlassCard(modifier = Modifier.entrance(1)) {
+        GlassCard(modifier = Modifier.entrance(2)) {
             state.error?.let { ErrorMessage(error = it, onDismiss = viewModel::dismissError) }
             if (state.linkSent) {
                 StatusMessage(message = R.string.forgot_link_sent, kind = MessageKind.Info)
@@ -65,13 +73,5 @@ fun ForgotPasswordScreen(
                 enabled = enabled,
             )
         }
-
-        GlassLinkButton(
-            text = R.string.action_back_to_login,
-            onClick = onBackToLogin,
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .entrance(2),
-        )
     }
 }

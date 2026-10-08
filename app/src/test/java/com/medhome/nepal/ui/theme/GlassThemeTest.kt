@@ -13,7 +13,7 @@ class GlassThemeTest {
     @Test
     fun `link color is the accent 28 percent darker`() {
         val link = lightGlassColors().link
-        assertEquals(Color(0xFF225A54).toArgb(), link.toArgb())
+        assertEquals(Color(0xFF394299).toArgb(), link.toArgb())
     }
 
     @Test
@@ -22,7 +22,6 @@ class GlassThemeTest {
         val colors = lightGlassColors(accent)
         assertEquals(accent, colors.accent)
         assertEquals(accent.darken(LINK_DARKEN_FRACTION), colors.link)
-        assertEquals(accent.copy(alpha = 0.55f), colors.blobAccent)
     }
 
     @Test
@@ -38,6 +37,37 @@ class GlassThemeTest {
         val colors = lightGlassColors()
         assertTrue(colors.glassFillFloating.alpha < colors.glassFill.alpha)
         assertTrue(colors.glassFallback.alpha > colors.glassFill.alpha)
+    }
+
+    @Test
+    fun `white text on the accent passes text contrast`() {
+        val colors = lightGlassColors()
+        assertTrue(contrastRatio(colors.onAccent, colors.accent) >= MIN_TEXT_CONTRAST)
+    }
+
+    @Test
+    fun `link and body text pass text contrast on every glass backdrop`() {
+        val colors = lightGlassColors()
+        for (backdrop in colors.glassBackdrops()) {
+            assertTrue("link on $backdrop", contrastRatio(colors.link, backdrop) >= MIN_TEXT_CONTRAST)
+            assertTrue("primary on $backdrop", contrastRatio(colors.textPrimary, backdrop) >= MIN_TEXT_CONTRAST)
+            assertTrue("secondary on $backdrop", contrastRatio(colors.textSecondary, backdrop) >= MIN_TEXT_CONTRAST)
+            assertTrue("error on $backdrop", contrastRatio(colors.error, backdrop) >= MIN_TEXT_CONTRAST)
+        }
+    }
+
+    @Test
+    fun `accent borders and indicators pass non-text contrast on glass`() {
+        val colors = lightGlassColors()
+        for (backdrop in colors.glassBackdrops()) {
+            assertTrue("accent on $backdrop", contrastRatio(colors.accent, backdrop) >= MIN_UI_CONTRAST)
+        }
+    }
+
+    @Test
+    fun `contrast ratio matches known WCAG values`() {
+        assertEquals(21f, contrastRatio(Color.Black, Color.White), 0.01f)
+        assertEquals(1f, contrastRatio(Color.White, Color.White), 0.001f)
     }
 
     @Test

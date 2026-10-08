@@ -11,7 +11,7 @@ import com.medhome.nepal.R
 import com.medhome.nepal.ui.components.ErrorMessage
 import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassCard
-import com.medhome.nepal.ui.components.GlassScreen
+import com.medhome.nepal.ui.components.GlassAuthScreen
 import com.medhome.nepal.ui.components.GlassTextField
 import com.medhome.nepal.ui.components.PromptWithLink
 import com.medhome.nepal.ui.components.ScreenTitle
@@ -25,14 +25,25 @@ fun SignUpScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val enabled = !state.isLoading
 
-    GlassScreen(showBack = true) {
+    GlassAuthScreen(
+        showBack = true,
+        footer = {
+            PromptWithLink(
+                prompt = R.string.signup_have_account,
+                link = R.string.signup_log_in,
+                onClick = onBackToLogin,
+                enabled = enabled,
+                modifier = Modifier.entrance(3),
+            )
+        },
+    ) {
         ScreenTitle(
             title = R.string.signup_title,
             subtitle = R.string.signup_subtitle,
-            modifier = Modifier.entrance(0),
+            modifier = Modifier.entrance(1),
         )
 
-        GlassCard(modifier = Modifier.entrance(1)) {
+        GlassCard(modifier = Modifier.entrance(2)) {
             state.error?.let { error ->
                 ErrorMessage(
                     error = error,
@@ -81,13 +92,5 @@ fun SignUpScreen(
                 enabled = enabled,
             )
         }
-
-        PromptWithLink(
-            prompt = R.string.signup_have_account,
-            link = R.string.signup_log_in,
-            onClick = onBackToLogin,
-            enabled = enabled,
-            modifier = Modifier.entrance(2),
-        )
     }
 }
