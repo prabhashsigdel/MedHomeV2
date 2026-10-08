@@ -36,6 +36,10 @@ android {
     buildFeatures {
         compose = true
     }
+    androidResources {
+        // Lists English and Nepali under Settings > App languages (Android 13+).
+        generateLocaleConfig = true
+    }
     testOptions {
         // Firebase exception constructors call android.text.TextUtils; return defaults in JVM tests.
         unitTests.isReturnDefaultValues = true
@@ -56,6 +60,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.haze)
+    implementation(libs.androidx.appcompat)
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
