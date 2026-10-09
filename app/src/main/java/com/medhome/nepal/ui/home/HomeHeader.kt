@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -44,8 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.medhome.nepal.R
+import com.medhome.nepal.ui.components.glassBorder
 import com.medhome.nepal.ui.motion.pressScale
-import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassTheme
 import java.util.Date
 
@@ -88,7 +87,7 @@ fun HomeHeader(
     }
 }
 
-/** Circular initials badge (accent fill, onAccent text); a person icon when there are none. */
+/** Circular glass initials badge (primary text, no accent); a person icon when there are none. */
 @Composable
 private fun ProfileAvatar(name: String, onClick: () -> Unit) {
     val colors = GlassTheme.colors
@@ -100,8 +99,8 @@ private fun ProfileAvatar(name: String, onClick: () -> Unit) {
             .size(AvatarSize)
             .pressScale(interactionSource)
             .clip(CircleShape)
-            .background(colors.accent)
-            .border(GlassDimens.BorderWidth, colors.glassBorder, CircleShape)
+            .background(colors.glassFill)
+            .glassBorder(CircleShape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(),
@@ -117,15 +116,15 @@ private fun ProfileAvatar(name: String, onClick: () -> Unit) {
             Text(
                 text = initials,
                 style = MaterialTheme.typography.titleMedium,
-                color = colors.onAccent,
+                color = colors.textPrimary,
                 maxLines = 1,
                 modifier = Modifier.clearAndSetSemantics {},
             )
         } else {
             Icon(
-                painter = painterResource(R.drawable.ic_nav_person),
+                painter = painterResource(R.drawable.ic_sym_person),
                 contentDescription = null,
-                tint = colors.onAccent,
+                tint = colors.textPrimary,
                 modifier = Modifier.testTag(HOME_AVATAR_ICON_TAG),
             )
         }

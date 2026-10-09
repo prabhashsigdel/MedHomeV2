@@ -42,7 +42,7 @@ import com.medhome.nepal.session.SessionState
 import com.medhome.nepal.ui.components.FloatingBarClearance
 import com.medhome.nepal.ui.components.FloatingBarGap
 import com.medhome.nepal.ui.components.FloatingNavBar
-import com.medhome.nepal.ui.components.GlassBackground
+import com.medhome.nepal.ui.components.MeshBackground
 import com.medhome.nepal.ui.components.LocalBottomBarClearance
 import com.medhome.nepal.ui.components.LocalHazeState
 import com.medhome.nepal.ui.components.NavBarItem
@@ -106,9 +106,9 @@ private enum class PatientTab(
     @param:StringRes val label: Int,
     @param:DrawableRes val icon: Int,
 ) {
-    HOME(HomeTab, HomeRoute, R.string.nav_home, R.drawable.ic_nav_home),
-    BOOKINGS(BookingsTab, BookingsRoute, R.string.nav_bookings, R.drawable.ic_nav_calendar),
-    RECORDS(RecordsTab, RecordsRoute, R.string.nav_records, R.drawable.ic_nav_records),
+    HOME(HomeTab, HomeRoute, R.string.nav_home, R.drawable.ic_sym_home),
+    BOOKINGS(BookingsTab, BookingsRoute, R.string.nav_bookings, R.drawable.ic_sym_calendar_month),
+    RECORDS(RecordsTab, RecordsRoute, R.string.nav_records, R.drawable.ic_sym_description),
     ;
 
     val graphClass: KClass<*> get() = graph::class
@@ -117,7 +117,7 @@ private enum class PatientTab(
 private val NavItems = PatientTab.entries.map { NavBarItem(it.label, it.icon) }
 
 /**
- * Patient app: one glass background, a nested NavHost with a back stack per tab, and the
+ * Patient app: one mesh background, a nested NavHost with a back stack per tab, and the
  * floating tab bar on top (shown on tab roots only; pushed screens get a back arrow instead).
  * Back from a non-Home tab root returns to Home, because tab switches keep Home underneath.
  */
@@ -142,7 +142,7 @@ private fun PatientShell(
     val density = LocalDensity.current
     val tabRootClearance = if (measuredBarHeight > 0.dp) measuredBarHeight + FloatingBarGap else FloatingBarClearance
 
-    GlassBackground {
+    MeshBackground {
         val hazeState = LocalHazeState.current
         CompositionLocalProvider(LocalTabRootClearance provides tabRootClearance) {
             NavHost(

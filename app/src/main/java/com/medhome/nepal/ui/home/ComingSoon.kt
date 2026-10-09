@@ -27,9 +27,9 @@ enum class ComingSoonFeature(@param:StringRes val title: Int) {
 
 /** Rows of the Home shortcuts card, in display order. The shell decides where each one goes. */
 enum class HomeShortcut(@param:StringRes val title: Int, @param:DrawableRes val icon: Int) {
-    FIND_DOCTOR(R.string.shortcut_find_doctor, R.drawable.ic_search),
-    HEALTH_RECORDS(R.string.shortcut_health_records, R.drawable.ic_nav_records),
-    MEDICINE_REMINDERS(R.string.shortcut_medicine_reminders, R.drawable.ic_alarm),
+    FIND_DOCTOR(R.string.shortcut_find_doctor, R.drawable.ic_sym_search),
+    HEALTH_RECORDS(R.string.shortcut_health_records, R.drawable.ic_sym_description),
+    MEDICINE_REMINDERS(R.string.shortcut_medicine_reminders, R.drawable.ic_sym_alarm),
 }
 
 /** Placeholder screen: a title and a "coming soon" card. [showBack] for pushed screens. */

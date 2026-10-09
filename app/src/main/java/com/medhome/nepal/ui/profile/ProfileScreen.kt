@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.medhome.nepal.BuildConfig
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.UserProfile
 import com.medhome.nepal.ui.components.ErrorMessage
@@ -22,6 +23,7 @@ import com.medhome.nepal.ui.components.SectionTitle
 import com.medhome.nepal.ui.components.SettingsDivider
 import com.medhome.nepal.ui.components.SettingsRow
 import com.medhome.nepal.ui.components.SettingsSection
+import com.medhome.nepal.ui.developer.DarkPaletteSetting
 import com.medhome.nepal.ui.language.LanguageSetting
 import com.medhome.nepal.ui.motion.entrance
 import com.medhome.nepal.ui.settings.SettingsPage
@@ -29,8 +31,8 @@ import com.medhome.nepal.ui.theme.GlassTheme
 import com.medhome.nepal.ui.theme.ThemeSetting
 
 /**
- * Profile and settings, as grouped sections: account, appearance, support, sign out and the
- * danger zone. Opened from the Home avatar (a pushed screen with a back arrow); rows push
+ * Profile and settings, as grouped sections: account, appearance, developer (debug and staging
+ * builds), support, sign out and the danger zone. Opened from the Home avatar (a pushed screen with a back arrow); rows push
  * [SettingsPage] screens on top of it.
  */
 @Composable
@@ -70,6 +72,13 @@ fun ProfileScreen(
             ThemeSetting(enabled = enabled)
             SettingsDivider()
             LanguageSetting(enabled = enabled)
+        }
+
+        // Debug and staging builds only: compare the dark backgrounds on a device.
+        if (BuildConfig.DEVELOPER_OPTIONS) {
+            SettingsSection(title = R.string.settings_developer, modifier = Modifier.entrance(3)) {
+                DarkPaletteSetting(enabled = enabled)
+            }
         }
 
         SettingsSection(title = R.string.settings_support, modifier = Modifier.entrance(4)) {

@@ -4,7 +4,6 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -51,8 +50,8 @@ private val RowMinHeight = 56.dp
 private val RowIconSize = 22.dp
 
 /**
- * A titled group: heading plus one glass card holding its rows. One card per section keeps the
- * blur to a few surfaces (rows themselves are never blurred individually).
+ * A titled group: heading plus one glass card holding its rows (rows are never glass
+ * themselves).
  */
 @Composable
 fun SettingsSection(
@@ -74,7 +73,7 @@ fun SettingsSection(
 @Composable
 fun SettingsDivider() {
     HorizontalDivider(
-        color = GlassTheme.colors.glassBorder,
+        color = GlassTheme.colors.divider,
         modifier = Modifier.padding(horizontal = GlassDimens.CardPadding),
     )
 }
@@ -94,7 +93,8 @@ fun SettingsRow(
             Icon(
                 painter = painterResource(icon),
                 contentDescription = null,
-                tint = colors.accentEmphasis,
+                // Monochrome: the accent is for primary buttons only.
+                tint = colors.textPrimary,
                 modifier = Modifier.size(RowIconSize),
             )
             Spacer(Modifier.width(14.dp))
@@ -162,9 +162,9 @@ private fun ChevronRow(
         content()
         Spacer(Modifier.width(8.dp))
         Icon(
-            painter = painterResource(R.drawable.ic_chevron_right),
+            painter = painterResource(R.drawable.ic_sym_chevron_right),
             contentDescription = null,
-            tint = GlassTheme.colors.link,
+            tint = GlassTheme.colors.textSecondary,
         )
     }
 }
@@ -255,7 +255,7 @@ private fun ChoicePill(
     val colors = GlassTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
     val fill by animateColorAsState(
-        targetValue = if (selected) colors.accent else colors.fieldFill,
+        targetValue = if (selected) colors.accent else colors.controlFill,
         animationSpec = feedbackTween(),
         label = "choiceFill",
     )
@@ -270,7 +270,7 @@ private fun ChoicePill(
             .pressScale(interactionSource)
             .clip(GlassShapes.Chip)
             .background(fill)
-            .border(GlassDimens.BorderWidth, colors.fieldBorder, GlassShapes.Chip)
+            .glassBorder(GlassShapes.Chip)
             .selectable(
                 selected = selected,
                 interactionSource = interactionSource,

@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,6 +54,7 @@ import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassShapes
 import com.medhome.nepal.ui.theme.GlassTheme
 import com.medhome.nepal.ui.theme.MedHomeTheme
+import com.medhome.nepal.ui.theme.nestedCornerRadius
 
 data class NavBarItem(@param:StringRes val label: Int, @param:DrawableRes val icon: Int)
 
@@ -63,9 +65,13 @@ private val IndicatorMaxWidth = 72.dp
 private val IndicatorSideGap = 8.dp
 private val NavIconSize = 22.dp
 
+/** The pill sits this far inside the bar, so its corners nest inside the bar's. */
+private val IndicatorInset = (NavBarHeight - IndicatorHeight) / 2
+private val IndicatorShape = RoundedCornerShape(nestedCornerRadius(GlassDimens.CardRadius, IndicatorInset))
+
 /**
- * Floating glass tab bar, inset 16dp from the screen edges. The selected-tab indicator slides
- * between tabs and icon colors animate. Used by the patient shell.
+ * Floating glass tab bar, inset 16dp from the screen edges. The selected tab is a lighter glass
+ * pill (no accent color) that slides between tabs; icon colors animate. Used by the patient shell.
  */
 @Composable
 fun FloatingNavBar(
@@ -88,9 +94,10 @@ fun FloatingNavBar(
             Box(
                 modifier = Modifier
                     // Lambda overload: the animated offset only re-places, it doesn't recompose.
-                    .offset { IntOffset(indicatorOffset.roundToPx(), ((NavBarHeight - IndicatorHeight) / 2).roundToPx()) }
+                    .offset { IntOffset(indicatorOffset.roundToPx(), IndicatorInset.roundToPx()) }
                     .size(width = pillWidth, height = IndicatorHeight)
-                    .background(GlassTheme.colors.accentEmphasis.copy(alpha = 0.16f), GlassShapes.Chip),
+                    .background(GlassTheme.colors.selectedPill, IndicatorShape)
+                    .glassBorder(IndicatorShape),
             )
             Row(modifier = Modifier.fillMaxWidth()) {
                 items.forEachIndexed { index, item ->
@@ -106,7 +113,7 @@ private fun RowScope.NavBarTab(item: NavBarItem, selected: Boolean, onClick: () 
     val colors = GlassTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
     val tint by animateColorAsState(
-        targetValue = if (selected) colors.link else colors.textSecondary,
+        targetValue = if (selected) colors.textPrimary else colors.textSecondary,
         animationSpec = feedbackTween(),
         label = "navTint",
     )
@@ -142,7 +149,7 @@ private fun RowScope.NavBarTab(item: NavBarItem, selected: Boolean, onClick: () 
 }
 
 /**
- * The most transparent glass, floating 16dp from the edges, materializing on first show.
+ * Blurred glass floating 16dp from the edges, materializing on first show.
  * Shared by [FloatingNavBar] and [FloatingActionBar].
  */
 @Composable
@@ -184,13 +191,13 @@ fun FloatingActionBar(
 @Composable
 private fun FloatingNavBarPreview() {
     MedHomeTheme {
-        GlassBackground {
+        MeshBackground {
             var selected by remember { mutableIntStateOf(0) }
             FloatingNavBar(
                 items = listOf(
-                    NavBarItem(R.string.nav_home, R.drawable.ic_nav_home),
-                    NavBarItem(R.string.nav_bookings, R.drawable.ic_nav_calendar),
-                    NavBarItem(R.string.nav_records, R.drawable.ic_nav_records),
+                    NavBarItem(R.string.nav_home, R.drawable.ic_sym_home),
+                    NavBarItem(R.string.nav_bookings, R.drawable.ic_sym_calendar_month),
+                    NavBarItem(R.string.nav_records, R.drawable.ic_sym_description),
                 ),
                 selectedIndex = selected,
                 onSelect = { selected = it },

@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -39,7 +38,7 @@ import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassShapes
 import com.medhome.nepal.ui.theme.GlassTheme
 
-/** Primary: filled accent. Secondary: glass. Danger: filled error, for destructive actions. */
+/** Primary: filled accent (the only indigo on Home). Secondary: glass. Danger: filled error, for destructive actions. */
 enum class GlassButtonStyle { Primary, Secondary, Danger }
 
 private const val DISABLED_ALPHA = 0.5f
@@ -63,13 +62,15 @@ fun GlassButton(
     val colors = GlassTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
     val shape = GlassShapes.Button
-    val contentColor = if (style == GlassButtonStyle.Secondary) colors.textPrimary else colors.onAccent
+    val contentColor = when (style) {
+        GlassButtonStyle.Primary -> colors.onAccent
+        GlassButtonStyle.Danger -> colors.onError
+        GlassButtonStyle.Secondary -> colors.textPrimary
+    }
     val surface = when (style) {
         GlassButtonStyle.Primary -> Modifier.background(colors.accent, shape)
         GlassButtonStyle.Danger -> Modifier.background(colors.error, shape)
-        GlassButtonStyle.Secondary -> Modifier
-            .background(colors.fieldFill, shape)
-            .border(GlassDimens.BorderWidth, colors.fieldBorder, shape)
+        GlassButtonStyle.Secondary -> Modifier.glassControl(shape)
     }
     val loadingLabel = stringResource(R.string.state_loading)
     Box(

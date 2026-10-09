@@ -64,7 +64,7 @@ fun GlassAuthScreen(
     footer: @Composable ColumnScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    GlassBackground(modifier = modifier) {
+    MeshBackground(modifier = modifier) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()

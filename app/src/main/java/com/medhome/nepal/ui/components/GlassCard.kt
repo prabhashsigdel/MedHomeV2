@@ -1,5 +1,6 @@
 package com.medhome.nepal.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,15 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.medhome.nepal.ui.motion.pressScale
 import com.medhome.nepal.ui.theme.GlassColors
 import com.medhome.nepal.ui.theme.GlassDimens
@@ -33,18 +28,14 @@ import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 
-/** Cards sit in the content; floating surfaces (bottom bars) are the most transparent. */
+/** Cards sit in the content; floating surfaces (bottom bars) blur what scrolls under them. */
 enum class GlassLevel { Card, Floating }
 
-private val CardElevation = 10.dp
-private val FloatingElevation = 14.dp
-
 /**
- * Translucent white surface with a real backdrop blur (Android 12+), a white border, a top
- * highlight and a soft shadow. Below Android 12 it falls back to a denser white with no blur.
- * Fills the available width. Use it for cards and floating bars only, never for list items.
- *
- * Haze 1.x has no saturation control on Android, so the boost from the design is not applied.
+ * The glass card: a neutral translucent white with a 1px border, bright at the top and faint at
+ * the bottom. No blur and no shadow: the background is already soft, and a shadow would show
+ * through the fill. Fills the available width. Use it for cards and floating bars only, never
+ * for list items.
  */
 @Composable
 fun GlassCard(
@@ -80,7 +71,11 @@ fun GlassCard(
     )
 }
 
-/** The glass look as a modifier, for components that lay out their own content. */
+/**
+ * The glass look as a modifier, for components that lay out their own content. Only
+ * [GlassLevel.Floating] blurs (with Haze, Android 12+; a denser fill below), so content
+ * scrolling under the bar stays soft and its labels stay readable.
+ */
 @Composable
 fun Modifier.glassSurface(
     level: GlassLevel = GlassLevel.Card,
@@ -88,42 +83,52 @@ fun Modifier.glassSurface(
 ): Modifier {
     val colors = GlassTheme.colors
     val hazeState = LocalHazeState.current
-    val fill = if (level == GlassLevel.Floating) colors.glassFillFloating else colors.glassFill
-    val elevation: Dp = if (level == GlassLevel.Floating) FloatingElevation else CardElevation
-    val blur = if (hazeState != null) {
-        Modifier.hazeEffect(state = hazeState, style = glassStyle(colors, fill))
-    } else {
-        Modifier.background(colors.glassFallback)
+    val surface = when {
+        level == GlassLevel.Card -> Modifier.background(colors.glassFill)
+        hazeState != null -> Modifier.hazeEffect(state = hazeState, style = floatingStyle(colors))
+        else -> Modifier.background(colors.glassFallback)
     }
     return this
-        .shadow(elevation, shape, clip = false, ambientColor = colors.shadow, spotColor = colors.shadow)
         .clip(shape)
-        .then(blur)
-        .border(GlassDimens.BorderWidth, colors.glassBorder, shape)
-        .topHighlight(colors.glassHighlight)
+        .then(surface)
+        .glassBorder(shape)
 }
 
-private fun glassStyle(colors: GlassColors, fill: Color) = HazeStyle(
-    backgroundColor = colors.backgroundBase,
-    tints = listOf(HazeTint(fill)),
-    blurRadius = GlassDimens.CardBlur,
+/** Fields, secondary buttons and chips: the fainter control fill with the glass border. */
+@Composable
+fun Modifier.glassControl(shape: Shape): Modifier = this
+    .clip(shape)
+    .background(GlassTheme.colors.controlFill)
+    .glassBorder(shape)
+
+/**
+ * Sheets and dialogs live in their own window, with nothing of the app to show through, so
+ * they draw the mesh themselves under a card: the same glass, and fully opaque.
+ */
+@Composable
+fun Modifier.glassPanel(shape: Shape): Modifier {
+    val colors = GlassTheme.colors
+    return this
+        .clip(shape)
+        .meshGradient(colors.background)
+        .background(colors.glassFill)
+        .glassBorder(shape)
+}
+
+/** The 1px glass border: a vertical gradient from bright at the top to faint at the bottom. */
+@Composable
+fun Modifier.glassBorder(shape: Shape): Modifier {
+    val colors = GlassTheme.colors
+    val brush = remember(colors.glassBorderTop, colors.glassBorderBottom) {
+        Brush.verticalGradient(listOf(colors.glassBorderTop, colors.glassBorderBottom))
+    }
+    return border(BorderStroke(GlassDimens.BorderWidth, brush), shape)
+}
+
+private fun floatingStyle(colors: GlassColors) = HazeStyle(
+    backgroundColor = colors.background.base,
+    tints = listOf(HazeTint(colors.floatingScrim), HazeTint(colors.glassFill)),
+    blurRadius = GlassDimens.FloatingBlur,
     noiseFactor = 0f,
     fallbackTint = HazeTint(colors.glassFallback),
 )
-
-/** A thin light line along the top edge, fading out toward the rounded corners. */
-private fun Modifier.topHighlight(color: Color): Modifier = drawWithContent {
-    drawContent()
-    val stroke = 1.dp.toPx()
-    val inset = 22.dp.toPx().coerceAtMost(size.width / 3f)
-    drawLine(
-        brush = Brush.horizontalGradient(
-            colors = listOf(Color.Transparent, color, color, Color.Transparent),
-            startX = inset,
-            endX = size.width - inset,
-        ),
-        start = Offset(inset, stroke),
-        end = Offset(size.width - inset, stroke),
-        strokeWidth = stroke,
-    )
-}

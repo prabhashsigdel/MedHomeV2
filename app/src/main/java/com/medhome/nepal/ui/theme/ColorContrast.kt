@@ -12,21 +12,26 @@ const val MIN_TEXT_CONTRAST = 4.5f
 /** WCAG minimum for borders, focus rings and other non-text UI. */
 const val MIN_UI_CONTRAST = 3f
 
-/** WCAG 2.x contrast ratio between two opaque colors (1 to 21). */
+/**
+ * WCAG 2.x contrast ratio (1 to 21) between [foreground] and an opaque [background]. A
+ * translucent foreground (secondary text in the dark theme) is first composited over it.
+ */
 fun contrastRatio(foreground: Color, background: Color): Float {
-    val a = foreground.luminance()
+    val shown = if (foreground.alpha < 1f) foreground.compositeOver(background) else foreground
+    val a = shown.luminance()
     val b = background.luminance()
     return (max(a, b) + 0.05f) / (min(a, b) + 0.05f)
 }
 
 /**
- * The opaque colors a glass card can actually show: each background blob over the base,
- * under the card fill (blur on) and under the fallback fill (Android 11 and lower).
+ * The opaque colors text and marks can sit on: the background's darkest and brightest region,
+ * bare (titles), under a glass card, and under a control on that card (a field or a secondary
+ * button). Sheets and dialogs draw the same background and glass, so they are covered too.
  */
 fun GlassColors.glassBackdrops(): List<Color> {
-    val behindCard = listOf(backgroundBase, blobLavender, blobSky, blobPink)
-        .map { it.compositeOver(backgroundBase) }
-    return listOf(glassFill, glassFillFloating, glassFallback).flatMap { fill ->
-        behindCard.map { fill.compositeOver(it) }
+    val (darkest, brightest) = background.darkestAndBrightest()
+    return listOf(darkest, brightest).flatMap { region ->
+        val card = glassFill.compositeOver(region)
+        listOf(region, card, controlFill.compositeOver(card))
     }
 }

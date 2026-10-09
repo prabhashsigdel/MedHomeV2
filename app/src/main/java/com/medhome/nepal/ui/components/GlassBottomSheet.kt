@@ -1,7 +1,6 @@
 package com.medhome.nepal.ui.components
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -34,14 +33,14 @@ import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassTheme
 import kotlinx.coroutines.launch
 
-private val SheetShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+private val SheetShape = RoundedCornerShape(topStart = GlassDimens.CardRadius, topEnd = GlassDimens.CardRadius)
 
 /** Test tag on the sheet's bordered body. */
 const val GLASS_SHEET_TAG = "glass_sheet"
 
 /**
- * Modal sheet in the glass style: the same dense fill and border as [GlassDialog]. It is its own
- * window, so (like the dialog) it cannot blur the app behind it. Drag, scrim, back and
+ * Modal sheet in the glass style: like [GlassDialog], a glass panel over its own copy of the
+ * mesh background, since it is its own window and cannot show the app behind it. Drag, scrim, back and
  * predictive back come from Material's sheet.
  *
  * The border is drawn on our own body, inside the sheet, with our own drag handle and insets:
@@ -62,7 +61,8 @@ fun GlassBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         shape = SheetShape,
-        containerColor = colors.dialogFill,
+        // Covered by the glass panel; opaque so nothing shows at its edges while it moves.
+        containerColor = colors.background.base,
         contentColor = colors.textPrimary,
         tonalElevation = 0.dp,
         dragHandle = null,
@@ -71,7 +71,7 @@ fun GlassBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(GlassDimens.BorderWidth, colors.glassBorder, SheetShape)
+                .glassPanel(SheetShape)
                 .windowInsetsPadding(BottomSheetDefaults.windowInsets)
                 .padding(bottom = 16.dp)
                 .testTag(GLASS_SHEET_TAG),

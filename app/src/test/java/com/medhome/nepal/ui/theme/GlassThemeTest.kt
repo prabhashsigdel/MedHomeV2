@@ -2,7 +2,9 @@ package com.medhome.nepal.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import com.medhome.nepal.data.DarkPalette
 import com.medhome.nepal.ui.motion.isReducedMotion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -11,8 +13,12 @@ import org.junit.Test
 
 class GlassThemeTest {
 
-    /** Every contrast rule must hold in both themes. */
-    private val palettes = listOf("light" to lightGlassColors(), "dark" to darkGlassColors())
+    /** Every contrast rule must hold in light and in both dark palettes. */
+    private val palettes = listOf(
+        "light" to glassColorsFor(dark = false),
+        "warm dusk" to glassColorsFor(dark = true, DarkPalette.WARM_DUSK),
+        "midnight aurora" to glassColorsFor(dark = true, DarkPalette.MIDNIGHT_AURORA),
+    )
 
     @Test
     fun `light link color is the accent 28 percent darker`() {
@@ -46,22 +52,58 @@ class GlassThemeTest {
     }
 
     @Test
-    fun `floating glass is more transparent than cards in both themes`() {
+    fun `glass fills are neutral white at the specified strength`() {
+        val light = lightGlassColors()
+        val dark = darkGlassColors()
+        assertEquals(Color.White.copy(alpha = 0.55f), light.glassFill)
+        assertEquals(Color.White.copy(alpha = 0.12f), dark.glassFill)
+        assertEquals(Color.White.copy(alpha = 0.90f), light.glassBorderTop)
+        assertEquals(Color.White.copy(alpha = 0.30f), light.glassBorderBottom)
+        assertEquals(Color.White.copy(alpha = 0.40f), dark.glassBorderTop)
+        assertEquals(Color.White.copy(alpha = 0.06f), dark.glassBorderBottom)
         for ((name, colors) in palettes) {
-            assertTrue(name, colors.glassFillFloating.alpha < colors.glassFill.alpha)
-            assertTrue(name, colors.glassFallback.alpha > colors.glassFill.alpha)
+            assertTrue("$name controls are fainter than cards", colors.controlFill.alpha < colors.glassFill.alpha)
+            assertTrue("$name fallback is denser than the bar", colors.glassFallback.alpha > colors.glassFill.alpha)
         }
     }
 
     @Test
-    fun `white text on the accent passes text contrast in both themes`() {
+    fun `dark text is white and light text stays dark`() {
+        val dark = darkGlassColors()
+        assertEquals(Color.White, dark.textPrimary)
+        assertEquals(Color.White.copy(alpha = 0.75f), dark.textSecondary)
+        assertTrue(lightGlassColors().textPrimary.luminance() < 0.05f)
+    }
+
+    @Test
+    fun `the palette option only changes the dark background`() {
+        assertEquals(WarmDusk, glassColorsFor(dark = true).background)
+        assertEquals(MidnightAurora, glassColorsFor(dark = true, DarkPalette.MIDNIGHT_AURORA).background)
+        assertEquals(SoftDaylight, glassColorsFor(dark = false, DarkPalette.MIDNIGHT_AURORA).background)
+    }
+
+    @Test
+    fun `text on filled buttons passes text contrast in every palette`() {
         for ((name, colors) in palettes) {
-            assertTrue(name, contrastRatio(colors.onAccent, colors.accent) >= MIN_TEXT_CONTRAST)
+            assertTrue("$name on accent", contrastRatio(colors.onAccent, colors.accent) >= MIN_TEXT_CONTRAST)
+            assertTrue("$name on error", contrastRatio(colors.onError, colors.error) >= MIN_TEXT_CONTRAST)
         }
     }
 
     @Test
-    fun `all text passes text contrast on every glass backdrop in both themes`() {
+    fun `backdrops cover the darkest and brightest region bare, on a card and on a control`() {
+        for ((name, colors) in palettes) {
+            val backdrops = colors.glassBackdrops()
+            val (darkest, brightest) = colors.background.darkestAndBrightest()
+            assertEquals(name, 6, backdrops.size)
+            assertTrue(name, darkest in backdrops && brightest in backdrops)
+            assertTrue("$name glows are visible", brightest.luminance() - darkest.luminance() > 0.02f)
+            assertTrue(name, backdrops.all { it.alpha == 1f })
+        }
+    }
+
+    @Test
+    fun `all text passes text contrast on every glass backdrop in every palette`() {
         for ((name, colors) in palettes) {
             for (backdrop in colors.glassBackdrops()) {
                 assertTrue("$name link on $backdrop", contrastRatio(colors.link, backdrop) >= MIN_TEXT_CONTRAST)
@@ -74,11 +116,26 @@ class GlassThemeTest {
     }
 
     @Test
-    fun `status message text passes inside its tinted box in both themes`() {
+    fun `tab bar labels pass text contrast on the bar and the selected pill in every palette`() {
+        for ((name, colors) in palettes) {
+            val (darkest, brightest) = colors.background.darkestAndBrightest()
+            for (region in listOf(darkest, brightest)) {
+                val bar = colors.glassFill.compositeOver(colors.floatingScrim.compositeOver(region))
+                val pill = colors.selectedPill.compositeOver(bar)
+                for (backdrop in listOf(bar, pill, colors.glassFallback.compositeOver(region))) {
+                    assertTrue("$name primary on $backdrop", contrastRatio(colors.textPrimary, backdrop) >= MIN_TEXT_CONTRAST)
+                    assertTrue("$name secondary on $backdrop", contrastRatio(colors.textSecondary, backdrop) >= MIN_TEXT_CONTRAST)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `status message text passes inside its tinted box in every palette`() {
         for ((name, colors) in palettes) {
             for (tone in listOf(colors.error, colors.warning, colors.link)) {
                 for (backdrop in colors.glassBackdrops()) {
-                    val tinted = tone.copy(alpha = STATUS_TINT_ALPHA).compositeOver(backdrop)
+                    val tinted = tone.copy(alpha = STATUS_TINT_ALPHA).compositeOver(colors.statusUnderlay.compositeOver(backdrop))
                     assertTrue("$name $tone on $tinted", contrastRatio(tone, tinted) >= MIN_TEXT_CONTRAST)
                 }
             }
@@ -86,7 +143,7 @@ class GlassThemeTest {
     }
 
     @Test
-    fun `accent borders and indicators pass non-text contrast on glass in both themes`() {
+    fun `accent borders and indicators pass non-text contrast on glass in every palette`() {
         for ((name, colors) in palettes) {
             for (backdrop in colors.glassBackdrops()) {
                 assertTrue("$name emphasis on $backdrop", contrastRatio(colors.accentEmphasis, backdrop) >= MIN_UI_CONTRAST)
@@ -95,7 +152,7 @@ class GlassThemeTest {
     }
 
     @Test
-    fun `stock Material surfaces are solid and readable in both themes`() {
+    fun `stock Material surfaces are solid and readable in every palette`() {
         for ((name, colors) in palettes) {
             val s = colors.materialSurfaces
             val surfaces = listOf(s.surface, s.containerLowest, s.containerLow, s.container, s.containerHigh, s.containerHighest)
@@ -112,6 +169,15 @@ class GlassThemeTest {
     fun `contrast ratio matches known WCAG values`() {
         assertEquals(21f, contrastRatio(Color.Black, Color.White), 0.01f)
         assertEquals(1f, contrastRatio(Color.White, Color.White), 0.001f)
+    }
+
+    @Test
+    fun `contrast ratio composites translucent text over the background first`() {
+        // Fully transparent text shows the background itself: no contrast at all.
+        assertEquals(1f, contrastRatio(Color.White.copy(alpha = 0f), Color.Black), 0.001f)
+        val halfWhite = Color.White.copy(alpha = 0.5f)
+        val expected = contrastRatio(halfWhite.compositeOver(Color.Black), Color.Black)
+        assertEquals(expected, contrastRatio(halfWhite, Color.Black), 0.001f)
     }
 
     @Test

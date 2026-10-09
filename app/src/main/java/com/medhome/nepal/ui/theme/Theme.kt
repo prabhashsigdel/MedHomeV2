@@ -2,6 +2,8 @@ package com.medhome.nepal.ui.theme
 
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -12,10 +14,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import com.medhome.nepal.data.DarkPalette
 import com.medhome.nepal.ui.motion.LocalReducedMotion
 import com.medhome.nepal.ui.motion.MotionTokens
 import com.medhome.nepal.ui.motion.isReducedMotion
@@ -28,6 +32,8 @@ import com.medhome.nepal.ui.motion.isReducedMotion
 @Composable
 fun MedHomeTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    /** The dark theme's background; a developer option (release builds always get the default). */
+    darkPalette: DarkPalette = DarkPalette.DEFAULT,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -38,7 +44,7 @@ fun MedHomeTheme(
         )
     }
     val colors = animateGlassColors(
-        target = if (darkTheme) darkGlassColors() else lightGlassColors(),
+        target = glassColorsFor(darkTheme, darkPalette),
         reducedMotion = reducedMotion,
     )
     CompositionLocalProvider(
@@ -72,19 +78,17 @@ private fun animateGlassColors(target: GlassColors, reducedMotion: Boolean): Gla
         textSecondary = target.textSecondary.animated("textSecondary"),
         warning = target.warning.animated("warning"),
         error = target.error.animated("error"),
-        backgroundBase = target.backgroundBase.animated("backgroundBase"),
-        blobLavender = target.blobLavender.animated("blobLavender"),
-        blobSky = target.blobSky.animated("blobSky"),
-        blobPink = target.blobPink.animated("blobPink"),
+        onError = target.onError.animated("onError"),
+        background = animateMesh(target.background, reducedMotion),
         glassFill = target.glassFill.animated("glassFill"),
-        glassFillFloating = target.glassFillFloating.animated("glassFillFloating"),
+        controlFill = target.controlFill.animated("controlFill"),
+        glassBorderTop = target.glassBorderTop.animated("glassBorderTop"),
+        glassBorderBottom = target.glassBorderBottom.animated("glassBorderBottom"),
+        selectedPill = target.selectedPill.animated("selectedPill"),
+        divider = target.divider.animated("divider"),
+        floatingScrim = target.floatingScrim.animated("floatingScrim"),
         glassFallback = target.glassFallback.animated("glassFallback"),
-        glassBorder = target.glassBorder.animated("glassBorder"),
-        glassHighlight = target.glassHighlight.animated("glassHighlight"),
-        fieldFill = target.fieldFill.animated("fieldFill"),
-        fieldBorder = target.fieldBorder.animated("fieldBorder"),
-        shadow = target.shadow.animated("shadow"),
-        dialogFill = target.dialogFill.animated("dialogFill"),
+        statusUnderlay = target.statusUnderlay.animated("statusUnderlay"),
         materialSurfaces = surfaces.copy(
             surface = surfaces.surface.animated("surface"),
             containerLowest = surfaces.containerLowest.animated("containerLowest"),
@@ -95,6 +99,27 @@ private fun animateGlassColors(target: GlassColors, reducedMotion: Boolean): Gla
             outline = surfaces.outline.animated("outline"),
             outlineVariant = surfaces.outlineVariant.animated("outlineVariant"),
         ),
+    )
+}
+
+/**
+ * The glows move as well as recolor, since palettes place them differently. Only during a
+ * theme or palette switch: the background itself never animates.
+ */
+@Composable
+private fun animateMesh(target: MeshPalette, reducedMotion: Boolean): MeshPalette {
+    val colorSpec = if (reducedMotion) snap() else tween<Color>(THEME_CROSSFADE_MS, easing = MotionTokens.EaseOut)
+    val offsetSpec = if (reducedMotion) snap() else tween<Offset>(THEME_CROSSFADE_MS, easing = MotionTokens.EaseOut)
+    val floatSpec = if (reducedMotion) snap() else tween<Float>(THEME_CROSSFADE_MS, easing = MotionTokens.EaseOut)
+    return MeshPalette(
+        base = animateColorAsState(target.base, colorSpec, label = "meshBase").value,
+        glows = target.glows.mapIndexed { index, glow ->
+            Glow(
+                color = animateColorAsState(glow.color, colorSpec, label = "glowColor$index").value,
+                center = animateOffsetAsState(glow.center, offsetSpec, label = "glowCenter$index").value,
+                radius = animateFloatAsState(glow.radius, floatSpec, label = "glowRadius$index").value,
+            )
+        },
     )
 }
 
@@ -115,7 +140,7 @@ internal fun GlassColors.toColorScheme(): ColorScheme {
         onSecondaryContainer = link,
         tertiary = warning,
         onTertiary = if (isDark) materialSurfaces.surface else onAccent,
-        background = backgroundBase,
+        background = background.base,
         onBackground = textPrimary,
         surface = materialSurfaces.surface,
         onSurface = textPrimary,
@@ -135,7 +160,7 @@ internal fun GlassColors.toColorScheme(): ColorScheme {
         outline = materialSurfaces.outline,
         outlineVariant = materialSurfaces.outlineVariant,
         error = error,
-        onError = if (isDark) materialSurfaces.surface else onAccent,
+        onError = onError,
         errorContainer = error.copy(alpha = 0.16f).compositeOver(solid),
         onErrorContainer = error,
     )

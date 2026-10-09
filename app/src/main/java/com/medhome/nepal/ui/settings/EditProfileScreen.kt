@@ -1,7 +1,6 @@
 package com.medhome.nepal.ui.settings
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +23,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -50,6 +48,7 @@ import com.medhome.nepal.ui.components.GlassScreen
 import com.medhome.nepal.ui.components.GlassTextField
 import com.medhome.nepal.ui.components.ScreenTitle
 import com.medhome.nepal.ui.components.SegmentedChoice
+import com.medhome.nepal.ui.components.glassControl
 import com.medhome.nepal.ui.motion.entrance
 import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassShapes
@@ -137,9 +136,10 @@ private fun DateOfBirthField(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(GlassDimens.FieldHeight)
-                .clip(GlassShapes.Input)
-                .background(colors.fieldFill)
-                .border(GlassDimens.BorderWidth, if (error != null) colors.error else colors.fieldBorder, GlassShapes.Input)
+                .glassControl(GlassShapes.Input)
+                .then(
+                    if (error != null) Modifier.border(GlassDimens.BorderWidth, colors.error, GlassShapes.Input) else Modifier,
+                )
                 .clickable(enabled = enabled, role = Role.Button, onClick = onOpen)
                 .padding(start = 16.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,

@@ -66,20 +66,20 @@ val FloatingBarGap = 16.dp
 val LocalBottomBarClearance = staticCompositionLocalOf { 0.dp }
 
 /**
- * Glass background, optional top bar, scrollable keyboard-aware content and an optional
+ * Mesh background, optional top bar, scrollable keyboard-aware content and an optional
  * floating bottom bar. safeDrawing insets include the keyboard, so forms stay reachable.
  */
 @Composable
 fun GlassScreen(
     modifier: Modifier = Modifier,
     showBack: Boolean = false,
-    /** False inside a parent that already draws the glass background (the signed-in shell). */
+    /** False inside a parent that already draws the background (the signed-in shell). */
     drawBackground: Boolean = true,
     bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val parentBarClearance = LocalBottomBarClearance.current
-    MaybeGlassBackground(drawBackground = drawBackground, modifier = modifier) {
+    MaybeMeshBackground(drawBackground = drawBackground, modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -128,13 +128,13 @@ fun GlassScreen(
 }
 
 @Composable
-private fun MaybeGlassBackground(
+private fun MaybeMeshBackground(
     drawBackground: Boolean,
     modifier: Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
     if (drawBackground) {
-        GlassBackground(modifier = modifier, content = content)
+        MeshBackground(modifier = modifier, content = content)
     } else {
         Box(modifier = modifier.fillMaxSize(), content = content)
     }
@@ -269,7 +269,7 @@ fun PromptWithLink(
 
 enum class MessageKind { Error, Warning, Info }
 
-/** An inline message inside a card: tinted panel, readable text, optional actions. */
+/** An inline message inside a card: tinted panel (darkened first in dark), readable text, optional actions. */
 @Composable
 fun StatusMessage(
     @StringRes message: Int,
@@ -287,6 +287,7 @@ fun StatusMessage(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .background(colors.statusUnderlay, GlassShapes.Input)
             .background(tone.copy(alpha = STATUS_TINT_ALPHA), GlassShapes.Input)
             .padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = if (onDismiss != null || onRetry != null) 2.dp else 12.dp),
     ) {
@@ -312,7 +313,7 @@ fun ErrorMessage(error: AuthError, onDismiss: () -> Unit, onRetry: (() -> Unit)?
 
 @Composable
 fun GlassLoadingScreen() {
-    GlassBackground {
+    MeshBackground {
         CircularProgressIndicator(
             color = GlassTheme.colors.accentEmphasis,
             modifier = Modifier

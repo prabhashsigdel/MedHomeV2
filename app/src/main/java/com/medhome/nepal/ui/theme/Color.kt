@@ -3,7 +3,9 @@ package com.medhome.nepal.ui.theme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
+import com.medhome.nepal.data.DarkPalette
 
 /** The one place to change the brand color. Links and accent text derive from it. */
 val DefaultAccent = Color(0xFF4F5BD5)
@@ -11,11 +13,14 @@ val DefaultAccent = Color(0xFF4F5BD5)
 /** How much darker links are than the accent in the light theme, so they stay readable on glass. */
 const val LINK_DARKEN_FRACTION = 0.28f
 
-/** How much lighter links are than the accent in the dark theme. */
-const val DARK_LINK_LIGHTEN_FRACTION = 0.5f
+/**
+ * How much lighter links are than the accent in the dark theme. Pale, because links sit on glass
+ * over the glows and must keep 4.5:1 there.
+ */
+const val DARK_LINK_LIGHTEN_FRACTION = 0.7f
 
 /** How much lighter accent borders and indicators are in the dark theme (3:1 on dark glass). */
-const val DARK_EMPHASIS_LIGHTEN_FRACTION = 0.25f
+const val DARK_EMPHASIS_LIGHTEN_FRACTION = 0.5f
 
 /**
  * Every color the glass design uses. Light and dark are two instances of this class; components
@@ -34,23 +39,30 @@ data class GlassColors(
     val textSecondary: Color,
     val warning: Color,
     val error: Color,
-    val backgroundBase: Color,
-    val blobLavender: Color,
-    val blobSky: Color,
-    val blobPink: Color,
-    /** Cards. */
+    /** Text on a filled [error] surface (the Danger button). */
+    val onError: Color,
+    /** The mesh gradient behind everything, and inside sheets and dialogs. */
+    val background: MeshPalette,
+    /** Cards, sheets, dialogs and the floating bar: a neutral translucent white. */
     val glassFill: Color,
-    /** Floating bars: the most transparent surface. */
-    val glassFillFloating: Color,
-    /** Used instead of blur below Android 12. */
+    /**
+     * Fields, secondary buttons and chips. Fainter than [glassFill], because they usually sit on
+     * a card and the two stack: a second full layer would wash out text in the dark theme.
+     */
+    val controlFill: Color,
+    /** Every glass border is 1px, fading from [glassBorderTop] down to [glassBorderBottom]. */
+    val glassBorderTop: Color,
+    val glassBorderBottom: Color,
+    /** The selected tab: a lighter glass pill, not an accent color. */
+    val selectedPill: Color,
+    /** Lines between rows of a card. */
+    val divider: Color,
+    /** Under the floating bar's fill, so blurred content behind it can't lower its contrast. */
+    val floatingScrim: Color,
+    /** The floating bar's fill below Android 12, where there is no blur. */
     val glassFallback: Color,
-    val glassBorder: Color,
-    val glassHighlight: Color,
-    val fieldFill: Color,
-    val fieldBorder: Color,
-    val shadow: Color,
-    /** Dialogs live in their own window with nothing to blur, so their glass is denser. */
-    val dialogFill: Color,
+    /** Under the tint of inline status messages: keeps their pale text readable in dark. */
+    val statusUnderlay: Color,
     /**
      * Solid colors for stock Material 3 components (date pickers, menus, sheets, snackbars),
      * which must never be translucent. Glass is applied only through our own components.
@@ -84,7 +96,7 @@ fun Color.darken(fraction: Float): Color {
 fun Color.lighten(fraction: Float): Color =
     lerp(this, Color.White, fraction.coerceIn(0f, 1f)).copy(alpha = alpha)
 
-fun lightGlassColors(accent: Color = DefaultAccent): GlassColors = GlassColors(
+fun lightGlassColors(accent: Color = DefaultAccent, background: MeshPalette = SoftDaylight): GlassColors = GlassColors(
     isDark = false,
     accent = accent,
     onAccent = Color.White,
@@ -95,19 +107,17 @@ fun lightGlassColors(accent: Color = DefaultAccent): GlassColors = GlassColors(
     // Dark enough for 4.5:1 inside tinted message boxes on every light backdrop.
     warning = Color(0xFF803905),
     error = Color(0xFF931F17),
-    backgroundBase = Color(0xFFE3E8E6),
-    blobLavender = Color(red = 156, green = 140, blue = 230).copy(alpha = 0.50f),
-    blobSky = Color(red = 120, green = 170, blue = 235).copy(alpha = 0.45f),
-    blobPink = Color(red = 240, green = 170, blue = 200).copy(alpha = 0.40f),
-    glassFill = Color.White.copy(alpha = 0.38f),
-    glassFillFloating = Color.White.copy(alpha = 0.30f),
-    glassFallback = Color.White.copy(alpha = 0.70f),
-    glassBorder = Color.White.copy(alpha = 0.60f),
-    glassHighlight = Color.White.copy(alpha = 0.90f),
-    fieldFill = Color.White.copy(alpha = 0.50f),
-    fieldBorder = Color.White,
-    shadow = Color(0xFF1A1E1C).copy(alpha = 0.18f),
-    dialogFill = Color.White.copy(alpha = 0.88f),
+    onError = Color.White,
+    background = background,
+    glassFill = Color.White.copy(alpha = 0.55f),
+    controlFill = Color.White.copy(alpha = 0.40f),
+    glassBorderTop = Color.White.copy(alpha = 0.90f),
+    glassBorderBottom = Color.White.copy(alpha = 0.30f),
+    selectedPill = Color.White.copy(alpha = 0.60f),
+    divider = Color(0xFF1A1E1C).copy(alpha = 0.08f),
+    floatingScrim = background.base.copy(alpha = FLOATING_SCRIM_ALPHA),
+    glassFallback = Color.White.copy(alpha = 0.55f).compositeOver(background.base).copy(alpha = FALLBACK_ALPHA),
+    statusUnderlay = Color.Transparent,
     materialSurfaces = MaterialSurfaces(
         surface = Color(0xFFFAFBFB),
         containerLowest = Color.White,
@@ -121,46 +131,48 @@ fun lightGlassColors(accent: Color = DefaultAccent): GlassColors = GlassColors(
 )
 
 /**
- * Dark glass: deep navy-charcoal base, dimmed blobs, dark translucent cards with a faint light
- * border, light text. Links and accent marks are lighter tints of the accent, because the light
- * theme's darker link would vanish on dark glass. Contrast is checked by GlassThemeTest.
+ * Dark glass: a dark mesh gradient, white 12% glass with a bright-to-faint border, white text.
+ * Links, status colors and accent marks are pale, because they sit on glass over the glows,
+ * which are brighter than the base. Contrast is checked by GlassThemeTest for every palette.
  */
-fun darkGlassColors(accent: Color = DefaultAccent): GlassColors {
-    val glass = Color(0xFF151B2C)
-    return GlassColors(
-        isDark = true,
-        accent = accent,
-        onAccent = Color.White,
-        accentEmphasis = accent.lighten(DARK_EMPHASIS_LIGHTEN_FRACTION),
-        link = accent.lighten(DARK_LINK_LIGHTEN_FRACTION),
-        textPrimary = Color(0xFFEEF1F7),
-        textSecondary = Color(0xFFB9C1D0),
-        warning = Color(0xFFF5B26B),
-        error = Color(0xFFFF8A80),
-        backgroundBase = Color(0xFF0E1320),
-        blobLavender = Color(red = 156, green = 140, blue = 230).copy(alpha = 0.28f),
-        blobSky = Color(red = 120, green = 170, blue = 235).copy(alpha = 0.22f),
-        blobPink = Color(red = 240, green = 170, blue = 200).copy(alpha = 0.16f),
-        glassFill = glass.copy(alpha = 0.55f),
-        glassFillFloating = glass.copy(alpha = 0.45f),
-        glassFallback = glass.copy(alpha = 0.85f),
-        glassBorder = Color.White.copy(alpha = 0.12f),
-        glassHighlight = Color.White.copy(alpha = 0.22f),
-        fieldFill = Color.White.copy(alpha = 0.06f),
-        fieldBorder = Color.White.copy(alpha = 0.18f),
-        shadow = Color.Black.copy(alpha = 0.45f),
-        dialogFill = Color(0xFF182032).copy(alpha = 0.96f),
-        materialSurfaces = MaterialSurfaces(
-            surface = Color(0xFF121826),
-            containerLowest = Color(0xFF0B0F1A),
-            containerLow = Color(0xFF141A28),
-            container = Color(0xFF182032),
-            containerHigh = Color(0xFF1D2638),
-            containerHighest = Color(0xFF232D42),
-            outline = Color(0xFF8C95A8),
-            outlineVariant = Color(0xFF3A4458),
-        ),
-    )
-}
+fun darkGlassColors(accent: Color = DefaultAccent, background: MeshPalette = WarmDusk): GlassColors = GlassColors(
+    isDark = true,
+    accent = accent,
+    onAccent = Color.White,
+    accentEmphasis = accent.lighten(DARK_EMPHASIS_LIGHTEN_FRACTION),
+    link = accent.lighten(DARK_LINK_LIGHTEN_FRACTION),
+    textPrimary = Color.White,
+    textSecondary = Color.White.copy(alpha = 0.75f),
+    warning = Color(0xFFF9CFA0),
+    error = Color(0xFFFFC9C4),
+    onError = Color(0xFF3A0B0E),
+    background = background,
+    glassFill = Color.White.copy(alpha = 0.12f),
+    controlFill = Color.White.copy(alpha = 0.06f),
+    glassBorderTop = Color.White.copy(alpha = 0.40f),
+    glassBorderBottom = Color.White.copy(alpha = 0.06f),
+    selectedPill = Color.White.copy(alpha = 0.10f),
+    divider = Color.White.copy(alpha = 0.10f),
+    floatingScrim = background.base.copy(alpha = FLOATING_SCRIM_ALPHA),
+    glassFallback = Color.White.copy(alpha = 0.12f).compositeOver(background.base).copy(alpha = FALLBACK_ALPHA),
+    statusUnderlay = Color.Black.copy(alpha = 0.20f),
+    materialSurfaces = MaterialSurfaces(
+        surface = Color(0xFF121826),
+        containerLowest = Color(0xFF0B0F1A),
+        containerLow = Color(0xFF141A28),
+        container = Color(0xFF182032),
+        containerHigh = Color(0xFF1D2638),
+        containerHighest = Color(0xFF232D42),
+        outline = Color(0xFF8C95A8),
+        outlineVariant = Color(0xFF3A4458),
+    ),
+)
+
+private const val FLOATING_SCRIM_ALPHA = 0.5f
+private const val FALLBACK_ALPHA = 0.94f
+
+/** The colors for a theme: [darkPalette] picks the dark background; light has one palette. */
+fun glassColorsFor(dark: Boolean, darkPalette: DarkPalette = DarkPalette.DEFAULT): GlassColors =
+    if (dark) darkGlassColors(background = darkPalette.mesh()) else lightGlassColors()
 
 val LocalGlassColors = staticCompositionLocalOf { lightGlassColors() }

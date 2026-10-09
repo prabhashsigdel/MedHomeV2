@@ -8,7 +8,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -63,7 +62,8 @@ import com.medhome.nepal.ui.theme.GlassTheme
 private val FocusedBorderWidth = 1.5.dp
 
 /**
- * 52dp field with a white 50% fill and white border. The label sits inside the field: centred
+ * 52dp glass field (the control fill and glass border; accent or error border when focused or
+ * invalid). The label sits inside the field: centred
  * like a placeholder when empty, floating small to the top once focused or filled (as Material's
  * filled text field), which saves a label line above every field. An error message fades in with
  * a small height expand below the field (no shaking). [hint] shows there when there is no error.
@@ -89,11 +89,12 @@ fun GlassTextField(
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    // Drawn over the glass border: transparent at rest, so focus and errors fade in on top of it.
     val borderColor by animateColorAsState(
         targetValue = when {
             error != null -> colors.error
             focused -> colors.accentEmphasis
-            else -> colors.fieldBorder
+            else -> Color.Transparent
         },
         animationSpec = feedbackTween(),
         label = "fieldBorder",
@@ -171,12 +172,11 @@ private fun FieldBox(
     trailing: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val colors = GlassTheme.colors
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(GlassDimens.FieldHeight)
-            .background(colors.fieldFill, GlassShapes.Input)
+            .glassControl(GlassShapes.Input)
             .border(
                 if (focused || hasError) FocusedBorderWidth else GlassDimens.BorderWidth,
                 borderColor,
