@@ -374,6 +374,65 @@ class SessionManagerTest {
         }
     }
 
+    /** Runs [block] with a session that records the state each reminder wipe saw. */
+    private suspend fun TestScope.withReminderWipes(
+        auth: FakeAuthDataSource,
+        block: suspend (SessionManager, List<SessionState>) -> Unit,
+    ) {
+        val scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        val seen = mutableListOf<SessionState>()
+        lateinit var session: SessionManager
+        session = SessionManager(auth, profiles, google, scope, clearReminders = { seen += session.state.value })
+        try {
+            block(session, seen)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `sign out wipes reminders after signed out is published`() = runTest {
+        withReminderWipes(FakeAuthDataSource(passwordUser())) { session, seen ->
+            session.start()
+            session.signOut()
+            assertEquals(listOf(SessionState.SignedOut()), seen)
+        }
+    }
+
+    @Test
+    fun `account deletion wipes reminders`() = runTest {
+        withReminderWipes(FakeAuthDataSource(passwordUser())) { session, seen ->
+            session.start()
+            session.deleteAccount(Reauth.Password("password123"))
+            assertEquals(listOf(SessionState.SignedOut()), seen)
+        }
+    }
+
+    @Test
+    fun `an external sign out wipes reminders`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser())
+        withReminderWipes(auth) { session, seen ->
+            session.start()
+            auth.signOutExternally()
+            assertEquals(listOf(SessionState.SignedOut()), seen)
+        }
+    }
+
+    @Test
+    fun `a failing reminder wipe doesn't stop sign out or the cache wipe`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser())
+        val scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        try {
+            val session = SessionManager(auth, profiles, google, scope, clearReminders = { error("Disk full") })
+            session.start()
+            session.signOut()
+            assertEquals(SessionState.SignedOut(), session.state.value)
+            assertEquals(1, profiles.clearCount)
+        } finally {
+            scope.cancel()
+        }
+    }
+
     @Test
     fun `failed profile load clears local data when signing out`() = runTest {
         profiles.ensureError = AuthError.NETWORK

@@ -1,6 +1,5 @@
 package com.medhome.nepal.ui.admin
 
-import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.border
@@ -12,13 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimeInput
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,7 +22,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -62,6 +55,7 @@ import com.medhome.nepal.ui.components.ScreenTitle
 import com.medhome.nepal.ui.components.SectionTitle
 import com.medhome.nepal.ui.components.SettingsDivider
 import com.medhome.nepal.ui.components.StatusMessage
+import com.medhome.nepal.ui.components.TimePickerDialog
 import com.medhome.nepal.ui.components.glassControl
 import com.medhome.nepal.ui.doctors.LoadingCard
 import com.medhome.nepal.ui.doctors.label
@@ -348,36 +342,6 @@ private fun TimeButton(
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = description }
             .padding(horizontal = 12.dp, vertical = 12.dp),
-    )
-}
-
-/** Material's time input (solid surfaces), in the phone's 12 / 24-hour setting. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TimePickerDialog(
-    @StringRes title: Int,
-    initial: TimeOfDay,
-    onConfirm: (TimeOfDay) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val context = LocalContext.current
-    val state = rememberTimePickerState(
-        initialHour = initial.hour,
-        initialMinute = initial.minute,
-        is24Hour = DateFormat.is24HourFormat(context),
-    )
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(title)) },
-        text = { TimeInput(state = state) },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(TimeOfDay(state.hour * TimeOfDay.MINUTES_PER_HOUR + state.minute)) }) {
-                Text(stringResource(R.string.action_ok))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-        },
     )
 }
 

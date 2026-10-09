@@ -229,6 +229,17 @@ fun GlassLinkButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
+    GlassLinkButton(text = stringResource(text), onClick = onClick, modifier = modifier, enabled = enabled)
+}
+
+/** [GlassLinkButton] with text already resolved (for text with arguments). */
+@Composable
+fun GlassLinkButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
     val interactionSource = remember { MutableInteractionSource() }
     TextButton(
         onClick = onClick,
@@ -240,7 +251,7 @@ fun GlassLinkButton(
             .pressScale(interactionSource),
     ) {
         Text(
-            text = stringResource(text),
+            text = text,
             style = MaterialTheme.typography.labelLarge,
             color = GlassTheme.colors.link,
         )

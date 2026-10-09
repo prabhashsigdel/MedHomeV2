@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -33,6 +34,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -43,12 +45,15 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.medhome.nepal.R
+import com.medhome.nepal.ui.common.LocaleFormat
+import com.medhome.nepal.ui.common.currentLocale
 import com.medhome.nepal.ui.components.glassBorder
 import com.medhome.nepal.ui.motion.pressScale
 import com.medhome.nepal.ui.theme.GlassTheme
 import java.util.Date
 
 private val AvatarSize = 48.dp
+private val BadgeSize = 8.dp
 
 /** Test tag on the Home avatar (the way into Profile). */
 const val HOME_AVATAR_TAG = "home_avatar"
@@ -56,13 +61,22 @@ const val HOME_AVATAR_TAG = "home_avatar"
 /** Test tag on the avatar's person icon, shown when the name has no initials. */
 const val HOME_AVATAR_ICON_TAG = "home_avatar_icon"
 
-/** Today's date over the greeting on the left, the profile avatar on the right. */
+/** Test tag on the Home bell (the way into today's reminders). */
+const val HOME_BELL_TAG = "home_bell"
+
+/**
+ * Today's date over the greeting on the left; on the right the reminders bell (when
+ * [onOpenReminders] is given) and the profile avatar.
+ */
 @Composable
 fun HomeHeader(
     name: String,
     firstName: String?,
     onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenReminders: (() -> Unit)? = null,
+    /** Doses missed today: a dot on the bell, and said by TalkBack. */
+    missedCount: Int = 0,
 ) {
     val colors = GlassTheme.colors
     val locale = LocalConfiguration.current.locales[0]
@@ -83,7 +97,52 @@ fun HomeHeader(
             )
         }
         Spacer(Modifier.width(16.dp))
+        if (onOpenReminders != null) {
+            RemindersBell(missedCount = missedCount, onClick = onOpenReminders)
+            Spacer(Modifier.width(8.dp))
+        }
         ProfileAvatar(name = name, onClick = onOpenProfile)
+    }
+}
+
+/** Glass circle with a bell, like the avatar; a dot (and the count, for TalkBack) when doses were missed. */
+@Composable
+private fun RemindersBell(missedCount: Int, onClick: () -> Unit) {
+    val colors = GlassTheme.colors
+    val description = if (missedCount > 0) {
+        pluralStringResource(R.plurals.home_bell_missed, missedCount, LocaleFormat.number(missedCount, currentLocale()))
+    } else {
+        stringResource(R.string.home_bell)
+    }
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
+        modifier = Modifier
+            .size(AvatarSize)
+            .pressScale(interactionSource)
+            .clip(CircleShape)
+            .background(colors.glassFill)
+            .glassBorder(CircleShape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .semantics { contentDescription = description }
+            .testTag(HOME_BELL_TAG),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painter = painterResource(R.drawable.ic_sym_notifications), contentDescription = null, tint = colors.textPrimary)
+        if (missedCount > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 11.dp, end = 12.dp)
+                    .size(BadgeSize)
+                    .clip(CircleShape)
+                    .background(colors.error),
+            )
+        }
     }
 }
 

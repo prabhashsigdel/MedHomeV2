@@ -22,6 +22,9 @@ import com.medhome.nepal.ui.components.SectionTitle
 import com.medhome.nepal.ui.components.SettingsDivider
 import com.medhome.nepal.ui.components.SettingsRow
 import com.medhome.nepal.ui.motion.entrance
+import com.medhome.nepal.domain.TodayDose
+import com.medhome.nepal.ui.reminders.TodayMedicinesCard
+import com.medhome.nepal.ui.reminders.TodayReminders
 import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassTheme
 
@@ -47,6 +50,10 @@ fun PatientHomeScreen(
     nextAppointment: NextAppointment = NextAppointment.None,
     /** Opens the Bookings tab from the next-appointment card. */
     onOpenBookings: () -> Unit = {},
+    today: TodayReminders = TodayReminders(),
+    onToggleDose: (TodayDose) -> Unit = {},
+    /** The bell: today's reminders. */
+    onOpenReminders: () -> Unit = {},
 ) {
     GlassScreen(drawBackground = false) {
         HomeHeader(
@@ -54,6 +61,8 @@ fun PatientHomeScreen(
             firstName = profile.firstName,
             onOpenProfile = onOpenProfile,
             modifier = Modifier.entrance(0),
+            onOpenReminders = onOpenReminders,
+            missedCount = today.missed.size,
         )
 
         // One column with its own rhythm, instead of the screen's wider item spacing.
@@ -63,7 +72,11 @@ fun PatientHomeScreen(
             }
 
             HomeSection(title = R.string.home_todays_medicines, modifier = Modifier.entrance(2)) {
-                EmptyStateCard(title = R.string.home_no_medicines, body = R.string.home_no_medicines_body)
+                TodayMedicinesCard(
+                    state = today,
+                    onToggle = onToggleDose,
+                    emptyCard = { title, body -> EmptyStateCard(title = title, body = body) },
+                )
             }
 
             HomeSection(title = R.string.home_shortcuts, modifier = Modifier.entrance(3)) {

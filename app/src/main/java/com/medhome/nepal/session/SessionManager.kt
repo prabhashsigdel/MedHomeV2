@@ -41,6 +41,11 @@ class SessionManager(
      * once the account is gone). Throws [AuthException] if it couldn't; deletion then stops.
      */
     private val cancelUpcomingBookings: suspend () -> Unit = {},
+    /**
+     * Cancels every reminder alarm and notification and wipes the reminder database (medicine
+     * names are health data). Runs after SignedOut is published, with the other local data.
+     */
+    private val clearReminders: suspend () -> Unit = {},
 ) {
     private val _state = MutableStateFlow<SessionState>(SessionState.Loading)
     val state: StateFlow<SessionState> = _state.asStateFlow()
@@ -251,6 +256,7 @@ class SessionManager(
 
     /** Failing to wipe the cache must not block sign-out; it is logged instead. */
     private suspend fun clearLocalData() {
+        logFailure("clearReminders") { clearReminders() }
         logFailure("clearLocalData") { profiles.clearLocalData() }
     }
 

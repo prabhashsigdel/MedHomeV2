@@ -21,11 +21,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -133,6 +136,60 @@ fun SettingsValueRow(
         )
         Spacer(Modifier.width(12.dp))
         Text(text = value, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+    }
+}
+
+/**
+ * A setting that is on or off: "Medicine reminders   [switch]". The whole row toggles; TalkBack
+ * reads it as one switch with its title and supporting line.
+ */
+@Composable
+fun SettingsSwitchRow(
+    @StringRes title: Int,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    @StringRes subtitle: Int? = null,
+    enabled: Boolean = true,
+) {
+    val colors = GlassTheme.colors
+    val interactionSource = remember { MutableInteractionSource() }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = RowMinHeight)
+            .pressScale(interactionSource)
+            .toggleable(
+                value = checked,
+                interactionSource = interactionSource,
+                indication = ripple(),
+                enabled = enabled,
+                role = Role.Switch,
+                onValueChange = onCheckedChange,
+            )
+            .padding(horizontal = GlassDimens.CardPadding, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(text = stringResource(title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+            if (subtitle != null) {
+                Text(text = stringResource(subtitle), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(
+            checked = checked,
+            // The row toggles, so TalkBack sees one switch, not two controls.
+            onCheckedChange = null,
+            enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = colors.onAccent,
+                checkedTrackColor = colors.accent,
+                checkedBorderColor = colors.accent,
+                uncheckedThumbColor = colors.textSecondary,
+                uncheckedTrackColor = colors.controlFill,
+                uncheckedBorderColor = colors.textSecondary,
+            ),
+        )
     }
 }
 

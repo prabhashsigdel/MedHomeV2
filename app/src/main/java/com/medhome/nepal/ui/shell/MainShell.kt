@@ -62,7 +62,6 @@ import com.medhome.nepal.ui.booking.NextAppointmentViewModel
 import com.medhome.nepal.ui.doctors.DoctorDetailScreen
 import com.medhome.nepal.ui.doctors.DoctorViewModels
 import com.medhome.nepal.ui.doctors.FindDoctorScreen
-import com.medhome.nepal.ui.home.ComingSoonFeature
 import com.medhome.nepal.ui.home.ComingSoonScreen
 import com.medhome.nepal.ui.home.HomeShortcut
 import com.medhome.nepal.ui.home.PatientHomeScreen
@@ -75,6 +74,14 @@ import com.medhome.nepal.ui.navigation.navigateOnceWith
 import com.medhome.nepal.ui.navigation.popIfTop
 import com.medhome.nepal.ui.profile.ProfileScreen
 import com.medhome.nepal.ui.profile.ProfileViewModel
+import com.medhome.nepal.ui.reminders.FormResult
+import com.medhome.nepal.ui.reminders.MedicineFormScreen
+import com.medhome.nepal.ui.reminders.MedicineFormViewModel
+import com.medhome.nepal.ui.reminders.MedicinesScreen
+import com.medhome.nepal.ui.reminders.ReminderViewModels
+import com.medhome.nepal.ui.reminders.TodayRemindersScreen
+import com.medhome.nepal.ui.reminders.TodayRemindersViewModel
+import com.medhome.nepal.ui.reminders.rememberNotificationPermissionRequest
 import com.medhome.nepal.ui.settings.SettingsPage
 import com.medhome.nepal.ui.settings.SettingsPageScreen
 import dev.chrisbanes.haze.hazeSource
@@ -101,9 +108,13 @@ fun MainShell(
     doctorViewModelFactory: ViewModelProvider.Factory = DoctorViewModels.Factory,
     bookingViewModelFactory: ViewModelProvider.Factory = BookingViewModels.Factory,
     adminViewModelFactory: ViewModelProvider.Factory = AdminViewModels.Factory,
+    reminderViewModelFactory: ViewModelProvider.Factory = ReminderViewModels.Factory,
 ) {
     when (signedInHomeFor(session.profile.role)) {
-        SignedInHome.PATIENT_TABS -> PatientShell(session, profileViewModelFactory, doctorViewModelFactory, bookingViewModelFactory)
+        SignedInHome.PATIENT_TABS -> PatientShell(
+            session,
+            ShellFactories(profileViewModelFactory, doctorViewModelFactory, bookingViewModelFactory, reminderViewModelFactory),
+        )
         SignedInHome.ADMIN_PANEL -> AdminShell(session, adminViewModelFactory, profileViewModelFactory)
         SignedInHome.STAFF_PLACEHOLDER -> StaffHomeScreen(viewModel = viewModel(factory = profileViewModelFactory))
     }
@@ -113,7 +124,10 @@ fun MainShell(
 // settings pages are pushed on Home's stack (opened from the avatar).
 @Serializable internal data object HomeTab
 @Serializable internal data object HomeRoute
-@Serializable internal data class ComingSoonRoute(val feature: ComingSoonFeature)
+@Serializable internal data object MedicinesRoute
+// The property name is ReminderViewModels.ARG_MEDICINE_ID; 0 adds a new medicine.
+@Serializable internal data class MedicineFormRoute(val medicineId: Long)
+@Serializable internal data object TodayRemindersRoute
 @Serializable internal data object FindDoctorRoute
 // The property name is DoctorViewModels.ARG_DOCTOR_ID: the detail ViewModel reads it from there.
 @Serializable internal data class DoctorDetailRoute(val doctorId: String)
@@ -149,19 +163,28 @@ private enum class PatientTab(
 
 private val NavItems = PatientTab.entries.map { NavBarItem(it.label, it.icon) }
 
+/** The patient shell's ViewModel factories (fakes in JVM tests). */
+private class ShellFactories(
+    val profile: ViewModelProvider.Factory,
+    val doctors: ViewModelProvider.Factory,
+    val bookings: ViewModelProvider.Factory,
+    val reminders: ViewModelProvider.Factory,
+)
+
 /**
  * Patient app: one mesh background, a nested NavHost with a back stack per tab, and the
  * floating tab bar on top (shown on tab roots only; pushed screens get a back arrow instead).
  * Back from a non-Home tab root returns to Home, because tab switches keep Home underneath.
  */
 @Composable
-private fun PatientShell(
-    session: SessionState.SignedIn,
-    profileViewModelFactory: ViewModelProvider.Factory,
-    doctorViewModelFactory: ViewModelProvider.Factory,
-    bookingViewModelFactory: ViewModelProvider.Factory,
-) {
+private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactories) {
+    val profileViewModelFactory = factories.profile
+    val doctorViewModelFactory = factories.doctors
+    val bookingViewModelFactory = factories.bookings
+    val reminderViewModelFactory = factories.reminders
     val navController = rememberNavController()
+    // A booking sets its first reminders: ask for notifications then (Android 13+), never at launch.
+    val askNotifications = rememberNotificationPermissionRequest()
     val shellNavigator = remember(navController) { ShellNavigator { navController.selectTab(PatientTab.of(it)) } }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
@@ -199,6 +222,8 @@ private fun PatientShell(
                     composable<HomeRoute> {
                         val nextAppointment = viewModel<NextAppointmentViewModel>(factory = bookingViewModelFactory)
                         val next by nextAppointment.state.collectAsStateWithLifecycle()
+                        val todayReminders = viewModel<TodayRemindersViewModel>(factory = reminderViewModelFactory)
+                        val today by todayReminders.state.collectAsStateWithLifecycle()
                         TabRoot {
                             PatientHomeScreen(
                                 profile = session.profile,
@@ -206,6 +231,9 @@ private fun PatientShell(
                                 onShortcut = navigateOnceWith { shortcut: HomeShortcut -> navController.openShortcut(shortcut, shellNavigator) },
                                 nextAppointment = next,
                                 onOpenBookings = { shellNavigator.selectTab(ShellTab.BOOKINGS) },
+                                today = today,
+                                onToggleDose = todayReminders::toggleTaken,
+                                onOpenReminders = navigateOnce { navController.navigate(TodayRemindersRoute) { launchSingleTop = true } },
                             )
                         }
                     }
@@ -224,11 +252,30 @@ private fun PatientShell(
                     composable<BookAppointmentRoute> { entry ->
                         BookAppointmentScreen(
                             viewModel = viewModel(factory = bookingViewModelFactory),
-                            onBooked = { navController.finishBooking(entry) },
+                            onBooked = {
+                                if (navController.currentBackStackEntry?.id == entry.id) askNotifications()
+                                navController.finishBooking(entry)
+                            },
                         )
                     }
-                    composable<ComingSoonRoute> { entry ->
-                        ComingSoonScreen(title = entry.toRoute<ComingSoonRoute>().feature.title, showBack = true)
+                    composable<MedicinesRoute> {
+                        MedicinesScreen(
+                            viewModel = viewModel(factory = reminderViewModelFactory),
+                            onAdd = navigateOnce { navController.navigate(MedicineFormRoute(MedicineFormViewModel.NEW)) },
+                            onOpen = navigateOnceWith { id: Long -> navController.navigate(MedicineFormRoute(id)) },
+                        )
+                    }
+                    composable<MedicineFormRoute> { entry ->
+                        MedicineFormScreen(
+                            viewModel = viewModel(factory = reminderViewModelFactory),
+                            onDone = { result -> navController.closeMedicineForm(entry, result) },
+                        )
+                    }
+                    composable<TodayRemindersRoute> {
+                        TodayRemindersScreen(
+                            viewModel = viewModel(factory = reminderViewModelFactory),
+                            onOpenMedicines = navigateOnce { navController.navigate(MedicinesRoute) { launchSingleTop = true } },
+                        )
                     }
                     composable<ProfileRoute> {
                         ProfileScreen(
@@ -236,6 +283,7 @@ private fun PatientShell(
                             usesPassword = session.usesPassword,
                             onOpenPage = navigateOnceWith { page: SettingsPage -> navController.navigate(SettingsRoute(page)) },
                             viewModel = viewModel(factory = profileViewModelFactory),
+                            reminderSettings = viewModel(factory = reminderViewModelFactory),
                         )
                     }
                     composable<SettingsRoute> { entry ->
@@ -326,13 +374,23 @@ private fun TabRoot(content: @Composable () -> Unit) {
 private fun NavDestination?.isIn(graph: KClass<*>): Boolean =
     this?.hierarchy?.any { it.hasRoute(graph) } == true
 
-/** Find a doctor and placeholders are pushed on Home; Health records is a tab of its own. */
+/** Find a doctor and Medicine reminders are pushed on Home; Health records is a tab of its own. */
 private fun NavHostController.openShortcut(shortcut: HomeShortcut, shell: ShellNavigator) {
     when (shortcut) {
         HomeShortcut.FIND_DOCTOR -> navigate(FindDoctorRoute)
-        HomeShortcut.MEDICINE_REMINDERS -> navigate(ComingSoonRoute(ComingSoonFeature.MEDICINE_REMINDERS))
+        HomeShortcut.MEDICINE_REMINDERS -> navigate(MedicinesRoute)
         HomeShortcut.HEALTH_RECORDS -> shell.selectTab(ShellTab.RECORDS)
     }
+}
+
+/**
+ * Closes the medicine form (only while it is on top, so once). The first time a reminder is set,
+ * the battery guide opens in its place, so Back from the guide returns to the medicines.
+ */
+private fun NavHostController.closeMedicineForm(entry: NavBackStackEntry, result: FormResult) {
+    if (currentBackStackEntry?.id != entry.id) return
+    popBackStack()
+    if (result is FormResult.Saved && result.showBatteryGuide) navigate(SettingsRoute(SettingsPage.BATTERY_GUIDE))
 }
 
 /**

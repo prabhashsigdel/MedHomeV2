@@ -10,9 +10,14 @@ import com.medhome.nepal.R
 import com.medhome.nepal.domain.Role
 import com.medhome.nepal.domain.Specialty
 import com.medhome.nepal.fakes.FakeBookingRepository
+import com.medhome.nepal.fakes.FakeReminderRepository
+import com.medhome.nepal.fakes.medicine
+import com.medhome.nepal.domain.NepalTime
+import com.medhome.nepal.domain.TimeOfDay
 import com.medhome.nepal.fakes.booking
 import com.medhome.nepal.fakes.doctor
 import com.medhome.nepal.fakes.fakeBookingViewModels
+import com.medhome.nepal.fakes.fakeReminderViewModels
 import com.medhome.nepal.domain.UserProfile
 import com.medhome.nepal.session.SessionState
 import com.medhome.nepal.ui.theme.MedHomeTheme
@@ -23,7 +28,7 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 
 /**
- * Home's three sections (next appointment, today's medicines, shortcuts) must all show above
+ * Home's three sections (next appointment, today's medicines with doses, shortcuts) must all show above
  * the floating bar without scrolling in a 360x740dp window (the shell's test size, as in
  * TabBarClearanceTest; Robolectric reports no system bars). Both languages, because Nepali
  * lines are taller. Bounds come from position and size, since bounds inside the scroll
@@ -51,9 +56,21 @@ class HomeFitTest {
         ),
     )
 
+    /** The tallest medicines card: a long name and dose, and more doses later today. */
+    private val reminders = FakeReminderRepository(
+        medicines = listOf(
+            medicine(
+                name = "Amoxicillin and clavulanic acid",
+                dose = "1 tablet after food",
+                times = (0 until 4).map { TimeOfDay((8 + 4 * it) * 60) },
+                startDate = NepalTime.dateOf(System.currentTimeMillis()),
+            ),
+        ),
+    )
+
     private fun assertShortcutsFitAboveBar() {
         compose.setContent {
-            MedHomeTheme(darkTheme = false) { MainShell(session, bookingViewModelFactory = fakeBookingViewModels(bookings)) }
+            MedHomeTheme(darkTheme = false) { MainShell(session, bookingViewModelFactory = fakeBookingViewModels(bookings), reminderViewModelFactory = fakeReminderViewModels(reminders)) }
         }
         // Entrance animations run on the test clock; idle means they have finished.
         compose.waitForIdle()

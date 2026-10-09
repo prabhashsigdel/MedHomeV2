@@ -17,6 +17,16 @@ import com.medhome.nepal.data.FirestoreDoctorRepository
 import com.medhome.nepal.data.FirebaseAuthDataSource
 import com.medhome.nepal.data.FirestoreProfileStore
 import com.medhome.nepal.data.ListenerRegistry
+import com.medhome.nepal.data.DataStoreReminderSettings
+import com.medhome.nepal.data.ReminderDatabase
+import com.medhome.nepal.data.ReminderSettings
+import com.medhome.nepal.data.RemindingBookingRepository
+import com.medhome.nepal.domain.Role
+import com.medhome.nepal.reminders.AndroidAlarmScheduler
+import com.medhome.nepal.reminders.AndroidReminderNotifier
+import com.medhome.nepal.reminders.AppointmentReminderSync
+import com.medhome.nepal.reminders.ReminderEngine
+import com.medhome.nepal.session.SessionState
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
 import com.medhome.nepal.domain.BookingError
@@ -50,6 +60,7 @@ class AppContainer(context: Context) {
         credentials = credentialClient,
         scope = appScope,
         listeners = listeners,
+        clearReminders = { reminderEngine.wipe() },
         cancelUpcomingBookings = {
             try {
                 bookingRepository.cancelAllUpcoming()
@@ -68,11 +79,45 @@ class AppContainer(context: Context) {
 
     val doctorRepository: DoctorRepository = FirestoreDoctorRepository({ FirebaseFirestore.getInstance() }, listeners)
 
-    val bookingRepository: BookingRepository = FirestoreBookingRepository(
-        firestore = { FirebaseFirestore.getInstance() },
-        currentUid = { authDataSource.currentUser?.uid },
-        verifiedClaim = authDataSource::emailVerifiedClaim,
-        listeners = listeners,
+    /** Booking and cancelling also set and remove the appointment's reminders at once. */
+    val bookingRepository: BookingRepository = RemindingBookingRepository(
+        delegate = FirestoreBookingRepository(
+            firestore = { FirebaseFirestore.getInstance() },
+            currentUid = { authDataSource.currentUser?.uid },
+            verifiedClaim = authDataSource::emailVerifiedClaim,
+            listeners = listeners,
+        ),
+        onBooked = { id, startAtMillis -> reminderEngine.addAppointment(id, startAtMillis, doctorName = "") },
+        onCancelled = { id -> reminderEngine.removeAppointment(id) },
+    )
+
+    /** Receivers' work: off the main thread, and not tied to any screen. */
+    val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    val reminderSettings: ReminderSettings = DataStoreReminderSettings(context)
+
+    /** Opened on first use (a receiver may be the first thing to need it). */
+    private val reminderDatabase by lazy { ReminderDatabase.create(context) }
+
+    /** Medicine and appointment reminders: local only (Room), wiped on sign-out. */
+    val reminderEngine: ReminderEngine by lazy {
+        ReminderEngine(
+            dao = reminderDatabase.reminderDao(),
+            settings = reminderSettings,
+            scheduler = AndroidAlarmScheduler(context),
+            notifier = AndroidReminderNotifier(context),
+            currentPatientUid = {
+                (sessionManager.state.value as? SessionState.SignedIn)?.profile?.takeIf { it.role == Role.PATIENT }?.uid
+            },
+            hasAccount = { authDataSource.currentUser != null },
+        )
+    }
+
+    val appointmentReminderSync = AppointmentReminderSync(
+        session = sessionManager.state,
+        bookings = bookingRepository,
+        apply = { uid, snapshot -> reminderEngine.syncAppointments(uid, snapshot.bookings, snapshot.fromCache) },
+        scope = appScope,
     )
 
     /** Only admins' screens use it; the rules refuse everyone else. */

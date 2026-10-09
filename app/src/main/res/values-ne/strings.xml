@@ -420,4 +420,129 @@
         <item quantity="one">%1$s मिनेट</item> <!-- review -->
         <item quantity="other">%1$s मिनेट</item> <!-- review -->
     </plurals>
+
+    <!-- Reminders. All new: review with a native speaker. -->
+    <string name="list_separator">, </string>
+    <string name="home_bell">आजका रिमाइन्डर</string> <!-- review -->
+    <plurals name="home_bell_missed">
+        <item quantity="one">आजका रिमाइन्डर, %1$s छुटेको</item> <!-- review -->
+        <item quantity="other">आजका रिमाइन्डर, %1$s छुटेका</item> <!-- review -->
+    </plurals>
+    <string name="home_no_doses_today_body">आज खानुपर्ने केही छैन।</string> <!-- review -->
+    <plurals name="home_more_doses">
+        <item quantity="one">आज अरू %1$s</item> <!-- review -->
+        <item quantity="other">आज अरू %1$s</item> <!-- review -->
+    </plurals>
+
+    <string name="dose_taken">खाइयो</string> <!-- review -->
+    <string name="dose_upcoming">बाँकी</string> <!-- review -->
+    <string name="dose_missed">छुट्यो</string> <!-- review -->
+    <string name="dose_change_failed">त्यो खुराक अपडेट गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+
+    <string name="medicines_title">औषधि रिमाइन्डर</string> <!-- review -->
+    <string name="medicines_subtitle">रिमाइन्डर यो फोनमा मात्र रहन्छन् र साइन आउट गर्दा हटाइन्छन्।</string> <!-- review -->
+    <string name="medicines_add">औषधि थप्नुहोस्</string> <!-- review -->
+    <string name="medicines_empty">अहिलेसम्म कुनै औषधि छैन</string> <!-- review -->
+    <string name="medicines_empty_body">हरेक खुराकमा रिमाइन्डर पाउन औषधि थप्नुहोस्।</string> <!-- review -->
+    <string name="medicines_reminders_off">सेटिङमा औषधि रिमाइन्डर बन्द छन्, त्यसैले कुनै पनि बज्दैन।</string> <!-- review -->
+
+    <string name="medicine_add_title">औषधि थप्नुहोस्</string> <!-- review -->
+    <string name="medicine_edit_title">औषधि सम्पादन</string> <!-- review -->
+    <string name="medicine_field_name">औषधिको नाम</string> <!-- review -->
+    <string name="medicine_field_dose">खुराक</string> <!-- review -->
+    <string name="medicine_field_dose_hint">जस्तै: १ चक्की, ५ मि.लि.</string> <!-- review -->
+    <string name="medicine_times_title">समय</string> <!-- review -->
+    <string name="medicine_times_per_day">दिनमा कति पटक</string> <!-- review -->
+    <string name="medicine_time_n">खुराक %1$s</string> <!-- review -->
+    <string name="medicine_pick_time">रिमाइन्डरको समय</string> <!-- review -->
+    <string name="medicine_days_title">दिनहरू</string> <!-- review -->
+    <string name="medicine_every_day">हरेक दिन</string> <!-- review -->
+    <string name="medicine_chosen_days">छानिएका दिन</string> <!-- review -->
+    <string name="medicine_dates_title">मितिहरू</string> <!-- review -->
+    <string name="medicine_start_date">सुरु मिति</string> <!-- review -->
+    <string name="medicine_end_date">अन्तिम मिति</string> <!-- review -->
+    <string name="medicine_no_end">अन्तिम मिति छैन</string> <!-- review -->
+    <string name="medicine_has_end">मितिमा सकिन्छ</string> <!-- review -->
+    <string name="medicine_delete">औषधि मेटाउनुहोस्</string> <!-- review -->
+    <string name="medicine_delete_title">यो औषधि मेटाउने?</string> <!-- review -->
+    <string name="medicine_delete_body">यसका रिमाइन्डर रोकिन्छन् र आजका खुराक होमबाट हटाइन्छन्।</string> <!-- review -->
+    <string name="medicine_not_found">यो औषधि अब यहाँ छैन।</string> <!-- review -->
+    <string name="medicine_save_failed">सेभ गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="medicine_error_form">चिन्ह लगाइएका फिल्डहरू जाँच गर्नुहोस्।</string> <!-- review -->
+    <string name="medicine_error_name_required">औषधिको नाम लेख्नुहोस्</string> <!-- review -->
+    <string name="medicine_error_name_long">६० वा कम अक्षर प्रयोग गर्नुहोस्</string> <!-- review -->
+    <string name="medicine_error_dose_required">खुराक लेख्नुहोस्</string> <!-- review -->
+    <string name="medicine_error_dose_long">४० वा कम अक्षर प्रयोग गर्नुहोस्</string> <!-- review -->
+    <string name="medicine_error_times_same">हरेक समय फरक हुनुपर्छ</string> <!-- review -->
+    <string name="medicine_error_days">कम्तीमा एक दिन छान्नुहोस्</string> <!-- review -->
+    <string name="medicine_error_end_before_start">अन्तिम मिति सुरु मितिभन्दा अघि हुन सक्दैन</string> <!-- review -->
+    <string name="medicine_name_dose">%1$s · %2$s</string>
+    <string name="medicine_schedule_line">%1$s · %2$s</string>
+    <string name="medicine_period_from">%1$s देखि</string> <!-- review -->
+    <string name="medicine_period_range">%1$s – %2$s</string>
+
+    <string name="today_reminders_title">आजका रिमाइन्डर</string> <!-- review -->
+    <string name="today_missed">छुटेका</string> <!-- review -->
+    <string name="today_upcoming">अझै बाँकी</string> <!-- review -->
+    <string name="today_appointments">आजका अपोइन्टमेन्ट</string> <!-- review -->
+    <string name="today_appointment_no_doctor">तपाईंको अपोइन्टमेन्ट</string> <!-- review -->
+    <string name="today_nothing_left">आजको सबै सकियो</string> <!-- review -->
+    <string name="today_nothing_left_body">आज कुनै खुराक वा अपोइन्टमेन्ट बाँकी छैन।</string> <!-- review -->
+    <plurals name="today_taken_count">
+        <item quantity="one">आज %1$s खुराक खाइयो</item> <!-- review -->
+        <item quantity="other">आज %1$s खुराक खाइयो</item> <!-- review -->
+    </plurals>
+    <string name="today_manage_medicines">औषधिहरू व्यवस्थापन</string> <!-- review -->
+
+    <string name="reminders_notifications_off">MedHome का सूचनाहरू बन्द छन्, त्यसैले रिमाइन्डर देखिन सक्दैनन्।</string> <!-- review -->
+    <string name="reminders_exact_off">रिमाइन्डर केही मिनेट ढिलो आउन सक्छन्। समयमै बज्न \"अलार्म र रिमाइन्डर\" अनुमति दिनुहोस्।</string> <!-- review -->
+    <string name="reminders_turn_on">खोल्नुहोस्</string> <!-- review -->
+    <string name="reminders_allow">अनुमति दिनुहोस्</string> <!-- review -->
+
+    <string name="settings_notifications">सूचनाहरू</string> <!-- review -->
+    <string name="settings_medicine_reminders">औषधि रिमाइन्डर</string> <!-- review -->
+    <string name="settings_medicine_reminders_hint">हरेक खुराकमा एक रिमाइन्डर</string> <!-- review -->
+    <string name="settings_appointment_reminders">अपोइन्टमेन्ट रिमाइन्डर</string> <!-- review -->
+    <string name="settings_appointment_reminders_hint">अघिल्लो साँझ र १ घण्टा अघि</string> <!-- review -->
+    <string name="settings_notifications_off">सूचनाहरू बन्द छन्</string> <!-- review -->
+    <string name="settings_notifications_off_hint">फोनको सेटिङमा खोल्नुहोस्</string> <!-- review -->
+    <string name="settings_battery_guide">ब्याट्री गाइड</string> <!-- review -->
+    <string name="settings_battery_guide_hint">रिमाइन्डर समयमै आउन</string> <!-- review -->
+    <string name="settings_reminders_failed">रिमाइन्डर परिवर्तन गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+
+    <string name="battery_title">रिमाइन्डर समयमै राख्नुहोस्</string> <!-- review -->
+    <string name="battery_intro">ब्याट्री बचाउन केही फोनले पृष्ठभूमिमा एपहरू रोक्छन्, र तिनका रिमाइन्डर ढिलो आउँछन् वा आउँदैनन्। यी सेटिङले MedHome का लागि त्यसो हुन दिँदैनन्।</string> <!-- review -->
+    <string name="battery_status_title">यो फोनमा</string> <!-- review -->
+    <string name="battery_status_notifications">सूचनाहरू</string> <!-- review -->
+    <string name="battery_status_exact">अलार्म र रिमाइन्डर</string> <!-- review -->
+    <string name="battery_status_battery">ब्याट्री अप्टिमाइज नगरिएको</string> <!-- review -->
+    <string name="battery_status_ok">खुला</string> <!-- review -->
+    <string name="battery_status_off">बन्द</string> <!-- review -->
+    <string name="battery_samsung_title">Samsung</string>
+    <string name="battery_samsung_steps">App info खोल्नुहोस्, Battery थिच्नुहोस् र Unrestricted छान्नुहोस्। त्यसपछि Settings &gt; Battery &gt; Background usage limits मा MedHome, Sleeping apps वा Deep sleeping apps मा नभएको हेर्नुहोस्, र यसलाई Never sleeping apps मा थप्नुहोस्।</string> <!-- review -->
+    <string name="battery_xiaomi_title">Xiaomi, Redmi र POCO</string> <!-- review -->
+    <string name="battery_xiaomi_steps">MedHome का लागि Autostart खोल्नुहोस्। App info &gt; Battery saver मा No restrictions छान्नुहोस्। हालका एपहरूमा MedHome लक पनि गर्न सक्नुहुन्छ (त्यसलाई तल स्वाइप गर्नुहोस्)।</string> <!-- review -->
+    <string name="battery_other_title">अन्य फोनहरू</string> <!-- review -->
+    <string name="battery_other_steps">Settings मा ब्याट्री अप्टिमाइजेसन (वा App info &gt; Battery) खोज्नुहोस् र MedHome लाई Unrestricted वा Don\'t optimize मा राख्नुहोस्।</string> <!-- review -->
+    <string name="battery_open_app_info">App info खोल्नुहोस्</string> <!-- review -->
+    <string name="battery_open_autostart">Autostart खोल्नुहोस्</string> <!-- review -->
+    <string name="battery_open_battery">ब्याट्री सेटिङ खोल्नुहोस्</string> <!-- review -->
+
+    <string name="channel_medicine">औषधि रिमाइन्डर</string> <!-- review -->
+    <string name="channel_medicine_description">तपाईंका औषधिको हरेक खुराकमा रिमाइन्डर</string> <!-- review -->
+    <string name="channel_appointments">अपोइन्टमेन्ट रिमाइन्डर</string> <!-- review -->
+    <string name="channel_appointments_description">हरेक अपोइन्टमेन्टको अघिल्लो साँझ र १ घण्टा अघि</string> <!-- review -->
+    <string name="channel_general">सामान्य</string> <!-- review -->
+    <string name="channel_general_description">MedHome का अन्य सन्देशहरू</string> <!-- review -->
+    <string name="reminder_medicine_title">%1$s खाने समय भयो</string> <!-- review -->
+    <string name="reminder_medicine_text">%1$s · %2$s</string>
+    <string name="reminder_medicine_public_title">औषधि खाने समय भयो</string> <!-- review -->
+    <string name="reminder_appointment_tomorrow">भोलि अपोइन्टमेन्ट छ</string> <!-- review -->
+    <string name="reminder_appointment_hour">१ घण्टामा अपोइन्टमेन्ट छ</string> <!-- review -->
+    <string name="reminder_appointment_text">%1$s, %2$s मा</string> <!-- review -->
+    <string name="reminder_appointment_text_no_doctor">%1$s मा</string> <!-- review -->
+    <string name="reminder_appointment_public_title">आउँदै गरेको अपोइन्टमेन्ट</string> <!-- review -->
+    <string name="reminder_public_text">विवरणका लागि MedHome खोल्नुहोस्</string> <!-- review -->
+    <string name="reminder_action_taken">खाइयो</string> <!-- review -->
+    <string name="reminder_action_snooze">१० मिनेटपछि</string> <!-- review -->
 </resources>

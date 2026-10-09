@@ -30,6 +30,7 @@ import com.medhome.nepal.fakes.FakeProfileStore
 import com.medhome.nepal.fakes.doctor
 import com.medhome.nepal.fakes.fakeAdminViewModels
 import com.medhome.nepal.fakes.fakeBookingViewModels
+import com.medhome.nepal.fakes.fakeReminderViewModels
 import com.medhome.nepal.session.SessionManager
 import com.medhome.nepal.session.SessionState
 import com.medhome.nepal.ui.admin.ADMIN_APPOINTMENT_TAG
@@ -87,6 +88,7 @@ class RoleRoutingTest {
                     doctorViewModelFactory = DoctorViewModels.factory { FakeDoctorRepository() },
                     bookingViewModelFactory = fakeBookingViewModels(FakeBookingRepository()),
                     adminViewModelFactory = fakeAdminViewModels(admin),
+                    reminderViewModelFactory = fakeReminderViewModels(),
                 )
             }
         }

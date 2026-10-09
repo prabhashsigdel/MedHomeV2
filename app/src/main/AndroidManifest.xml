@@ -3,6 +3,13 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Reminders. Notifications are asked for when the first reminder is set (Android 13+).
+         SCHEDULE_EXACT_ALARM, not USE_EXACT_ALARM: Play allows USE_EXACT_ALARM only for apps whose
+         core function is an alarm clock or calendar. Without it, alarms fall back to inexact
+         (see AndroidAlarmScheduler). Boot: reminders are set again after a restart. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- allowBackup="false" covers Android 11 and lower (no fullBackupContent needed);
          data_extraction_rules covers device transfer on Android 12+.
@@ -35,6 +42,26 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Alarms and the notification buttons, through the app's own immutable PendingIntents
+             only, so not exported. -->
+        <receiver
+            android:name=".reminders.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- System broadcasts reach a receiver that isn't exported; no other app can call it. -->
+        <receiver
+            android:name=".reminders.RescheduleReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Persists the per-app language on Android 12 and lower (13+ stores it natively). -->
         <service

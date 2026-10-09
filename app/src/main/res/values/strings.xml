@@ -421,4 +421,129 @@
         <item quantity="one">%1$s minute</item>
         <item quantity="other">%1$s minutes</item>
     </plurals>
+
+    <!-- Reminders -->
+    <string name="list_separator">, </string>
+    <string name="home_bell">Today\'s reminders</string>
+    <plurals name="home_bell_missed">
+        <item quantity="one">Today\'s reminders, %1$s missed</item>
+        <item quantity="other">Today\'s reminders, %1$s missed</item>
+    </plurals>
+    <string name="home_no_doses_today_body">Nothing to take today.</string>
+    <plurals name="home_more_doses">
+        <item quantity="one">%1$s more today</item>
+        <item quantity="other">%1$s more today</item>
+    </plurals>
+
+    <string name="dose_taken">Taken</string>
+    <string name="dose_upcoming">Upcoming</string>
+    <string name="dose_missed">Missed</string>
+    <string name="dose_change_failed">Couldn\'t update that dose. Try again.</string>
+
+    <string name="medicines_title">Medicine reminders</string>
+    <string name="medicines_subtitle">Reminders stay on this phone only and are removed when you sign out.</string>
+    <string name="medicines_add">Add medicine</string>
+    <string name="medicines_empty">No medicines yet</string>
+    <string name="medicines_empty_body">Add a medicine to get a reminder at each dose.</string>
+    <string name="medicines_reminders_off">Medicine reminders are turned off in Settings, so none will ring.</string>
+
+    <string name="medicine_add_title">Add medicine</string>
+    <string name="medicine_edit_title">Edit medicine</string>
+    <string name="medicine_field_name">Medicine name</string>
+    <string name="medicine_field_dose">Dose</string>
+    <string name="medicine_field_dose_hint">For example: 1 tablet, 5 ml</string>
+    <string name="medicine_times_title">Times</string>
+    <string name="medicine_times_per_day">Times a day</string>
+    <string name="medicine_time_n">Dose %1$s</string>
+    <string name="medicine_pick_time">Reminder time</string>
+    <string name="medicine_days_title">Days</string>
+    <string name="medicine_every_day">Every day</string>
+    <string name="medicine_chosen_days">Chosen days</string>
+    <string name="medicine_dates_title">Dates</string>
+    <string name="medicine_start_date">Start date</string>
+    <string name="medicine_end_date">End date</string>
+    <string name="medicine_no_end">No end date</string>
+    <string name="medicine_has_end">Ends on a date</string>
+    <string name="medicine_delete">Delete medicine</string>
+    <string name="medicine_delete_title">Delete this medicine?</string>
+    <string name="medicine_delete_body">Its reminders stop and today\'s doses are removed from Home.</string>
+    <string name="medicine_not_found">This medicine is no longer here.</string>
+    <string name="medicine_save_failed">Couldn\'t save. Try again.</string>
+    <string name="medicine_error_form">Check the highlighted fields.</string>
+    <string name="medicine_error_name_required">Enter the medicine\'s name</string>
+    <string name="medicine_error_name_long">Use 60 characters or fewer</string>
+    <string name="medicine_error_dose_required">Enter the dose</string>
+    <string name="medicine_error_dose_long">Use 40 characters or fewer</string>
+    <string name="medicine_error_times_same">Each time must be different</string>
+    <string name="medicine_error_days">Choose at least one day</string>
+    <string name="medicine_error_end_before_start">The end date can\'t be before the start date</string>
+    <string name="medicine_name_dose">%1$s · %2$s</string>
+    <string name="medicine_schedule_line">%1$s · %2$s</string>
+    <string name="medicine_period_from">From %1$s</string>
+    <string name="medicine_period_range">%1$s – %2$s</string>
+
+    <string name="today_reminders_title">Today\'s reminders</string>
+    <string name="today_missed">Missed</string>
+    <string name="today_upcoming">Still to come</string>
+    <string name="today_appointments">Appointments today</string>
+    <string name="today_appointment_no_doctor">Your appointment</string>
+    <string name="today_nothing_left">All done for today</string>
+    <string name="today_nothing_left_body">No doses or appointments left today.</string>
+    <plurals name="today_taken_count">
+        <item quantity="one">%1$s dose taken today</item>
+        <item quantity="other">%1$s doses taken today</item>
+    </plurals>
+    <string name="today_manage_medicines">Manage medicines</string>
+
+    <string name="reminders_notifications_off">Notifications are off for MedHome, so reminders can\'t show.</string>
+    <string name="reminders_exact_off">Reminders may come a few minutes late. Allow \"Alarms &amp; reminders\" so they ring on time.</string>
+    <string name="reminders_turn_on">Turn on</string>
+    <string name="reminders_allow">Allow</string>
+
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_medicine_reminders">Medicine reminders</string>
+    <string name="settings_medicine_reminders_hint">A reminder at each dose</string>
+    <string name="settings_appointment_reminders">Appointment reminders</string>
+    <string name="settings_appointment_reminders_hint">The evening before and 1 hour before</string>
+    <string name="settings_notifications_off">Notifications are off</string>
+    <string name="settings_notifications_off_hint">Turn them on in your phone\'s settings</string>
+    <string name="settings_battery_guide">Battery guide</string>
+    <string name="settings_battery_guide_hint">Keep reminders on time</string>
+    <string name="settings_reminders_failed">Couldn\'t change reminders. Try again.</string>
+
+    <string name="battery_title">Keep reminders on time</string>
+    <string name="battery_intro">To save battery, some phones stop apps in the background, and their reminders come late or not at all. These settings stop that for MedHome.</string>
+    <string name="battery_status_title">On this phone</string>
+    <string name="battery_status_notifications">Notifications</string>
+    <string name="battery_status_exact">Alarms &amp; reminders</string>
+    <string name="battery_status_battery">Not battery optimized</string>
+    <string name="battery_status_ok">On</string>
+    <string name="battery_status_off">Off</string>
+    <string name="battery_samsung_title">Samsung</string>
+    <string name="battery_samsung_steps">Open App info, tap Battery and choose Unrestricted. Then in Settings &gt; Battery &gt; Background usage limits, make sure MedHome isn\'t under Sleeping apps or Deep sleeping apps, and add it to Never sleeping apps.</string>
+    <string name="battery_xiaomi_title">Xiaomi, Redmi and POCO</string>
+    <string name="battery_xiaomi_steps">Turn on Autostart for MedHome. In App info &gt; Battery saver, choose No restrictions. You can also lock MedHome in recent apps (swipe down on it).</string>
+    <string name="battery_other_title">Other phones</string>
+    <string name="battery_other_steps">In Settings, find battery optimization (or App info &gt; Battery) and set MedHome to Unrestricted or Don\'t optimize.</string>
+    <string name="battery_open_app_info">Open App info</string>
+    <string name="battery_open_autostart">Open Autostart</string>
+    <string name="battery_open_battery">Open battery settings</string>
+
+    <string name="channel_medicine">Medicine reminders</string>
+    <string name="channel_medicine_description">A reminder at each dose of your medicines</string>
+    <string name="channel_appointments">Appointment reminders</string>
+    <string name="channel_appointments_description">The evening before and 1 hour before each appointment</string>
+    <string name="channel_general">General</string>
+    <string name="channel_general_description">Other messages from MedHome</string>
+    <string name="reminder_medicine_title">Time for %1$s</string>
+    <string name="reminder_medicine_text">%1$s · %2$s</string>
+    <string name="reminder_medicine_public_title">Time for your medicine</string>
+    <string name="reminder_appointment_tomorrow">Appointment tomorrow</string>
+    <string name="reminder_appointment_hour">Appointment in 1 hour</string>
+    <string name="reminder_appointment_text">%1$s at %2$s</string>
+    <string name="reminder_appointment_text_no_doctor">At %1$s</string>
+    <string name="reminder_appointment_public_title">Upcoming appointment</string>
+    <string name="reminder_public_text">Open MedHome for details</string>
+    <string name="reminder_action_taken">Taken</string>
+    <string name="reminder_action_snooze">Snooze 10 min</string>
 </resources>

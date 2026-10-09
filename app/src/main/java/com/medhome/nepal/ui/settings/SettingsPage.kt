@@ -11,4 +11,5 @@ enum class SettingsPage {
     PRIVACY_POLICY,
     TERMS_OF_SERVICE,
     ABOUT,
+    BATTERY_GUIDE,
 }

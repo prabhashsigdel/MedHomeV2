@@ -24,13 +24,16 @@ import com.medhome.nepal.ui.components.SettingsRow
 import com.medhome.nepal.ui.components.SettingsSection
 import com.medhome.nepal.ui.language.LanguageSetting
 import com.medhome.nepal.ui.motion.entrance
+import com.medhome.nepal.ui.reminders.NotificationSettingsSection
+import com.medhome.nepal.ui.reminders.ReminderSettingsViewModel
+import com.medhome.nepal.ui.reminders.ReminderViewModels
 import com.medhome.nepal.ui.settings.SettingsPage
 import com.medhome.nepal.ui.theme.GlassTheme
 import com.medhome.nepal.ui.theme.ThemeSetting
 
 /**
- * Profile and settings, as grouped sections: account, appearance, support, sign out and the
- * danger zone. Opened from the Home avatar (a pushed screen with a back arrow); rows push
+ * Profile and settings, as grouped sections: account, appearance, notifications, support, sign
+ * out and the danger zone. Opened from the Home avatar (a pushed screen with a back arrow); rows push
  * [SettingsPage] screens on top of it.
  */
 @Composable
@@ -39,6 +42,7 @@ fun ProfileScreen(
     usesPassword: Boolean,
     onOpenPage: (SettingsPage) -> Unit,
     viewModel: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory),
+    reminderSettings: ReminderSettingsViewModel = viewModel(factory = ReminderViewModels.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val enabled = !state.isBusy
@@ -72,7 +76,14 @@ fun ProfileScreen(
             LanguageSetting(enabled = enabled)
         }
 
-        SettingsSection(title = R.string.settings_support, modifier = Modifier.entrance(4)) {
+        NotificationSettingsSection(
+            viewModel = reminderSettings,
+            enabled = enabled,
+            onOpenBatteryGuide = { onOpenPage(SettingsPage.BATTERY_GUIDE) },
+            modifier = Modifier.entrance(4),
+        )
+
+        SettingsSection(title = R.string.settings_support, modifier = Modifier.entrance(5)) {
             SettingsRow(title = R.string.settings_help_center, onClick = { onOpenPage(SettingsPage.HELP_CENTER) })
             SettingsDivider()
             SettingsRow(title = R.string.settings_privacy_policy, onClick = { onOpenPage(SettingsPage.PRIVACY_POLICY) })
@@ -88,14 +99,14 @@ fun ProfileScreen(
             style = GlassButtonStyle.Secondary,
             loading = state.isSigningOut,
             enabled = enabled,
-            modifier = Modifier.entrance(5),
+            modifier = Modifier.entrance(6),
         )
         state.signOutError?.let {
             ErrorMessage(error = it, onDismiss = viewModel::dismissSignOutError, onRetry = viewModel::signOut)
         }
 
-        SectionTitle(text = R.string.profile_danger_zone, modifier = Modifier.entrance(6))
-        GlassCard(modifier = Modifier.entrance(6), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionTitle(text = R.string.profile_danger_zone, modifier = Modifier.entrance(7))
+        GlassCard(modifier = Modifier.entrance(7), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = stringResource(R.string.profile_delete_hint),
                 style = MaterialTheme.typography.bodyMedium,

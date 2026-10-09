@@ -1,5 +1,6 @@
 package com.medhome.nepal.ui.shell
 
+import android.Manifest
 import android.app.Application
 import androidx.activity.ComponentActivity
 import androidx.annotation.StringRes
@@ -31,9 +32,11 @@ import com.medhome.nepal.domain.UserProfile
 import com.medhome.nepal.fakes.FakeAuthDataSource
 import com.medhome.nepal.fakes.FakeCredentialClient
 import com.medhome.nepal.fakes.FakeBookingRepository
+import com.medhome.nepal.fakes.FakeReminderRepository
 import com.medhome.nepal.fakes.FakeDoctorRepository
 import com.medhome.nepal.fakes.booking
 import com.medhome.nepal.fakes.fakeBookingViewModels
+import com.medhome.nepal.fakes.fakeReminderViewModels
 import com.medhome.nepal.domain.TimeOfDay
 import com.medhome.nepal.domain.TimeRange
 import com.medhome.nepal.domain.Weekday
@@ -55,12 +58,19 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import com.medhome.nepal.domain.NepalTime
+import com.medhome.nepal.fakes.medicine
+import com.medhome.nepal.ui.home.HOME_BELL_TAG
+import com.medhome.nepal.ui.reminders.DOSE_ROW_TAG
+import com.medhome.nepal.ui.reminders.MEDICINE_CARD_TAG
 
 /**
  * The patient shell's navigation, driven through the real UI: three tabs, Profile behind the
  * Home avatar (bar hidden, Back returns Home), its sub-pages, Find a doctor and a doctor's
- * details (over a fake repository), and tab-level Back.
+ * details (over a fake repository), and tab-level Back; the reminder screens (bell, medicines,
+ * the battery guide after the first save, Profile's switches) over a fake reminder repository.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(application = Application::class, sdk = [35], qualifiers = "w360dp-h740dp")
@@ -103,6 +113,8 @@ class PatientShellNavigationTest {
     )
     private val bookingViewModelFactory = fakeBookingViewModels(bookings, doctorRepository)
 
+    private val reminders = FakeReminderRepository()
+
     private val isTab = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
 
     private fun text(@StringRes id: Int, vararg args: Any): String =
@@ -110,8 +122,16 @@ class PatientShellNavigationTest {
 
     @Before
     fun showShell() {
+        // Saving a reminder asks for notifications first; granted here, so it goes straight on.
+        shadowOf(ApplicationProvider.getApplicationContext<Application>()).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
         compose.setContent {
-            MedHomeTheme(darkTheme = false) { MainShell(session, profileViewModelFactory, doctorViewModelFactory, bookingViewModelFactory) }
+            MedHomeTheme(darkTheme = false) { MainShell(
+                    session,
+                    profileViewModelFactory,
+                    doctorViewModelFactory,
+                    bookingViewModelFactory,
+                    reminderViewModelFactory = fakeReminderViewModels(reminders),
+                ) }
         }
         settle()
     }
@@ -220,10 +240,77 @@ class PatientShellNavigationTest {
     @Test
     fun `a double tap on a shortcut opens one screen`() {
         compose.onNodeWithText(text(R.string.shortcut_medicine_reminders)).performScrollTo().doubleTap()
-        compose.onNodeWithText(text(R.string.coming_soon_body)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.medicines_add)).assertIsDisplayed()
 
         pressBack()
         assertOnHome()
+    }
+
+    // Reminders
+
+    @Test
+    fun `the bell opens today's reminders without the bar and Back returns Home`() {
+        compose.onNodeWithTag(HOME_BELL_TAG).performClick()
+        settle()
+        compose.onNodeWithText(text(R.string.today_reminders_title)).assertIsDisplayed()
+        compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).assertDoesNotExist()
+
+        pressBack()
+        assertOnHome()
+    }
+
+    @Test
+    fun `saving the first medicine opens the battery guide once, then Back returns to the list and Home`() {
+        reminders.medicineState.value = listOf(medicine(id = 1, name = "Paracetamol", startDate = NepalTime.dateOf(System.currentTimeMillis())))
+        compose.onNodeWithText(text(R.string.shortcut_medicine_reminders)).clickRow()
+        settle()
+        compose.onNodeWithTag(MEDICINE_CARD_TAG).performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        compose.onNodeWithText(text(R.string.medicine_edit_title)).assertIsDisplayed()
+
+        compose.onNodeWithText(text(R.string.action_save)).clickRow()
+        settle()
+        compose.onNodeWithText(text(R.string.battery_title)).assertIsDisplayed()
+        assertEquals(listOf("save:1"), reminders.calls)
+
+        pressBack()
+        compose.onNodeWithText(text(R.string.medicines_add)).assertIsDisplayed()
+        compose.onNodeWithTag(MEDICINE_CARD_TAG).performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        compose.onNodeWithText(text(R.string.action_save)).clickRow()
+        settle()
+        // Only the first time: now the form just closes.
+        compose.onNodeWithText(text(R.string.medicines_add)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.battery_title)).assertDoesNotExist()
+
+        pressBack()
+        assertOnHome()
+    }
+
+    @Test
+    fun `a dose on Home is marked taken with a tap`() {
+        reminders.medicineState.value = listOf(
+            medicine(id = 1, times = listOf(TimeOfDay(23 * 60 + 59)), startDate = NepalTime.dateOf(System.currentTimeMillis()).plusDays(-1)),
+        )
+        settle()
+        compose.onNodeWithTag(DOSE_ROW_TAG).performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        assertEquals(listOf("taken:true"), reminders.calls)
+        compose.onNodeWithText(text(R.string.dose_taken)).assertExists()
+    }
+
+    @Test
+    fun `Profile's notification switches change the settings and the battery guide opens from there`() {
+        openProfile()
+        compose.onNodeWithText(text(R.string.settings_medicine_reminders)).clickRow()
+        settle()
+        assertEquals(listOf("medicineReminders:false"), reminders.calls)
+
+        compose.onNodeWithText(text(R.string.settings_battery_guide)).clickRow()
+        settle()
+        compose.onNodeWithText(text(R.string.battery_title)).assertIsDisplayed()
+        pressBack()
+        assertOnProfile()
     }
 
     private fun openFindDoctor() {
