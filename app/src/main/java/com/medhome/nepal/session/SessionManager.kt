@@ -4,6 +4,7 @@ import android.util.Log
 import com.medhome.nepal.data.AuthDataSource
 import com.medhome.nepal.data.AuthErrorMapper
 import com.medhome.nepal.data.CredentialClient
+import com.medhome.nepal.data.ListenerRegistry
 import com.medhome.nepal.data.ProfileStore
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
@@ -33,6 +34,13 @@ class SessionManager(
     private val profiles: ProfileStore,
     private val credentials: CredentialClient,
     private val scope: CoroutineScope,
+    /** Open Firestore listeners, stopped on sign-out before Firestore is shut down. */
+    private val listeners: ListenerRegistry = ListenerRegistry(),
+    /**
+     * Cancels the user's upcoming bookings so their slots free up (nobody could cancel them
+     * once the account is gone). Throws [AuthException] if it couldn't; deletion then stops.
+     */
+    private val cancelUpcomingBookings: suspend () -> Unit = {},
 ) {
     private val _state = MutableStateFlow<SessionState>(SessionState.Loading)
     val state: StateFlow<SessionState> = _state.asStateFlow()
@@ -105,8 +113,22 @@ class SessionManager(
     suspend fun checkEmailVerified(): Boolean = exclusive {
         val current = _state.value as? SessionState.NeedsVerification ?: return@exclusive false
         val user = auth.reloadUser()
-        if (user.isVerified) publish(user, current.profile)
+        if (user.isVerified) {
+            // The current token still says unverified (for up to an hour), and the rules read
+            // the token: get a new one so booking works straight away.
+            logFailure("refreshIdToken") { auth.emailVerifiedClaim(forceRefresh = true) }
+            publish(user, current.profile)
+        }
         user.isVerified
+    }
+
+    /**
+     * Shows the verify-email screen to a signed-in user whose sign-in token doesn't say the
+     * email is verified (booking needs it). Verifying there returns them to the app.
+     */
+    suspend fun showEmailVerification() = exclusive {
+        val current = _state.value as? SessionState.SignedIn ?: return@exclusive
+        _state.value = SessionState.NeedsVerification(current.profile)
     }
 
     suspend fun sendPasswordReset(email: String) = exclusive { auth.sendPasswordReset(email) }
@@ -114,8 +136,10 @@ class SessionManager(
     suspend fun signOut() = exclusive { signOutInternal(error = null) }
 
     /**
-     * Re-authenticates first so the profile is never deleted while the Auth account survives.
-     * Retrying after a partial failure is safe: deleting a missing document succeeds.
+     * Re-authenticates first so the profile is never deleted while the Auth account survives,
+     * then cancels upcoming bookings (freeing their slots) before deleting anything. Retrying
+     * after a partial failure is safe: cancelled bookings are skipped and deleting a missing
+     * document succeeds.
      */
     suspend fun deleteAccount(reauth: Reauth) = exclusive {
         val user = auth.currentUser ?: throw AuthException(AuthError.NOT_SIGNED_IN)
@@ -126,11 +150,12 @@ class SessionManager(
             }
             is Reauth.Google -> auth.reauthenticateWithGoogle(reauth.idToken)
         }
+        cancelUpcomingBookings()
         profiles.deleteProfile(user.uid)
         auth.deleteUser()
+        endSession(error = null)
         clearCredentials()
         clearLocalData()
-        _state.value = SessionState.SignedOut()
     }
 
     /** Saves the editable profile fields and updates the signed-in profile in place. Validated already. */
@@ -208,11 +233,20 @@ class SessionManager(
         }
     }
 
+    /**
+     * Publishes SignedOut first, so the signed-in screens close, and stops any Firestore
+     * listener still open; only then is the cache wiped (which shuts Firestore down).
+     */
     private suspend fun signOutInternal(error: AuthError?) {
+        endSession(error)
         auth.signOut()
         clearCredentials()
         clearLocalData()
+    }
+
+    private fun endSession(error: AuthError?) {
         _state.value = SessionState.SignedOut(error)
+        listeners.stopAll()
     }
 
     /** Failing to wipe the cache must not block sign-out; it is logged instead. */
@@ -239,6 +273,7 @@ class SessionManager(
         // is cleared twice, which is harmless. The clear queues behind any running operation.
         if (!endsSession) return
         if (_state.compareAndSet(before, SessionState.SignedOut())) {
+            listeners.stopAll()
             scope.launch { runCatchingAuth { exclusive { clearLocalData() } } }
         }
     }

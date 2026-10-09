@@ -23,7 +23,9 @@ npm test        # starts the emulator, runs every test, stops it
 
 The first run downloads the emulator (about 60 MB). Tests live in `rules-tests/test/` and
 cover users (sign-up as patient only, no role/email/createdAt changes, no cross-user access,
-admin role changes, owner delete) and doctors (signed-in read only, no client writes).
+admin role changes, owner delete), doctors (signed-in read only, no client writes) and
+bookings (`bookings.rules.test.js`: booking a slot, double booking, unverified email, past and
+off-schedule slots, booking for someone else, the 3-upcoming limit, reading and cancelling).
 
 ## Seeding doctors
 
@@ -68,15 +70,21 @@ To try it on the emulator instead (no key needed), with the emulator running:
 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node seed.js --project demo-medhome
 ```
 
-## Publishing the rules
+## Publishing the rules and indexes
 
 Run the rules tests first. Then:
 
 ```sh
 cd tools/rules-tests
 npx firebase login                     # once; opens the browser
+npx firebase deploy --config ../../firebase.json --only firestore:indexes --project <your-project-id>
 npx firebase deploy --config ../../firebase.json --only firestore:rules --project <your-project-id>
 ```
+
+Deploy the indexes first: the Bookings tab (`bookings` by `patientUid`, newest first) and
+taken slots (`slotLocks` by `doctorId` and `startAt`) need the composite indexes in
+`firestore.indexes.json`, and their queries fail until those finish building (a few minutes;
+see Firestore > Indexes in the console).
 
 The project ID is shown in Project settings (it is also `project_id` in `app/google-services.json`).
 Deploying publishes `firestore.rules` exactly as it is in your working copy.

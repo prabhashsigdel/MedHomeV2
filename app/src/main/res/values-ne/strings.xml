@@ -186,8 +186,8 @@
     <string name="faq_data_a">तपाईंको खाता र प्रोफाइल Google Firebase (Authentication र Cloud Firestore) मा राखिन्छ। एपले तपाईंको पासवर्ड कहिल्यै राख्दैन; लगइन Firebase ले सम्हाल्छ। थप जानकारीका लागि गोपनीयता नीति हेर्नुहोस्।</string> <!-- review -->
     <string name="faq_delete_q">खाता कसरी मेटाउने?</string> <!-- review -->
     <string name="faq_delete_a">प्रोफाइलको \"खाता मेटाउने\" भागमा गएर \"खाता मेटाउनुहोस्\" थिच्नुहोस्। पुष्टि गर्न सोधिनेछ। यसले तपाईंको प्रोफाइल र खाता स्थायी रूपमा हटाउँछ।</string>
-    <string name="faq_coming_q">बुकिङ र स्वास्थ्य रेकर्ड कहाँ छन्?</string>
-    <string name="faq_coming_a">ती छिट्टै आउँदैछन्। ती सुविधाहरू बनेपछि बुकिङ र रेकर्ड ट्याबमा देखिनेछन्।</string>
+    <string name="faq_coming_q">मेरा स्वास्थ्य रेकर्ड कहाँ छन्?</string> <!-- review -->
+    <string name="faq_coming_a">ती छिट्टै आउँदैछन्। त्यो सुविधा बनेपछि रेकर्ड ट्याबमा देखिनेछन्।</string> <!-- review -->
 
     <!-- Privacy policy and terms: DRAFT placeholders for a student project -->
     <string name="legal_draft_banner">मस्यौदा: विद्यार्थी परियोजनाका लागि अस्थायी पाठ। कुनै पनि सार्वजनिक प्रकाशनअघि यसलाई बदल्नुपर्छ।</string> <!-- review -->
@@ -241,7 +241,6 @@
     <string name="doctor_hours_closed">बन्द</string> <!-- review -->
     <string name="doctor_hours_range">%1$s – %2$s</string>
     <string name="doctor_book">अपोइन्टमेन्ट बुक गर्नुहोस्</string> <!-- review -->
-    <string name="doctor_book_soon">बुकिङ छिट्टै सुरु हुँदैछ।</string> <!-- review -->
     <string name="doctor_unavailable_title">डाक्टर उपलब्ध हुनुहुन्न</string> <!-- review -->
     <string name="doctor_unavailable_body">यो डाक्टरले अहिले MedHome मा अपोइन्टमेन्ट लिनुभएको छैन।</string> <!-- review -->
     <string name="doctor_unavailable_offline">तपाईं अफलाइन हुनुहुन्छ, र यो डाक्टर अझै यो फोनमा सुरक्षित छैनन्।</string> <!-- review -->
@@ -257,4 +256,62 @@
     <string name="specialty_ophthalmology">आँखा</string> <!-- review -->
     <string name="specialty_dentistry">दन्त चिकित्सा</string> <!-- review -->
     <string name="specialty_gastroenterology">पेट तथा आन्द्रा रोग</string> <!-- review -->
+
+    <!-- Booking: slots, confirming, the Bookings tab and cancelling. -->
+    <string name="doctors_load_failed">डाक्टरहरू लोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="doctor_load_failed">यी डाक्टरको विवरण लोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="book_title">अपोइन्टमेन्ट बुक गर्नुहोस्</string> <!-- review -->
+    <string name="book_pick_date">मिति छान्नुहोस्</string> <!-- review -->
+    <string name="book_pick_time">समय छान्नुहोस्</string> <!-- review -->
+    <string name="book_morning">बिहान</string> <!-- review -->
+    <string name="book_afternoon">दिउँसो</string> <!-- review -->
+    <string name="book_evening">बेलुका</string> <!-- review -->
+    <string name="book_no_slots_day">यो दिन कुनै खाली समय छैन। अर्को मिति हेर्नुहोस्।</string> <!-- review -->
+    <string name="book_no_slots">अर्को %1$s दिनमा कुनै खाली समय छैन। पछि फेरि हेर्नुहोस्।</string> <!-- review -->
+    <string name="book_times_note">समय नेपाली समय अनुसार छ। अबको एक घण्टाभित्र सुरु हुने समय देखाइँदैनन्।</string> <!-- review -->
+    <string name="book_day_full">खाली समय छैन</string> <!-- review -->
+    <string name="book_slots_load_failed">खाली समय लोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="book_verify_title">बुक गर्न आफ्नो इमेल प्रमाणित गर्नुहोस्</string> <!-- review -->
+    <string name="book_verify_body">प्रमाणित खाताले मात्र अपोइन्टमेन्ट बुक गर्न सक्छन्। हामीले इमेलमा पठाएको लिङ्क खोल्नुहोस्, अनि यहाँ पुष्टि गर्नुहोस्।</string> <!-- review -->
+    <string name="book_verify_action">इमेल प्रमाणित गर्नुहोस्</string> <!-- review -->
+    <string name="book_confirm_title">अपोइन्टमेन्ट पक्का गर्नुहोस्</string> <!-- review -->
+    <string name="book_pay_at_clinic">शुल्क क्लिनिकमै तिर्नुहोस्। एपमा कुनै भुक्तानी लिइँदैन।</string> <!-- review -->
+    <string name="book_confirm_action">बुकिङ पक्का गर्नुहोस्</string> <!-- review -->
+    <string name="book_success_title">अपोइन्टमेन्ट बुक भयो</string> <!-- review -->
+    <string name="book_success_body">तपाईं यसलाई बुकिङमा हेर्न वा रद्द गर्न सक्नुहुन्छ।</string> <!-- review -->
+    <string name="book_success_action">मेरा बुकिङ हेर्नुहोस्</string> <!-- review -->
+    <string name="book_error_slot_taken">भर्खरै अरू कसैले त्यो समय बुक गर्नुभयो। कृपया अर्को समय छान्नुहोस्।</string> <!-- review -->
+    <string name="book_error_slot_unavailable">त्यो समय अब उपलब्ध छैन। कृपया अर्को समय छान्नुहोस्।</string> <!-- review -->
+    <string name="book_error_limit">तपाईंसँग पहिले नै %1$s वटा आउँदै गरेका अपोइन्टमेन्ट छन्। अर्को बुक गर्न एउटा रद्द गर्नुहोस्।</string> <!-- review -->
+    <string name="book_error_unknown">यो अपोइन्टमेन्ट बुक गर्न सकिएन। कृपया फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="label_doctor">डाक्टर</string> <!-- review -->
+    <string name="label_date">मिति</string> <!-- review -->
+    <string name="label_time">समय</string> <!-- review -->
+    <string name="booking_date_time">%1$s · %2$s</string>
+    <string name="bookings_title">मेरा बुकिङ</string> <!-- review -->
+    <string name="bookings_upcoming">आउँदै गरेका</string> <!-- review -->
+    <string name="bookings_past">विगतका</string> <!-- review -->
+    <string name="bookings_none_upcoming_body">परामर्श बुक गर्न होमबाट डाक्टर खोज्नुहोस्।</string> <!-- review -->
+    <string name="bookings_none_past_title">विगतका कुनै अपोइन्टमेन्ट छैनन्</string> <!-- review -->
+    <string name="bookings_none_past_body">तपाईंले गरेका वा रद्द गरेका अपोइन्टमेन्ट यहाँ देखिनेछन्।</string> <!-- review -->
+    <string name="bookings_load_failed">तपाईंका बुकिङ लोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="bookings_saved_notice">तपाईं अफलाइन हुनुहुन्छ। यो फोनमा सुरक्षित बुकिङ देखाइँदैछ।</string> <!-- review -->
+    <string name="booking_status_cancelled">रद्द गरिएको</string> <!-- review -->
+    <string name="booking_cancel">अपोइन्टमेन्ट रद्द गर्नुहोस्</string> <!-- review -->
+    <string name="booking_cancel_note">अपोइन्टमेन्ट सुरु नहुँदासम्म निःशुल्क रद्द गर्न सकिन्छ।</string> <!-- review -->
+    <string name="booking_cancel_confirm_title">यो अपोइन्टमेन्ट रद्द गर्ने?</string> <!-- review -->
+    <string name="booking_cancel_confirm_body">यो समय अरू बिरामीका लागि खुला हुनेछ। यसलाई फिर्ता गर्न सकिँदैन।</string> <!-- review -->
+    <string name="booking_keep">अपोइन्टमेन्ट राख्नुहोस्</string> <!-- review -->
+    <string name="booking_cancelled_notice">यो अपोइन्टमेन्ट रद्द गरिएको छ।</string> <!-- review -->
+    <string name="booking_past_notice">यो अपोइन्टमेन्टको समय बितिसकेको छ।</string> <!-- review -->
+    <string name="booking_not_found_title">बुकिङ उपलब्ध छैन</string> <!-- review -->
+    <string name="booking_not_found_body">यो बुकिङ अब तपाईंको खातामा छैन।</string> <!-- review -->
+    <string name="booking_cancel_error_started">यो अपोइन्टमेन्ट सुरु भइसकेकाले रद्द गर्न सकिँदैन।</string> <!-- review -->
+    <string name="booking_cancel_error_unknown">यो अपोइन्टमेन्ट रद्द गर्न सकिएन। कृपया फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="home_appointment_loading">तपाईंका अपोइन्टमेन्ट हेर्दै…</string> <!-- review -->
+    <string name="home_appointment_failed">तपाईंका अपोइन्टमेन्ट लोड गर्न सकिएन।</string> <!-- review -->
+    <plurals name="book_day_free">
+        <item quantity="one">%1$s खाली समय</item> <!-- review -->
+        <item quantity="other">%1$s खाली समय</item> <!-- review -->
+    </plurals>
 </resources>

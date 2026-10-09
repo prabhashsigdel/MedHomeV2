@@ -24,10 +24,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -46,6 +48,11 @@ import com.medhome.nepal.ui.components.MeshBackground
 import com.medhome.nepal.ui.components.LocalBottomBarClearance
 import com.medhome.nepal.ui.components.LocalHazeState
 import com.medhome.nepal.ui.components.NavBarItem
+import com.medhome.nepal.ui.booking.BookAppointmentScreen
+import com.medhome.nepal.ui.booking.BookingDetailScreen
+import com.medhome.nepal.ui.booking.BookingViewModels
+import com.medhome.nepal.ui.booking.BookingsScreen
+import com.medhome.nepal.ui.booking.NextAppointmentViewModel
 import com.medhome.nepal.ui.doctors.DoctorDetailScreen
 import com.medhome.nepal.ui.doctors.DoctorViewModels
 import com.medhome.nepal.ui.doctors.FindDoctorScreen
@@ -77,17 +84,18 @@ fun signedInHomeFor(role: Role): SignedInHome = when (role) {
 }
 
 /**
- * [profileViewModelFactory] and [doctorViewModelFactory] are seams for JVM tests, which have no
- * Firebase-backed app container; the app always uses the defaults.
+ * The ViewModel factories are seams for JVM tests, which have no Firebase-backed app container;
+ * the app always uses the defaults.
  */
 @Composable
 fun MainShell(
     session: SessionState.SignedIn,
     profileViewModelFactory: ViewModelProvider.Factory = ProfileViewModel.Factory,
     doctorViewModelFactory: ViewModelProvider.Factory = DoctorViewModels.Factory,
+    bookingViewModelFactory: ViewModelProvider.Factory = BookingViewModels.Factory,
 ) {
     when (signedInHomeFor(session.profile.role)) {
-        SignedInHome.PATIENT_TABS -> PatientShell(session, profileViewModelFactory, doctorViewModelFactory)
+        SignedInHome.PATIENT_TABS -> PatientShell(session, profileViewModelFactory, doctorViewModelFactory, bookingViewModelFactory)
         SignedInHome.STAFF_PLACEHOLDER -> StaffHomeScreen(viewModel = viewModel(factory = profileViewModelFactory))
     }
 }
@@ -100,10 +108,14 @@ fun MainShell(
 @Serializable internal data object FindDoctorRoute
 // The property name is DoctorViewModels.ARG_DOCTOR_ID: the detail ViewModel reads it from there.
 @Serializable internal data class DoctorDetailRoute(val doctorId: String)
+// The property name is BookingViewModels.ARG_DOCTOR_ID.
+@Serializable internal data class BookAppointmentRoute(val doctorId: String)
 @Serializable internal data object ProfileRoute
 @Serializable internal data class SettingsRoute(val page: SettingsPage)
 @Serializable internal data object BookingsTab
 @Serializable internal data object BookingsRoute
+// The property name is BookingViewModels.ARG_BOOKING_ID.
+@Serializable internal data class BookingDetailRoute(val bookingId: String)
 @Serializable internal data object RecordsTab
 @Serializable internal data object RecordsRoute
 
@@ -138,6 +150,7 @@ private fun PatientShell(
     session: SessionState.SignedIn,
     profileViewModelFactory: ViewModelProvider.Factory,
     doctorViewModelFactory: ViewModelProvider.Factory,
+    bookingViewModelFactory: ViewModelProvider.Factory,
 ) {
     val navController = rememberNavController()
     val shellNavigator = remember(navController) { ShellNavigator { navController.selectTab(PatientTab.of(it)) } }
@@ -173,11 +186,15 @@ private fun PatientShell(
             ) {
                 navigation<HomeTab>(startDestination = HomeRoute) {
                     composable<HomeRoute> {
+                        val nextAppointment = viewModel<NextAppointmentViewModel>(factory = bookingViewModelFactory)
+                        val next by nextAppointment.state.collectAsStateWithLifecycle()
                         TabRoot {
                             PatientHomeScreen(
                                 profile = session.profile,
                                 onOpenProfile = navigateOnce { navController.navigate(ProfileRoute) { launchSingleTop = true } },
                                 onShortcut = navigateOnceWith { shortcut: HomeShortcut -> navController.openShortcut(shortcut, shellNavigator) },
+                                nextAppointment = next,
+                                onOpenBookings = { shellNavigator.selectTab(ShellTab.BOOKINGS) },
                             )
                         }
                     }
@@ -188,7 +205,16 @@ private fun PatientShell(
                         )
                     }
                     composable<DoctorDetailRoute> {
-                        DoctorDetailScreen(viewModel = viewModel(factory = doctorViewModelFactory))
+                        DoctorDetailScreen(
+                            viewModel = viewModel(factory = doctorViewModelFactory),
+                            onBook = navigateOnceWith { id: String -> navController.navigate(BookAppointmentRoute(id)) },
+                        )
+                    }
+                    composable<BookAppointmentRoute> { entry ->
+                        BookAppointmentScreen(
+                            viewModel = viewModel(factory = bookingViewModelFactory),
+                            onBooked = { navController.finishBooking(entry) },
+                        )
                     }
                     composable<ComingSoonRoute> { entry ->
                         ComingSoonScreen(title = entry.toRoute<ComingSoonRoute>().feature.title, showBack = true)
@@ -210,7 +236,17 @@ private fun PatientShell(
                     }
                 }
                 navigation<BookingsTab>(startDestination = BookingsRoute) {
-                    composable<BookingsRoute> { TabRoot { ComingSoonScreen(title = R.string.nav_bookings, showBack = false) } }
+                    composable<BookingsRoute> {
+                        TabRoot {
+                            BookingsScreen(
+                                viewModel = viewModel(factory = bookingViewModelFactory),
+                                onOpenBooking = navigateOnceWith { id: String -> navController.navigate(BookingDetailRoute(id)) },
+                            )
+                        }
+                    }
+                    composable<BookingDetailRoute> {
+                        BookingDetailScreen(viewModel = viewModel(factory = bookingViewModelFactory))
+                    }
                 }
                 navigation<RecordsTab>(startDestination = RecordsRoute) {
                     composable<RecordsRoute> { TabRoot { ComingSoonScreen(title = R.string.nav_records, showBack = false) } }
@@ -271,6 +307,19 @@ private fun NavHostController.openShortcut(shortcut: HomeShortcut, shell: ShellN
         HomeShortcut.MEDICINE_REMINDERS -> navigate(ComingSoonRoute(ComingSoonFeature.MEDICINE_REMINDERS))
         HomeShortcut.HEALTH_RECORDS -> shell.selectTab(ShellTab.RECORDS)
     }
+}
+
+/**
+ * After a booking: the booking flow (Find a doctor, the doctor, the slot picker) leaves Home's
+ * stack, so Back can't return to a confirmed booking, and a fresh Bookings tab opens with the
+ * new booking under Upcoming. Only while [entry] (the slot picker) is on top, so it runs once.
+ */
+private fun NavHostController.finishBooking(entry: NavBackStackEntry) {
+    // The same check as popIfTop: the button, Back and the sheet's dismiss may all call this.
+    if (currentBackStackEntry?.id != entry.id) return
+    popBackStack(HomeRoute, inclusive = false)
+    clearBackStack(BookingsTab)
+    selectTab(PatientTab.BOOKINGS)
 }
 
 /**

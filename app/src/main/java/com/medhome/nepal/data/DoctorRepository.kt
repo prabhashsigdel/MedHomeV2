@@ -36,10 +36,11 @@ interface DoctorRepository {
 /**
  * [firestore] is asked for on every listen: signing out terminates the current instance and
  * FirebaseFirestore.getInstance() then returns a new one. Listeners only run while a screen
- * collects, so none is left open across a sign-out.
+ * collects, and sign-out stops any still open through [listeners] before it shuts Firestore down.
  */
 class FirestoreDoctorRepository(
     private val firestore: () -> FirebaseFirestore,
+    private val listeners: ListenerRegistry,
 ) : DoctorRepository {
 
     override fun activeDoctors(): Flow<DoctorsSnapshot> = callbackFlow {
@@ -56,7 +57,14 @@ class FirestoreDoctorRepository(
                     .sortedWith(byName)
                 trySend(DoctorsSnapshot(doctors, fromCache = snapshot.metadata.isFromCache))
             }
-        awaitClose { registration.remove() }
+        val stop = listeners.register {
+            registration.remove()
+            channel.close()
+        }
+        awaitClose {
+            stop.release()
+            registration.remove()
+        }
     }
 
     override fun doctor(id: String): Flow<DoctorLookup> {
@@ -84,7 +92,14 @@ class FirestoreDoctorRepository(
                 val doctor = if (snapshot.exists()) DoctorMapper.parse(snapshot.id, snapshot.data) else null
                 trySend(if (doctor != null) DoctorLookup.Found(doctor, fromCache) else DoctorLookup.Unavailable(fromCache))
             }
-        awaitClose { registration.remove() }
+        val stop = listeners.register {
+            registration.remove()
+            channel.close()
+        }
+        awaitClose {
+            stop.release()
+            registration.remove()
+        }
     }
 
     private companion object {

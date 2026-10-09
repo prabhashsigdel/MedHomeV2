@@ -42,16 +42,17 @@ import com.medhome.nepal.ui.theme.GlassTheme
 
 /**
  * A doctor's details (pushed from Find a doctor): header, fee, hospital, experience, bio and
- * weekly hours. Booking comes in part 2, so its button is shown disabled with a note.
+ * weekly hours, and the button that opens booking for them.
  */
 @Composable
-fun DoctorDetailScreen(viewModel: DoctorDetailViewModel) {
+fun DoctorDetailScreen(viewModel: DoctorDetailViewModel, onBook: (String) -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     GlassScreen(showBack = true, drawBackground = false) {
         when (val current = state) {
             DoctorDetailUiState.Loading -> LoadingCard()
             is DoctorDetailUiState.Failed -> StatusMessage(
-                message = current.error.messageRes,
+                // This screen's own message: a generic error's text may be about something else.
+                message = R.string.doctor_load_failed,
                 kind = MessageKind.Error,
                 onRetry = viewModel::retry,
             )
@@ -59,13 +60,13 @@ fun DoctorDetailScreen(viewModel: DoctorDetailViewModel) {
                 title = R.string.doctor_unavailable_title,
                 body = if (current.offline) R.string.doctor_unavailable_offline else R.string.doctor_unavailable_body,
             )
-            is DoctorDetailUiState.Ready -> DoctorDetails(current.doctor, current.showingSaved)
+            is DoctorDetailUiState.Ready -> DoctorDetails(current.doctor, current.showingSaved, onBook = { onBook(current.doctor.id) })
         }
     }
 }
 
 @Composable
-private fun DoctorDetails(doctor: Doctor, showingSaved: Boolean) {
+private fun DoctorDetails(doctor: Doctor, showingSaved: Boolean, onBook: () -> Unit) {
     val colors = GlassTheme.colors
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.entrance(0)) {
         InitialsAvatar(name = doctor.name, size = 64.dp, textStyle = MaterialTheme.typography.titleLarge)
@@ -109,19 +110,12 @@ private fun DoctorDetails(doctor: Doctor, showingSaved: Boolean) {
     SectionTitle(text = R.string.doctor_hours, modifier = Modifier.entrance(3))
     WeeklyHours(schedule = doctor.weeklySchedule, modifier = Modifier.entrance(3))
 
-    GlassButton(text = R.string.doctor_book, onClick = {}, enabled = false, modifier = Modifier.entrance(4))
-    Text(
-        text = stringResource(R.string.doctor_book_soon),
-        style = MaterialTheme.typography.bodySmall,
-        color = colors.textSecondary,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.entrance(4).fillMaxWidth(),
-    )
+    GlassButton(text = R.string.doctor_book, onClick = onBook, modifier = Modifier.entrance(4))
 }
 
 /** A label on the left and its value on the right; TalkBack reads them together. */
 @Composable
-private fun FactRow(@StringRes label: Int, value: String) {
+internal fun FactRow(@StringRes label: Int, value: String) {
     val colors = GlassTheme.colors
     Row(
         modifier = Modifier

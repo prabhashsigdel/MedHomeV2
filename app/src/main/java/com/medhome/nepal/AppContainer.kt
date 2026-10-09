@@ -5,13 +5,20 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.medhome.nepal.data.BookingRepository
 import com.medhome.nepal.data.CredentialClient
 import com.medhome.nepal.data.CredentialManagerClient
 import com.medhome.nepal.data.DataStoreThemeSettings
 import com.medhome.nepal.data.DoctorRepository
+import com.medhome.nepal.data.FirestoreBookingRepository
 import com.medhome.nepal.data.FirestoreDoctorRepository
 import com.medhome.nepal.data.FirebaseAuthDataSource
 import com.medhome.nepal.data.FirestoreProfileStore
+import com.medhome.nepal.data.ListenerRegistry
+import com.medhome.nepal.domain.AuthError
+import com.medhome.nepal.domain.AuthException
+import com.medhome.nepal.domain.BookingError
+import com.medhome.nepal.domain.BookingException
 import com.medhome.nepal.data.PasswordSaveOffers
 import com.medhome.nepal.data.SharedPrefsSavePromptHistory
 import com.medhome.nepal.ui.auth.SavedAccountsPrompt
@@ -30,11 +37,25 @@ class AppContainer(context: Context) {
         webClientId = context.getString(R.string.default_web_client_id),
     )
 
+    /** Every open Firestore listener; sign-out stops them before shutting Firestore down. */
+    private val listeners = ListenerRegistry()
+
+    private val authDataSource = FirebaseAuthDataSource(FirebaseAuth.getInstance())
+
     val sessionManager = SessionManager(
-        auth = FirebaseAuthDataSource(FirebaseAuth.getInstance()),
+        auth = authDataSource,
         profiles = FirestoreProfileStore { FirebaseFirestore.getInstance() },
         credentials = credentialClient,
         scope = appScope,
+        listeners = listeners,
+        cancelUpcomingBookings = {
+            try {
+                bookingRepository.cancelAllUpcoming()
+            } catch (e: BookingException) {
+                val error = if (e.error == BookingError.NETWORK) AuthError.NETWORK else AuthError.UNKNOWN
+                throw AuthException(error, e)
+            }
+        },
     )
 
     val passwordSaveOffers = PasswordSaveOffers(SharedPrefsSavePromptHistory(context))
@@ -43,7 +64,14 @@ class AppContainer(context: Context) {
 
     val themeSettings = DataStoreThemeSettings(context)
 
-    val doctorRepository: DoctorRepository = FirestoreDoctorRepository { FirebaseFirestore.getInstance() }
+    val doctorRepository: DoctorRepository = FirestoreDoctorRepository({ FirebaseFirestore.getInstance() }, listeners)
+
+    val bookingRepository: BookingRepository = FirestoreBookingRepository(
+        firestore = { FirebaseFirestore.getInstance() },
+        currentUid = { authDataSource.currentUser?.uid },
+        verifiedClaim = authDataSource::emailVerifiedClaim,
+        listeners = listeners,
+    )
 }
 
 val CreationExtras.appContainer: AppContainer

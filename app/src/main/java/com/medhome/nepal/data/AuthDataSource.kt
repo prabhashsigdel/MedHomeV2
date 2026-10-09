@@ -14,6 +14,12 @@ interface AuthDataSource {
     suspend fun sendEmailVerification()
     suspend fun sendPasswordReset(email: String)
     suspend fun reloadUser(): AuthUser
+
+    /**
+     * The email_verified claim of the sign-in token that Firestore rules see. [forceRefresh]
+     * gets a new token: one issued before the user verified says false for up to an hour.
+     */
+    suspend fun emailVerifiedClaim(forceRefresh: Boolean): Boolean
     suspend fun reauthenticate(email: String, password: String)
     suspend fun reauthenticateWithGoogle(idToken: String)
     suspend fun updatePassword(newPassword: String)

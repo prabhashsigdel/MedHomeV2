@@ -85,6 +85,198 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ---- Booking ----------------------------------------------------------------------------
+    //
+    // A booking is three documents written in one transaction:
+    //   bookings/{autoId}                         the patient's private record (history stays)
+    //   slotLocks/{doctorId}_{yyyyMMdd}_{HHmm}    makes the slot unique; no personal data
+    //   users/{uid}/bookingQuota/{1|2|3}          one of the patient's 3 upcoming-booking places
+    // Each rule checks the others with getAfter(), so none can be written alone. Times in IDs
+    // are Nepal time, a fixed UTC+05:45 (no daylight saving since 1986), as in the app.
+
+    function emailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function bookingPath(bookingId) {
+      return /databases/$(database)/documents/bookings/$(bookingId);
+    }
+
+    function lockPath(slotId) {
+      return /databases/$(database)/documents/slotLocks/$(slotId);
+    }
+
+    function quotaPath(uid, place) {
+      return /databases/$(database)/documents/users/$(uid)/bookingQuota/$(string(place));
+    }
+
+    // Firestore auto IDs: never a path or anything longer.
+    function isAutoId(id) {
+      return id is string && id.matches('[A-Za-z0-9]{1,40}');
+    }
+
+    // Wall-clock time in Nepal, as a timestamp whose UTC fields read as Nepal time.
+    function nepalTime(t) {
+      return t + duration.value(345, 'm');
+    }
+
+    // "HH:mm" -> minutes after midnight. Callers check the format first.
+    function minutesOf(hhmm) {
+      return int(hhmm[0:2]) * 60 + int(hhmm[3:5]);
+    }
+
+    function isClockTime(value) {
+      return value is string && value.matches('([01][0-9]|2[0-3]):[0-5][0-9]');
+    }
+
+    // {doctorId}_{yyyyMMdd}_{HHmm}, naming exactly this doctor and Nepal-time minute.
+    function slotIdMatches(slotId, doctorId, startAt) {
+      let parts = slotId.split('_');
+      let local = nepalTime(startAt);
+      return parts.size() == 3
+        && parts[0] == doctorId
+        && parts[1].matches('[0-9]{8}')
+        && parts[2].matches('[0-9]{4}')
+        && int(parts[1]) == local.year() * 10000 + local.month() * 100 + local.day()
+        && int(parts[2]) == local.hours() * 100 + local.minutes()
+        && startAt.seconds() == 0
+        && startAt.nanos() == 0;
+    }
+
+    // A slot of [slotMinutes] starting at minute [m] fits [range] on its grid.
+    function slotFits(range, m, slotMinutes) {
+      return range is map
+        && isClockTime(range.get('start', null))
+        && isClockTime(range.get('end', null))
+        && m >= minutesOf(range.start)
+        && m + slotMinutes <= minutesOf(range.end)
+        && (m - minutesOf(range.start)) % slotMinutes == 0;
+    }
+
+    // The doctor's own slot length, or 15 when missing or out of range (as DoctorMapper does).
+    function slotMinutesOf(doctor) {
+      let value = doctor.get('slotMinutes', 15);
+      return value is int && value >= 5 && value <= 240 ? value : 15;
+    }
+
+    // startAt is one of the doctor's weekly slots. Up to 3 ranges a day, as the app reads them.
+    function inSchedule(doctor, startAt) {
+      let local = nepalTime(startAt);
+      let dayKey = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'][local.dayOfWeek() - 1];
+      let schedule = doctor.get('weeklySchedule', {});
+      let ranges = schedule is map ? schedule.get(dayKey, []) : [];
+      let m = local.hours() * 60 + local.minutes();
+      let slotMinutes = slotMinutesOf(doctor);
+      return ranges is list && (
+        (ranges.size() > 0 && slotFits(ranges[0], m, slotMinutes))
+        || (ranges.size() > 1 && slotFits(ranges[1], m, slotMinutes))
+        || (ranges.size() > 2 && slotFits(ranges[2], m, slotMinutes)));
+    }
+
+    // The doctor is active, the snapshot copies their current details, and the time is theirs.
+    function doctorAllows(booking) {
+      // A missing doctor makes get() fail, which denies.
+      let doctor = get(/databases/$(database)/documents/doctors/$(booking.doctorId)).data;
+      return doctor.active == true
+        && booking.doctor == {
+          'name': doctor.name,
+          'specialty': doctor.specialty,
+          'hospital': doctor.hospital,
+          'feeNpr': doctor.feeNpr
+        }
+        && inSchedule(doctor, booking.startAt);
+    }
+
+    match /bookings/{bookingId} {
+      // Own bookings only; a list must ask for patientUid == your uid.
+      allow read: if isSignedIn() && resource.data.patientUid == request.auth.uid;
+
+      // A new booking, with its slot lock and a quota place in the same write.
+      allow create: if isSignedIn()
+        && emailVerified()
+        && isAutoId(bookingId)
+        && request.resource.data.keys().hasOnly(['patientUid', 'doctorId', 'doctor', 'startAt', 'slotId', 'quotaPlace', 'status', 'createdAt'])
+        && request.resource.data.keys().hasAll(['patientUid', 'doctorId', 'doctor', 'startAt', 'slotId', 'quotaPlace', 'status', 'createdAt'])
+        && request.resource.data.patientUid == request.auth.uid
+        && request.resource.data.status == 'booked'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.doctorId is string
+        && request.resource.data.doctorId.matches('[A-Za-z0-9-]{1,64}')
+        && request.resource.data.startAt is timestamp
+        // At least 30 minutes ahead (the app offers slots an hour ahead; the margin allows
+        // for a slow confirm and clock skew), so a slot can't be grabbed as it starts.
+        && request.resource.data.startAt > request.time + duration.value(30, 'm')
+        && request.resource.data.startAt < request.time + duration.value(15, 'd')
+        && request.resource.data.slotId is string
+        && slotIdMatches(request.resource.data.slotId, request.resource.data.doctorId, request.resource.data.startAt)
+        && request.resource.data.quotaPlace in [1, 2, 3]
+        && doctorAllows(request.resource.data)
+        && getAfter(lockPath(request.resource.data.slotId)).data.bookingId == bookingId
+        && getAfter(quotaPath(request.auth.uid, request.resource.data.quotaPlace)).data.bookingId == bookingId;
+
+      // Cancelling: own booking, before it starts, only status and cancelledAt change, and the
+      // slot lock goes in the same write so the slot frees up.
+      allow update: if isSignedIn()
+        && resource.data.patientUid == request.auth.uid
+        && resource.data.status == 'booked'
+        && request.time < resource.data.startAt
+        && changedKeys().hasOnly(['status', 'cancelledAt'])
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.cancelledAt == request.time
+        && !existsAfter(lockPath(resource.data.slotId));
+
+      // History stays: no client deletes a booking.
+      allow delete: if false;
+    }
+
+    match /slotLocks/{slotId} {
+      // Signed-in users see which slots are taken. Locks hold no personal data.
+      allow read: if isSignedIn();
+
+      // Only together with the new booking it points to (create, never overwrite: a taken
+      // slot is an update, which is denied).
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['doctorId', 'startAt', 'bookingId'])
+        && request.resource.data.keys().hasAll(['doctorId', 'startAt', 'bookingId'])
+        && isAutoId(request.resource.data.bookingId)
+        && !exists(bookingPath(request.resource.data.bookingId))
+        && getAfter(bookingPath(request.resource.data.bookingId)).data.patientUid == request.auth.uid
+        && getAfter(bookingPath(request.resource.data.bookingId)).data.status == 'booked'
+        && getAfter(bookingPath(request.resource.data.bookingId)).data.slotId == slotId
+        && getAfter(bookingPath(request.resource.data.bookingId)).data.doctorId == request.resource.data.doctorId
+        && getAfter(bookingPath(request.resource.data.bookingId)).data.startAt == request.resource.data.startAt;
+
+      // Only when its booking is cancelled in the same write.
+      allow delete: if isSignedIn()
+        && getAfter(bookingPath(resource.data.bookingId)).data.patientUid == request.auth.uid
+        && getAfter(bookingPath(resource.data.bookingId)).data.status == 'cancelled';
+
+      allow update: if false;
+    }
+
+    // The 3 places that cap a patient at 3 upcoming bookings. A place holds a booking until
+    // that booking starts (then it may be reused) or is cancelled (then it is freed).
+    match /users/{uid}/bookingQuota/{place} {
+      function holdsNewBooking() {
+        let booking = getAfter(bookingPath(request.resource.data.bookingId)).data;
+        return request.resource.data.keys().hasOnly(['bookingId', 'startAt'])
+          && request.resource.data.keys().hasAll(['bookingId', 'startAt'])
+          && isAutoId(request.resource.data.bookingId)
+          && !exists(bookingPath(request.resource.data.bookingId))
+          && booking.patientUid == uid
+          && booking.status == 'booked'
+          && booking.quotaPlace == int(place)
+          && booking.startAt == request.resource.data.startAt;
+      }
+
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && place in ['1', '2', '3'] && holdsNewBooking();
+      allow update: if isOwner(uid) && resource.data.startAt <= request.time && holdsNewBooking();
+      allow delete: if isOwner(uid)
+        && (resource.data.startAt <= request.time
+          || getAfter(bookingPath(resource.data.bookingId)).data.status == 'cancelled');
+    }
+
     // Everything else is denied by default.
     match /{document=**} {
       allow read, write: if false;

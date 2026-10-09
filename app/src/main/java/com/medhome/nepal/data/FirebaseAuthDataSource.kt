@@ -59,6 +59,10 @@ class FirebaseAuthDataSource(
         (auth.currentUser ?: user).toAuthUser()
     }
 
+    override suspend fun emailVerifiedClaim(forceRefresh: Boolean): Boolean = mapErrors {
+        requireFirebaseUser().getIdToken(forceRefresh).await().claims[CLAIM_EMAIL_VERIFIED] == true
+    }
+
     override suspend fun reauthenticate(email: String, password: String) = mapErrors {
         requireFirebaseUser().reauthenticate(EmailAuthProvider.getCredential(email, password)).await()
         Unit
@@ -102,4 +106,8 @@ class FirebaseAuthDataSource(
         isEmailVerified = isEmailVerified,
         providerIds = providerData.map { it.providerId }.toSet(),
     )
+
+    private companion object {
+        const val CLAIM_EMAIL_VERIFIED = "email_verified"
+    }
 }

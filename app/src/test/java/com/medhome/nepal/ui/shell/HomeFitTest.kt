@@ -8,6 +8,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.Role
+import com.medhome.nepal.domain.Specialty
+import com.medhome.nepal.fakes.FakeBookingRepository
+import com.medhome.nepal.fakes.booking
+import com.medhome.nepal.fakes.doctor
+import com.medhome.nepal.fakes.fakeBookingViewModels
 import com.medhome.nepal.domain.UserProfile
 import com.medhome.nepal.session.SessionState
 import com.medhome.nepal.ui.theme.MedHomeTheme
@@ -36,8 +41,20 @@ class HomeFitTest {
         usesPassword = true,
     )
 
+    /** The tallest Home: an upcoming appointment with a long doctor name. */
+    private val bookings = FakeBookingRepository(
+        listOf(
+            booking(
+                doctor = doctor(name = "Bishnu Prasad Shrestha Adhikari", specialty = Specialty.GASTROENTEROLOGY),
+                startAtMillis = System.currentTimeMillis() + DAY_MS,
+            ),
+        ),
+    )
+
     private fun assertShortcutsFitAboveBar() {
-        compose.setContent { MedHomeTheme(darkTheme = false) { MainShell(session) } }
+        compose.setContent {
+            MedHomeTheme(darkTheme = false) { MainShell(session, bookingViewModelFactory = fakeBookingViewModels(bookings)) }
+        }
         // Entrance animations run on the test clock; idle means they have finished.
         compose.waitForIdle()
 
@@ -62,5 +79,6 @@ class HomeFitTest {
 
     private companion object {
         const val TOLERANCE_PX = 1f
+        const val DAY_MS = 24 * 60 * 60 * 1000L
     }
 }

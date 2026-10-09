@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -29,7 +30,15 @@ import com.medhome.nepal.domain.Role as UserRole
 import com.medhome.nepal.domain.UserProfile
 import com.medhome.nepal.fakes.FakeAuthDataSource
 import com.medhome.nepal.fakes.FakeCredentialClient
+import com.medhome.nepal.fakes.FakeBookingRepository
 import com.medhome.nepal.fakes.FakeDoctorRepository
+import com.medhome.nepal.fakes.booking
+import com.medhome.nepal.fakes.fakeBookingViewModels
+import com.medhome.nepal.domain.TimeOfDay
+import com.medhome.nepal.domain.TimeRange
+import com.medhome.nepal.domain.Weekday
+import com.medhome.nepal.ui.booking.BOOKING_CARD_TAG
+import com.medhome.nepal.ui.booking.SLOT_CHIP_TAG
 import com.medhome.nepal.fakes.doctor
 import com.medhome.nepal.fakes.FakeProfileStore
 import com.medhome.nepal.session.SessionManager
@@ -41,6 +50,7 @@ import com.medhome.nepal.ui.profile.ProfileViewModel
 import com.medhome.nepal.ui.theme.MedHomeTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -78,9 +88,20 @@ class PatientShellNavigationTest {
         }
     }
 
-    private val asha = doctor(id = "doc-001", name = "Asha Rai")
+    /** Open every day 06:00-22:00, so free slots exist whenever the test runs. */
+    private val asha = doctor(id = "doc-001", name = "Asha Rai").copy(
+        weeklySchedule = Weekday.entries.associateWith { listOf(TimeRange(TimeOfDay(6 * 60), TimeOfDay(22 * 60))) },
+    )
     private val bikash = doctor(id = "doc-002", name = "Bikash Thapa", specialty = Specialty.DERMATOLOGY)
-    private val doctorViewModelFactory = DoctorViewModels.factory { FakeDoctorRepository(listOf(asha, bikash)) }
+    private val doctorRepository = FakeDoctorRepository(listOf(asha, bikash))
+    private val doctorViewModelFactory = DoctorViewModels.factory { doctorRepository }
+
+    /** One past booking with Asha, so the Bookings tab has something under Past. */
+    private val bookings = FakeBookingRepository(
+        listOf(booking(id = "past1", doctor = asha, startAtMillis = System.currentTimeMillis() - DAY_MS)),
+        clock = System::currentTimeMillis,
+    )
+    private val bookingViewModelFactory = fakeBookingViewModels(bookings, doctorRepository)
 
     private val isTab = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
 
@@ -90,7 +111,7 @@ class PatientShellNavigationTest {
     @Before
     fun showShell() {
         compose.setContent {
-            MedHomeTheme(darkTheme = false) { MainShell(session, profileViewModelFactory, doctorViewModelFactory) }
+            MedHomeTheme(darkTheme = false) { MainShell(session, profileViewModelFactory, doctorViewModelFactory, bookingViewModelFactory) }
         }
         settle()
     }
@@ -279,7 +300,85 @@ class PatientShellNavigationTest {
         assertOnProfile()
     }
 
+    // Booking
+
+    private fun openBooking() {
+        openFindDoctor()
+        compose.onNodeWithText(asha.name).performClick()
+        settle()
+        compose.onNodeWithText(text(R.string.doctor_book)).clickRow()
+        settle()
+    }
+
+    private fun bookFirstFreeSlot() {
+        compose.onAllNodesWithTag(SLOT_CHIP_TAG)[0].performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        compose.onNodeWithText(text(R.string.book_confirm_action)).performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        compose.onNodeWithText(text(R.string.book_success_title)).assertExists()
+    }
+
+    private fun assertOnBookingsTab() {
+        compose.onNodeWithText(text(R.string.bookings_title)).assertIsDisplayed()
+        compose.onNode(isTab and hasText(text(R.string.nav_bookings))).assertIsSelected()
+        compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).assertIsDisplayed()
+    }
+
+    @Test
+    fun `Book appointment opens the slot picker without the bar`() {
+        openBooking()
+        compose.onNodeWithText(text(R.string.book_title)).assertIsDisplayed()
+        compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).assertDoesNotExist()
+
+        pressBack()
+        compose.onNodeWithText(text(R.string.doctor_book)).assertExists()
+    }
+
+    @Test
+    fun `a booking ends on the Bookings tab and Back goes Home, not back into booking`() {
+        openBooking()
+        bookFirstFreeSlot()
+        compose.onNodeWithText(text(R.string.book_success_action)).performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+
+        assertEquals(1, bookings.booked.size)
+        assertOnBookingsTab()
+        compose.onAllNodesWithTag(BOOKING_CARD_TAG).assertCountEquals(1)
+
+        pressBack()
+        assertOnHome()
+        // Home's stack was cleaned: Home is its root, and the next appointment shows the booking.
+        compose.onNodeWithText(text(R.string.book_title)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.doctors_search)).assertDoesNotExist()
+        compose.onNodeWithText(asha.name).assertExists()
+    }
+
+    @Test
+    fun `Back on the success sheet also finishes on the Bookings tab`() {
+        openBooking()
+        bookFirstFreeSlot()
+        pressBack()
+        assertOnBookingsTab()
+    }
+
+    @Test
+    fun `a booking opens its details and Back returns to the list`() {
+        compose.onNode(isTab and hasText(text(R.string.nav_bookings))).performClick()
+        settle()
+        compose.onNodeWithText(text(R.string.bookings_past)).performClick()
+        settle()
+        compose.onAllNodesWithTag(BOOKING_CARD_TAG)[0].performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        compose.onNodeWithText(text(R.string.booking_past_notice)).assertExists()
+        compose.onNodeWithText(text(R.string.booking_cancel)).assertDoesNotExist()
+        compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).assertDoesNotExist()
+
+        pressBack()
+        assertOnBookingsTab()
+    }
+
     private companion object {
         const val SETTLE_MS = 1_000L
+        const val DAY_MS = 24 * 60 * 60 * 1000L
     }
 }

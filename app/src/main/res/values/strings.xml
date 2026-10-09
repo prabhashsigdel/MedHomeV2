@@ -187,8 +187,8 @@
     <string name="faq_data_a">Your account and profile are stored with Google Firebase (Authentication and Cloud Firestore). The app never stores your password; Firebase handles sign-in. See the privacy policy for details.</string>
     <string name="faq_delete_q">How do I delete my account?</string>
     <string name="faq_delete_a">Go to Profile, then Danger zone, and tap Delete account. You\'ll be asked to confirm. This permanently removes your profile and your account.</string>
-    <string name="faq_coming_q">Where are bookings and health records?</string>
-    <string name="faq_coming_a">They\'re coming soon. The Bookings and Records tabs will fill in as those features are built.</string>
+    <string name="faq_coming_q">Where are my health records?</string>
+    <string name="faq_coming_a">They\'re coming soon. The Records tab will fill in once that feature is built.</string>
 
     <!-- Privacy policy and terms: DRAFT placeholders for a student project -->
     <string name="legal_draft_banner">Draft: placeholder text for a student project. It must be replaced before any public release.</string>
@@ -242,7 +242,6 @@
     <string name="doctor_hours_closed">Closed</string>
     <string name="doctor_hours_range">%1$s – %2$s</string>
     <string name="doctor_book">Book appointment</string>
-    <string name="doctor_book_soon">Booking is coming soon.</string>
     <string name="doctor_unavailable_title">Doctor not available</string>
     <string name="doctor_unavailable_body">This doctor isn\'t taking appointments on MedHome right now.</string>
     <string name="doctor_unavailable_offline">You\'re offline, and this doctor isn\'t saved on this phone yet.</string>
@@ -258,4 +257,62 @@
     <string name="specialty_ophthalmology">Eye care</string>
     <string name="specialty_dentistry">Dentistry</string>
     <string name="specialty_gastroenterology">Gastroenterology</string>
+
+    <!-- Booking: slots, confirming, the Bookings tab and cancelling. -->
+    <string name="doctors_load_failed">Couldn\'t load doctors. Try again.</string>
+    <string name="doctor_load_failed">Couldn\'t load this doctor. Try again.</string>
+    <string name="book_title">Book an appointment</string>
+    <string name="book_pick_date">Choose a date</string>
+    <string name="book_pick_time">Choose a time</string>
+    <string name="book_morning">Morning</string>
+    <string name="book_afternoon">Afternoon</string>
+    <string name="book_evening">Evening</string>
+    <string name="book_no_slots_day">No free times on this day. Try another date.</string>
+    <string name="book_no_slots">No free times in the next %1$s days. Please check again later.</string>
+    <string name="book_times_note">Times are Nepal time. Times starting within the next hour aren\'t shown.</string>
+    <string name="book_day_full">No free times</string>
+    <string name="book_slots_load_failed">Couldn\'t load free times. Try again.</string>
+    <string name="book_verify_title">Verify your email to book</string>
+    <string name="book_verify_body">Only verified accounts can book appointments. Open the link we emailed you, then confirm here.</string>
+    <string name="book_verify_action">Verify email</string>
+    <string name="book_confirm_title">Confirm appointment</string>
+    <string name="book_pay_at_clinic">Pay at the clinic. No payment is taken in the app.</string>
+    <string name="book_confirm_action">Confirm booking</string>
+    <string name="book_success_title">Appointment booked</string>
+    <string name="book_success_body">You can see it, or cancel it, under Bookings.</string>
+    <string name="book_success_action">View my bookings</string>
+    <string name="book_error_slot_taken">Someone just booked that time. Please pick another.</string>
+    <string name="book_error_slot_unavailable">That time is no longer available. Please pick another.</string>
+    <string name="book_error_limit">You already have %1$s upcoming appointments. Cancel one to book another.</string>
+    <string name="book_error_unknown">Couldn\'t book this appointment. Please try again.</string>
+    <string name="label_doctor">Doctor</string>
+    <string name="label_date">Date</string>
+    <string name="label_time">Time</string>
+    <string name="booking_date_time">%1$s · %2$s</string>
+    <string name="bookings_title">My bookings</string>
+    <string name="bookings_upcoming">Upcoming</string>
+    <string name="bookings_past">Past</string>
+    <string name="bookings_none_upcoming_body">Find a doctor from Home to book a consultation.</string>
+    <string name="bookings_none_past_title">No past appointments</string>
+    <string name="bookings_none_past_body">Appointments you\'ve had or cancelled will show up here.</string>
+    <string name="bookings_load_failed">Couldn\'t load your bookings. Try again.</string>
+    <string name="bookings_saved_notice">You\'re offline. Showing bookings saved on this phone.</string>
+    <string name="booking_status_cancelled">Cancelled</string>
+    <string name="booking_cancel">Cancel appointment</string>
+    <string name="booking_cancel_note">You can cancel for free until the appointment starts.</string>
+    <string name="booking_cancel_confirm_title">Cancel this appointment?</string>
+    <string name="booking_cancel_confirm_body">The time will be freed for other patients. This can\'t be undone.</string>
+    <string name="booking_keep">Keep appointment</string>
+    <string name="booking_cancelled_notice">This appointment was cancelled.</string>
+    <string name="booking_past_notice">This appointment has passed.</string>
+    <string name="booking_not_found_title">Booking not available</string>
+    <string name="booking_not_found_body">This booking isn\'t on your account any more.</string>
+    <string name="booking_cancel_error_started">This appointment has already started, so it can\'t be cancelled.</string>
+    <string name="booking_cancel_error_unknown">Couldn\'t cancel this appointment. Please try again.</string>
+    <string name="home_appointment_loading">Checking your appointments…</string>
+    <string name="home_appointment_failed">Couldn\'t load your appointments.</string>
+    <plurals name="book_day_free">
+        <item quantity="one">%1$s free time</item>
+        <item quantity="other">%1$s free times</item>
+    </plurals>
 </resources>

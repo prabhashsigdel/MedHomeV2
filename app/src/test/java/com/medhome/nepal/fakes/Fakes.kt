@@ -39,6 +39,10 @@ class FakeAuthDataSource(initialUser: AuthUser? = null) : AuthDataSource {
     var nextUser: AuthUser = passwordUser()
     var userAfterReload: AuthUser? = null
 
+    /** The token's email_verified claim, before and after a forced refresh. */
+    var claimVerified = true
+    var claimVerifiedAfterRefresh: Boolean? = null
+
     /** Operation name -> error to throw. */
     val failures = mutableMapOf<String, AuthError>()
     val calls = mutableListOf<String>()
@@ -64,6 +68,12 @@ class FakeAuthDataSource(initialUser: AuthUser? = null) : AuthDataSource {
         val reloaded = userAfterReload ?: checkNotNull(user.value)
         user.value = reloaded
         return reloaded
+    }
+
+    override suspend fun emailVerifiedClaim(forceRefresh: Boolean): Boolean {
+        record(if (forceRefresh) "refreshIdToken" else "readIdToken")
+        if (forceRefresh) claimVerifiedAfterRefresh?.let { claimVerified = it }
+        return claimVerified
     }
 
     override suspend fun reauthenticate(email: String, password: String) = record("reauthenticate")
@@ -118,6 +128,9 @@ class FakeProfileStore : ProfileStore {
     var clearCount = 0
         private set
 
+    /** Runs as the local data is cleared, to check what had happened by then. */
+    var onClear: (() -> Unit)? = null
+
     override suspend fun getProfile(uid: String): UserProfile? {
         calls += "getProfile"
         getError?.let { throw AuthException(it) }
@@ -150,6 +163,7 @@ class FakeProfileStore : ProfileStore {
     }
 
     override suspend fun clearLocalData() {
+        onClear?.invoke()
         clearCount++
     }
 }

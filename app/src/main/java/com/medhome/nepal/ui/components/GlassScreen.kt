@@ -281,6 +281,18 @@ fun StatusMessage(
     onDismiss: (() -> Unit)? = null,
     onRetry: (() -> Unit)? = null,
 ) {
+    StatusMessage(text = stringResource(message), kind = kind, modifier = modifier, onDismiss = onDismiss, onRetry = onRetry)
+}
+
+/** [StatusMessage] with text already resolved (for messages with arguments). */
+@Composable
+fun StatusMessage(
+    text: String,
+    kind: MessageKind,
+    modifier: Modifier = Modifier,
+    onDismiss: (() -> Unit)? = null,
+    onRetry: (() -> Unit)? = null,
+) {
     val colors = GlassTheme.colors
     val tone = when (kind) {
         MessageKind.Error -> colors.error
@@ -295,7 +307,7 @@ fun StatusMessage(
             .padding(start = 14.dp, end = 6.dp, top = 12.dp, bottom = if (onDismiss != null || onRetry != null) 2.dp else 12.dp),
     ) {
         Text(
-            text = stringResource(message),
+            text = text,
             style = MaterialTheme.typography.bodyMedium,
             color = tone,
             modifier = Modifier.padding(end = 8.dp),

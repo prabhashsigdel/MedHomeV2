@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.medhome.nepal.R
-import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.Specialty
 import com.medhome.nepal.ui.common.feeText
@@ -116,7 +115,8 @@ private fun DoctorListBody(
             GlassLinkButton(text = R.string.doctors_clear_filters, onClick = onClear)
         }
         DoctorListStatus.FAILED -> StatusMessage(
-            message = (state.error ?: AuthError.UNKNOWN).messageRes,
+            // This screen's own message: a generic error's text may be about something else.
+            message = R.string.doctors_load_failed,
             kind = MessageKind.Error,
             onRetry = onRetry,
         )

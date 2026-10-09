@@ -37,6 +37,12 @@ object DoctorMapper {
     /** Used when slotMinutes is missing or out of range, so the doctor can still be shown. */
     const val DEFAULT_SLOT_MINUTES = 15
 
+    /**
+     * Ranges read per day: firestore.rules only accepts bookings in a day's first 3 stored
+     * ranges, so later ones are ignored here too (the seed never writes more).
+     */
+    const val MAX_RANGES_PER_DAY = 3
+
     fun parse(id: String, data: Map<String, Any?>?): Doctor? {
         if (data == null || !Doctor.isValidId(id)) return null
         if (data[FIELD_ACTIVE] != true) return null
@@ -57,13 +63,16 @@ object DoctorMapper {
         )
     }
 
-    /** weekday key -> list of {start, end}. Unknown days and malformed ranges are skipped. */
+    /**
+     * weekday key -> list of {start, end}. Unknown days and malformed ranges are skipped, and
+     * only the first [MAX_RANGES_PER_DAY] stored ranges of a day count.
+     */
     fun parseSchedule(value: Any?): Map<Weekday, List<TimeRange>> {
         val days = value as? Map<*, *> ?: return emptyMap()
         val schedule = mutableMapOf<Weekday, List<TimeRange>>()
         for ((key, ranges) in days) {
             val day = Weekday.fromKey(key as? String) ?: continue
-            val parsed = (ranges as? List<*>).orEmpty().mapNotNull(::parseRange)
+            val parsed = (ranges as? List<*>).orEmpty().take(MAX_RANGES_PER_DAY).mapNotNull(::parseRange)
             val ordered = withoutOverlaps(parsed.sortedBy { it.start })
             if (ordered.isNotEmpty()) schedule[day] = ordered
         }
@@ -84,7 +93,7 @@ object DoctorMapper {
         }
 
     /** Firestore integers arrive as Long; a whole Double is accepted too, nothing else. */
-    private fun wholeNumber(value: Any?): Int? = when (value) {
+    internal fun wholeNumber(value: Any?): Int? = when (value) {
         is Long -> value.takeIf { it in Int.MIN_VALUE..Int.MAX_VALUE }?.toInt()
         is Int -> value
         is Double -> value.takeIf { it % 1.0 == 0.0 && it in Int.MIN_VALUE.toDouble()..Int.MAX_VALUE.toDouble() }?.toInt()
@@ -92,7 +101,7 @@ object DoctorMapper {
     }
 
     /** One line of text: invisible characters removed, whitespace collapsed; null when empty. */
-    private fun cleanLine(value: Any?, maxLength: Int): String? =
+    internal fun cleanLine(value: Any?, maxLength: Int): String? =
         (value as? String)
             ?.let { stripInvisible(it, keepNewlines = false) }
             ?.replace(WHITESPACE, " ")

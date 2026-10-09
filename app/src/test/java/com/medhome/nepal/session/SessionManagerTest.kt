@@ -1,5 +1,6 @@
 package com.medhome.nepal.session
 
+import com.medhome.nepal.data.ListenerRegistry
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
 import com.medhome.nepal.domain.Gender
@@ -269,10 +270,96 @@ class SessionManagerTest {
             auth.userAfterReload = user.copy(isEmailVerified = true)
             assertTrue(session.checkEmailVerified())
             assertTrue(session.state.value is SessionState.SignedIn)
+            // The rules read the token, so verifying gets a fresh one at once.
+            assertTrue("refreshIdToken" in auth.calls)
+        }
+    }
+
+    @Test
+    fun `a signed-in user can be sent to verification and comes back once verified`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser())
+        withSession(auth) { session ->
+            session.start()
+            val signedIn = session.state.value as SessionState.SignedIn
+            session.showEmailVerification()
+            assertEquals(SessionState.NeedsVerification(signedIn.profile), session.state.value)
+
+            assertTrue(session.checkEmailVerified())
+            assertTrue(session.state.value is SessionState.SignedIn)
+        }
+    }
+
+    @Test
+    fun `verification is only shown from signed in`() = runTest {
+        withSession(FakeAuthDataSource()) { session ->
+            session.start()
+            session.showEmailVerification()
+            assertEquals(SessionState.SignedOut(), session.state.value)
         }
     }
 
     // Sign out and delete
+
+    @Test
+    fun `sign out closes screens and stops listeners before wiping the cache`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser())
+        val listeners = ListenerRegistry()
+        var stopped = 0
+        listeners.register { stopped++ }
+        var stateAtClear: SessionState? = null
+        var stoppedAtClear = -1
+        val scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        try {
+            val session = SessionManager(auth, profiles, google, scope, listeners)
+            profiles.onClear = {
+                stateAtClear = session.state.value
+                stoppedAtClear = stopped
+            }
+            session.start()
+            session.signOut()
+            assertEquals(SessionState.SignedOut(), stateAtClear)
+            assertEquals(1, stoppedAtClear)
+            assertEquals(0, listeners.openCount)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `deleting an account cancels upcoming bookings first, and stops if that fails`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser())
+        val scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        var cancelFailure: AuthError? = AuthError.NETWORK
+        val steps = mutableListOf<String>()
+        try {
+            val session = SessionManager(auth, profiles, google, scope, cancelUpcomingBookings = {
+                steps += "cancelUpcoming"
+                cancelFailure?.let { throw AuthException(it) }
+            })
+            session.start()
+            expectError(AuthError.NETWORK) { session.deleteAccount(Reauth.Password("password123")) }
+            assertFalse("deleteProfile" in profiles.calls)
+            assertFalse("deleteUser" in auth.calls)
+            assertTrue(session.state.value is SessionState.SignedIn)
+
+            cancelFailure = null
+            session.deleteAccount(Reauth.Password("password123"))
+            assertEquals(listOf("cancelUpcoming", "cancelUpcoming"), steps)
+            assertTrue("deleteProfile" in profiles.calls)
+            assertEquals(SessionState.SignedOut(), session.state.value)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `a listener that ended on its own is not stopped again`() {
+        val listeners = ListenerRegistry()
+        var stopped = 0
+        listeners.register { stopped++ }.release()
+        listeners.stopAll()
+        assertEquals(0, stopped)
+    }
 
     @Test
     fun `sign out clears firebase and credential manager`() = runTest {

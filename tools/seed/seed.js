@@ -37,7 +37,7 @@ function validate(doctor) {
   const problems = [];
   const text = (value, max) => typeof value === 'string' && value.trim().length > 0 && value.length <= max;
   const whole = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
-  // Same pattern as Doctor.isValidId in the app (no "_": booking IDs are "{doctorId}_{date}_{time}").
+  // Same pattern as Doctor.isValidId in the app (no "_": slot IDs are "{doctorId}_{date}_{time}").
   if (!/^[A-Za-z0-9-]{1,64}$/.test(doctor.id ?? '')) problems.push('id');
   if (!text(doctor.name, 100)) problems.push('name');
   if (!SPECIALTIES.has(doctor.specialty)) problems.push('specialty');
@@ -47,7 +47,8 @@ function validate(doctor) {
   if (!whole(doctor.slotMinutes, 5, 240)) problems.push('slotMinutes');
   if (!text(doctor.bio, 2000)) problems.push('bio');
   for (const [day, ranges] of Object.entries(doctor.weeklySchedule ?? {})) {
-    if (!WEEKDAYS.has(day) || !Array.isArray(ranges)) {
+    // firestore.rules only accepts bookings in a day's first 3 ranges (DoctorMapper keeps 3 too).
+    if (!WEEKDAYS.has(day) || !Array.isArray(ranges) || ranges.length > 3) {
       problems.push(`weeklySchedule.${day}`);
       continue;
     }

@@ -5,6 +5,7 @@ import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.Specialty
 import com.medhome.nepal.fakes.FakeDoctorRepository
 import com.medhome.nepal.fakes.doctor
+import com.medhome.nepal.ui.common.OFFLINE_GRACE_MS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.StateFlow

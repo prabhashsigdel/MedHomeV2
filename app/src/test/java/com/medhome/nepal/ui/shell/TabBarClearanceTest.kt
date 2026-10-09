@@ -11,6 +11,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.Role
+import com.medhome.nepal.fakes.fakeBookingViewModels
 import com.medhome.nepal.domain.UserProfile
 import com.medhome.nepal.session.SessionState
 import com.medhome.nepal.ui.theme.MedHomeTheme
@@ -39,7 +40,7 @@ class TabBarClearanceTest {
 
     private fun assertLastShortcutClearsBar(fontScale: Float = 1f) {
         RuntimeEnvironment.setFontScale(fontScale)
-        compose.setContent { MedHomeTheme(darkTheme = false) { MainShell(session) } }
+        compose.setContent { MedHomeTheme(darkTheme = false) { MainShell(session, bookingViewModelFactory = fakeBookingViewModels()) } }
         compose.mainClock.advanceTimeBy(SETTLE_MS)
 
         compose.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, SCROLL_TO_END_PX) }

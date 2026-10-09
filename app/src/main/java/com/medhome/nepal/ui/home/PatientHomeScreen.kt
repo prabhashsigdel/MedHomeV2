@@ -9,9 +9,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.UserProfile
+import com.medhome.nepal.ui.booking.NextAppointment
+import com.medhome.nepal.ui.common.dateTimeText
+import com.medhome.nepal.ui.doctors.label
 import com.medhome.nepal.ui.components.GlassCard
 import com.medhome.nepal.ui.components.GlassScreen
 import com.medhome.nepal.ui.components.SectionTitle
@@ -40,6 +44,9 @@ fun PatientHomeScreen(
     profile: UserProfile,
     onOpenProfile: () -> Unit,
     onShortcut: (HomeShortcut) -> Unit,
+    nextAppointment: NextAppointment = NextAppointment.None,
+    /** Opens the Bookings tab from the next-appointment card. */
+    onOpenBookings: () -> Unit = {},
 ) {
     GlassScreen(drawBackground = false) {
         HomeHeader(
@@ -52,7 +59,7 @@ fun PatientHomeScreen(
         // One column with its own rhythm, instead of the screen's wider item spacing.
         Column(verticalArrangement = Arrangement.spacedBy(SectionGap)) {
             HomeSection(title = R.string.home_next_appointment, modifier = Modifier.entrance(1)) {
-                EmptyStateCard(title = R.string.home_no_appointments, body = R.string.home_no_appointments_body)
+                NextAppointmentCard(state = nextAppointment, onClick = onOpenBookings)
             }
 
             HomeSection(title = R.string.home_todays_medicines, modifier = Modifier.entrance(2)) {
@@ -76,6 +83,33 @@ private fun HomeSection(
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(TitleGap)) {
         SectionTitle(text = title, topPadding = 0.dp)
         content()
+    }
+}
+
+/** The real next booking, or why there is none to show. Same height either way (HomeFitTest). */
+@Composable
+private fun NextAppointmentCard(state: NextAppointment, onClick: () -> Unit) {
+    val colors = GlassTheme.colors
+    when (state) {
+        NextAppointment.None -> EmptyStateCard(title = R.string.home_no_appointments, body = R.string.home_no_appointments_body)
+        NextAppointment.Loading -> EmptyStateCard(title = R.string.home_next_appointment, body = R.string.home_appointment_loading)
+        NextAppointment.Failed -> EmptyStateCard(title = R.string.home_no_appointments, body = R.string.home_appointment_failed)
+        is NextAppointment.Upcoming -> {
+            val booking = state.booking
+            GlassCard(
+                onClick = onClick,
+                contentPadding = EmptyCardPadding,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.semantics(mergeDescendants = true) {},
+            ) {
+                Text(text = booking.doctor.name, style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
+                Text(
+                    text = "${stringResource(booking.doctor.specialty.label)} · ${dateTimeText(booking.date, booking.start)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.textSecondary,
+                )
+            }
+        }
     }
 }
 
