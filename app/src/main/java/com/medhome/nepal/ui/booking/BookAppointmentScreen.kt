@@ -26,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -313,16 +312,12 @@ private fun BookingSheet(
     onDismiss: () -> Unit,
     onBooked: () -> Unit,
 ) {
-    // Read through updated state: the sheet state is remembered with its first lambda.
-    val submitting by rememberUpdatedState(state.submitting)
-    val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = true,
-        // No swiping it away mid-request.
-        confirmValueChange = { !submitting },
-    )
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val booked = state.booked != null
     GlassBottomSheet(
         onDismissRequest = { if (!state.submitting) onDismiss() },
+        // Static while the booking is sent: no drag, no Back, no scrim tap.
+        locked = state.submitting,
         sheetState = sheetState,
         title = if (booked) R.string.book_success_title else R.string.book_confirm_title,
     ) {

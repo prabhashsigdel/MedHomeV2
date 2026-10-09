@@ -87,6 +87,8 @@ fun MedHomeNavHost(
         exitTransition = { transitions.exit(this) },
         popEnterTransition = { transitions.popEnter(this) },
         popExitTransition = { transitions.popExit(this) },
+        predictivePopEnterTransition = { transitions.predictivePopEnter(this) },
+        predictivePopExitTransition = { transitions.predictivePopExit(this) },
     ) {
         composable<LoadingRoute> { GlassLoadingScreen() }
 

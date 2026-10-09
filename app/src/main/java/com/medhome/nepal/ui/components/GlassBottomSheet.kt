@@ -13,6 +13,7 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -41,7 +42,9 @@ const val GLASS_SHEET_TAG = "glass_sheet"
 /**
  * Modal sheet in the glass style: like [GlassDialog], a glass panel over its own copy of the
  * mesh background, since it is its own window and cannot show the app behind it. Drag, scrim, back and
- * predictive back come from Material's sheet.
+ * predictive back come from Material's sheet. While [locked] (a request is being sent) the
+ * sheet is completely static: no drag, no predictive back, and neither Back nor the scrim
+ * dismisses it.
  *
  * The border is drawn on our own body, inside the sheet, with our own drag handle and insets:
  * Material places the sheet with an offset inside its surface, so a border on the sheet's
@@ -54,12 +57,17 @@ fun GlassBottomSheet(
     onDismissRequest: () -> Unit,
     sheetState: SheetState,
     @StringRes title: Int,
+    locked: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = GlassTheme.colors
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
+        // Disabling gestures (not refusing them in confirmValueChange) means a drag never
+        // starts, so there is no rubber band.
+        sheetGesturesEnabled = !locked,
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !locked, shouldDismissOnClickOutside = !locked),
         shape = SheetShape,
         // Covered by the glass panel; opaque so nothing shows at its edges while it moves.
         containerColor = colors.background.base,

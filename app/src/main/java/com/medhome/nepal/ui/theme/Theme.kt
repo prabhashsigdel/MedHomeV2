@@ -103,7 +103,7 @@ private fun animateGlassColors(target: GlassColors, reducedMotion: Boolean): Gla
 }
 
 /** Theme switches crossfade over this long (the mesh background too, see meshGradient). */
-const val THEME_CROSSFADE_MS = 300
+const val THEME_CROSSFADE_MS = MotionTokens.CROSSFADE_MS
 
 /** Every Material color is opaque, so stock components stay readable wherever they appear. */
 internal fun GlassColors.toColorScheme(): ColorScheme {

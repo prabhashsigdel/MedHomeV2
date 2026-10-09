@@ -2,7 +2,8 @@ package com.medhome.nepal.ui.shell
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -19,9 +20,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,8 +65,8 @@ import com.medhome.nepal.ui.home.ComingSoonScreen
 import com.medhome.nepal.ui.home.HomeShortcut
 import com.medhome.nepal.ui.home.PatientHomeScreen
 import com.medhome.nepal.ui.motion.LocalReducedMotion
-import com.medhome.nepal.ui.motion.materializeIn
-import com.medhome.nepal.ui.motion.materializeOut
+import com.medhome.nepal.ui.motion.MotionTokens
+import com.medhome.nepal.ui.motion.motionSpec
 import com.medhome.nepal.ui.navigation.ScreenTransitions
 import com.medhome.nepal.ui.navigation.navigateOnce
 import com.medhome.nepal.ui.navigation.navigateOnceWith
@@ -183,6 +187,8 @@ private fun PatientShell(
                 exitTransition = { transitions.exit(this) },
                 popEnterTransition = { transitions.popEnter(this) },
                 popExitTransition = { transitions.popExit(this) },
+                predictivePopEnterTransition = { transitions.predictivePopEnter(this) },
+                predictivePopExitTransition = { transitions.predictivePopExit(this) },
             ) {
                 navigation<HomeTab>(startDestination = HomeRoute) {
                     composable<HomeRoute> {
@@ -254,30 +260,45 @@ private fun PatientShell(
             }
         }
 
-        AnimatedVisibility(
-            visible = onTabRoot,
-            enter = materializeIn(),
-            exit = materializeOut(),
+        // Always composed, so its blur (Haze) is never rebuilt: coming back to a tab root, often
+        // as a back swipe is released, is then only a fade. Hidden, it is not placed at all, so it
+        // draws nothing and takes no touches.
+        val barShown by animateFloatAsState(
+            targetValue = if (onTabRoot) 1f else 0f,
+            animationSpec = motionSpec(tween(if (onTabRoot) MotionTokens.CROSSFADE_MS else MotionTokens.FEEDBACK_MS, easing = MotionTokens.EaseOut)),
+            label = "tabBar",
+        )
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                .placedOnlyIf(onTabRoot || barShown > 0f)
+                .graphicsLayer {
+                    alpha = barShown
+                    val scale = MotionTokens.MATERIALIZE_SCALE + (1f - MotionTokens.MATERIALIZE_SCALE) * barShown
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .then(if (onTabRoot) Modifier.testTag(FLOATING_NAV_BAR_TAG) else Modifier.clearAndSetSemantics {})
+                .onSizeChanged { size ->
+                    if (size.height > 0) measuredBarHeight = with(density) { size.height.toDp() }
+                },
         ) {
-            Box(
-                modifier = Modifier
-                    .testTag(FLOATING_NAV_BAR_TAG)
-                    .onSizeChanged { size ->
-                        // Hidden (0) while a pushed screen shows: keep the last real measurement.
-                        if (size.height > 0) measuredBarHeight = with(density) { size.height.toDp() }
-                    },
-            ) {
-                FloatingNavBar(
-                    items = NavItems,
-                    selectedIndex = currentTab.ordinal,
-                    onSelect = { navController.selectTab(PatientTab.entries[it]) },
-                    animateIn = false,
-                )
-            }
+            FloatingNavBar(
+                items = NavItems,
+                selectedIndex = currentTab.ordinal,
+                onSelect = { navController.selectTab(PatientTab.entries[it]) },
+                animateIn = false,
+            )
         }
+    }
+}
+
+/** Measured and composed as usual, but placed (drawn, touchable) only while [placed]. */
+private fun Modifier.placedOnlyIf(placed: Boolean): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    layout(placeable.width, placeable.height) {
+        if (placed) placeable.place(0, 0)
     }
 }
 

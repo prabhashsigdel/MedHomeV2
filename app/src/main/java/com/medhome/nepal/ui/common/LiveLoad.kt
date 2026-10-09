@@ -22,9 +22,11 @@ internal const val STOP_TIMEOUT_MS = 0L
 /**
  * How long an answer from the on-device cache only is treated as provisional. Online, Firestore
  * answers from the cache first and from the server a moment later; only a cache answer that
- * lasts this long means "offline", so the offline notice doesn't flash on every open.
+ * lasts this long means "offline", so the offline notice doesn't flash on every open. Cached
+ * content shows at once regardless: this only delays the notice (and, with nothing cached,
+ * the "you're offline" message), so it is kept short.
  */
-internal const val OFFLINE_GRACE_MS = 1_500L
+internal const val OFFLINE_GRACE_MS = 800L
 
 /** Where a live read stands. */
 sealed interface Load<out T> {

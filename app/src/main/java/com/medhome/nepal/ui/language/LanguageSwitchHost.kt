@@ -177,8 +177,8 @@ private fun Modifier.blockTouches(): Modifier = pointerInput(Unit) {
 
 private const val TAG = "LanguageSwitch"
 private const val COVER_FRAMES = 2
-private const val CROSSFADE_MS = 220
+private const val CROSSFADE_MS = MotionTokens.CROSSFADE_MS
 private const val FADE_OUT_MS = 150
-private const val FADE_IN_MS = 220
+private const val FADE_IN_MS = MotionTokens.CROSSFADE_MS
 /** Upper bound for the system to deliver the new locale before the cover is removed anyway. */
 private const val MAX_WAIT_MS = 1_500L

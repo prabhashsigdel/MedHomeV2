@@ -39,9 +39,19 @@ import kotlinx.coroutines.delay
 
 object MotionTokens {
     const val FEEDBACK_MS = 120
-    const val SCREEN_MS = 300
-    const val ENTRANCE_MS = 320
-    const val STAGGER_MS = 50L
+
+    /** Push and pop slides. */
+    const val SCREEN_MS = 250
+
+    /** Crossfades: tab switches, session changes, theme and language. */
+    const val CROSSFADE_MS = 180
+
+    /** First appearance of a screen's items. Short, so content never trickles in. */
+    const val ENTRANCE_MS = 180
+    const val STAGGER_MS = 20L
+
+    /** Later items share the last step, so a whole screen is in within about 240ms. */
+    const val MAX_STAGGER_STEPS = 3
     const val PRESSED_SCALE = 0.97f
     const val MATERIALIZE_SCALE = 0.96f
     val EntranceOffset = 12.dp
@@ -105,7 +115,8 @@ fun Modifier.pressScale(interactionSource: InteractionSource? = null): Modifier 
 
 /**
  * Fades in and rises [MotionTokens.EntranceOffset] the first time a screen shows, staggered by
- * [index]. Saved across rotation so it doesn't replay; animates only alpha and translation.
+ * [index] (capped at [MotionTokens.MAX_STAGGER_STEPS]). Saved across rotation so it doesn't
+ * replay; animates only alpha and translation. Instant with animations off.
  */
 fun Modifier.entrance(index: Int): Modifier = composed {
     val reduced = LocalReducedMotion.current
@@ -113,7 +124,7 @@ fun Modifier.entrance(index: Int): Modifier = composed {
     val progress = remember { Animatable(if (played) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!played) {
-            delay(index * MotionTokens.STAGGER_MS)
+            delay(index.coerceAtMost(MotionTokens.MAX_STAGGER_STEPS) * MotionTokens.STAGGER_MS)
             progress.animateTo(1f, tween(MotionTokens.ENTRANCE_MS, easing = MotionTokens.EaseOut))
             played = true
         }
