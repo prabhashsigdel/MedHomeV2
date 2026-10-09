@@ -12,10 +12,10 @@ class AppShellLogicTest {
     private fun profile(name: String) = UserProfile("uid", name, "a@b.co", Role.PATIENT)
 
     @Test
-    fun `patients get the tabs and staff get the placeholder`() {
+    fun `patients get the tabs, admins the admin panel and doctors the placeholder`() {
         assertEquals(SignedInHome.PATIENT_TABS, signedInHomeFor(Role.PATIENT))
+        assertEquals(SignedInHome.ADMIN_PANEL, signedInHomeFor(Role.ADMIN))
         assertEquals(SignedInHome.STAFF_PLACEHOLDER, signedInHomeFor(Role.DOCTOR))
-        assertEquals(SignedInHome.STAFF_PLACEHOLDER, signedInHomeFor(Role.ADMIN))
     }
 
     @Test

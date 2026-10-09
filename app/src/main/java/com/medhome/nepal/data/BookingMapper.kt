@@ -56,6 +56,22 @@ object BookingMapper {
         )
     }
 
+    /**
+     * One of [doctorId]'s booked (not cancelled) bookings, for the admin's read-only list: when,
+     * and whose (the UID only to look up a first name; null when it isn't a plausible UID).
+     */
+    fun parseForDoctor(id: String, data: Map<String, Any?>?, doctorId: String): DoctorBookingRow? {
+        if (data == null || !isValidId(id)) return null
+        if (data[FIELD_DOCTOR_ID] != doctorId) return null
+        if (BookingStatus.fromKey(data[FIELD_STATUS] as? String) != BookingStatus.BOOKED) return null
+        val startAt = (data[FIELD_START_AT] as? Timestamp)?.toMillis()?.takeIf { it in SupportedMillis } ?: return null
+        val patientUid = (data[FIELD_PATIENT_UID] as? String)?.takeIf(PATIENT_UID::matches)
+        return DoctorBookingRow(id, patientUid, startAt)
+    }
+
+    /** Firebase Auth UIDs (28 characters for its own accounts); never a path. */
+    private val PATIENT_UID = Regex("[A-Za-z0-9_-]{1,128}")
+
     /** The {name, specialty, hospital, feeNpr} snapshot, cleaned the same way as a doctor. */
     private fun parseDoctor(value: Any?): BookedDoctor? {
         val doctor = value as? Map<*, *> ?: return null
@@ -78,3 +94,6 @@ object BookingMapper {
     private const val MILLIS_PER_SECOND = 1_000L
     private const val NANOS_PER_MILLI = 1_000_000
 }
+
+/** A doctor's booking before the patient's first name is looked up. Stays in the data layer. */
+data class DoctorBookingRow(val id: String, val patientUid: String?, val startAtMillis: Long)

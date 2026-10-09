@@ -1,6 +1,7 @@
 package com.medhome.nepal.data
 
 import com.medhome.nepal.domain.Doctor
+import com.medhome.nepal.domain.ManagedDoctor
 import com.medhome.nepal.domain.Specialty
 import com.medhome.nepal.domain.TimeOfDay
 import com.medhome.nepal.domain.TimeRange
@@ -26,6 +27,8 @@ object DoctorMapper {
     const val FIELD_SCHEDULE = "weeklySchedule"
     const val FIELD_START = "start"
     const val FIELD_END = "end"
+    const val FIELD_UPDATED_AT = "updatedAt"
+    const val FIELD_UPDATED_BY = "updatedBy"
 
     const val MAX_NAME_LENGTH = 100
     const val MAX_HOSPITAL_LENGTH = 120
@@ -44,8 +47,22 @@ object DoctorMapper {
     const val MAX_RANGES_PER_DAY = 3
 
     fun parse(id: String, data: Map<String, Any?>?): Doctor? {
-        if (data == null || !Doctor.isValidId(id)) return null
-        if (data[FIELD_ACTIVE] != true) return null
+        if (data == null || data[FIELD_ACTIVE] != true) return null
+        return parseDetails(id, data)
+    }
+
+    /**
+     * Like [parse], but inactive doctors too (admins manage both). A missing or non-boolean
+     * `active` counts as inactive, as it does for patients.
+     */
+    fun parseManaged(id: String, data: Map<String, Any?>?): ManagedDoctor? {
+        if (data == null) return null
+        val doctor = parseDetails(id, data) ?: return null
+        return ManagedDoctor(doctor, active = data[FIELD_ACTIVE] == true)
+    }
+
+    private fun parseDetails(id: String, data: Map<String, Any?>): Doctor? {
+        if (!Doctor.isValidId(id)) return null
         val name = cleanLine(data[FIELD_NAME], MAX_NAME_LENGTH) ?: return null
         val specialty = Specialty.fromKey(data[FIELD_SPECIALTY] as? String) ?: return null
         val hospital = cleanLine(data[FIELD_HOSPITAL], MAX_HOSPITAL_LENGTH) ?: return null
@@ -62,6 +79,24 @@ object DoctorMapper {
             weeklySchedule = parseSchedule(data[FIELD_SCHEDULE]),
         )
     }
+
+    /**
+     * The catalogue fields an admin writes for [doctor] (not `active`, `updatedAt` or
+     * `updatedBy`): the shape firestore.rules validates and [parse] reads back. Callers pass a
+     * doctor whose text is already cleaned and whose experience is set.
+     */
+    fun toFields(doctor: Doctor): Map<String, Any> = mapOf(
+        FIELD_NAME to doctor.name,
+        FIELD_SPECIALTY to doctor.specialty.key,
+        FIELD_HOSPITAL to doctor.hospital,
+        FIELD_FEE to doctor.feeNpr.toLong(),
+        FIELD_EXPERIENCE to requireNotNull(doctor.experienceYears) { "Experience is required" }.toLong(),
+        FIELD_BIO to doctor.bio,
+        FIELD_SLOT_MINUTES to doctor.slotMinutes.toLong(),
+        FIELD_SCHEDULE to doctor.weeklySchedule.entries.associate { (day, ranges) ->
+            day.key to ranges.map { mapOf(FIELD_START to it.start.toStorage(), FIELD_END to it.end.toStorage()) }
+        },
+    )
 
     /**
      * weekday key -> list of {start, end}. Unknown days and malformed ranges are skipped, and
@@ -111,7 +146,7 @@ object DoctorMapper {
             ?.takeIf { it.isNotEmpty() }
 
     /** Paragraph text: like [cleanLine], but line breaks are kept (at most one blank line). */
-    private fun cleanText(value: Any?, maxLength: Int): String? =
+    internal fun cleanText(value: Any?, maxLength: Int): String? =
         (value as? String)
             ?.let { stripInvisible(it, keepNewlines = true) }
             ?.lines()

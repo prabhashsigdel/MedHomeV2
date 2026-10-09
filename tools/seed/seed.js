@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Writes the fictional doctors catalogue (doctors.js) to Firestore with the Admin SDK, which
-// bypasses security rules (clients can't write doctors). Idempotent: each doctor has a fixed
-// document ID and its catalogue fields are replaced in full, so running it again gives the same
-// result. `active` is set only when a doctor is first created: a doctor you deactivated in the
-// console stays deactivated. Doctors not in doctors.js are left alone.
+// bypasses security rules. By default it only adds doctors that don't exist yet: a doctor already
+// in Firestore is left exactly as it is, so edits made by admins in the app survive a re-run.
+// With --overwrite, existing doctors' catalogue fields are replaced in full from doctors.js
+// (`active` is still kept: a doctor hidden by an admin stays hidden). Doctors not in doctors.js
+// are never touched. Every document the seed writes is stamped updatedBy: "seed".
 //
 // Credentials, never inside this repository:
 //   node seed.js --key /path/outside/repo/service-account.json
@@ -15,7 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { cert, initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { doctors } from './doctors.js';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -35,7 +36,10 @@ function fail(message) {
 /** The same limits the app's DoctorMapper enforces, so nothing seeded is silently hidden. */
 function validate(doctor) {
   const problems = [];
-  const text = (value, max) => typeof value === 'string' && value.trim().length > 0 && value.length <= max;
+  // No control characters (firestore.rules refuses them from admins too); a bio may break lines.
+  const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+  const text = (value, max, lines = false) => typeof value === 'string' && value.trim().length > 0 && value.length <= max
+    && !CONTROL.test(lines ? value.replaceAll('\n', '') : value);
   const whole = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
   // Same pattern as Doctor.isValidId in the app (no "_": slot IDs are "{doctorId}_{date}_{time}").
   if (!/^[A-Za-z0-9-]{1,64}$/.test(doctor.id ?? '')) problems.push('id');
@@ -45,7 +49,7 @@ function validate(doctor) {
   if (!whole(doctor.feeNpr, 0, 100000)) problems.push('feeNpr');
   if (!whole(doctor.experienceYears, 0, 70)) problems.push('experienceYears');
   if (!whole(doctor.slotMinutes, 5, 240)) problems.push('slotMinutes');
-  if (!text(doctor.bio, 2000)) problems.push('bio');
+  if (!text(doctor.bio, 2000, true)) problems.push('bio');
   for (const [day, ranges] of Object.entries(doctor.weeklySchedule ?? {})) {
     // firestore.rules only accepts bookings in a day's first 3 ranges (DoctorMapper keeps 3 too).
     if (!WEEKDAYS.has(day) || !Array.isArray(ranges) || ranges.length > 3) {
@@ -94,6 +98,7 @@ const { values: options } = parseArgs({
     key: { type: 'string' },
     project: { type: 'string' },
     'dry-run': { type: 'boolean', default: false },
+    overwrite: { type: 'boolean', default: false },
   },
 });
 
@@ -126,19 +131,28 @@ if (emulator) {
 const db = getFirestore(app);
 const refs = doctors.map((d) => db.collection('doctors').doc(d.id));
 const existing = new Set((await db.getAll(...refs)).filter((snap) => snap.exists).map((snap) => snap.id));
+const stamp = { updatedAt: FieldValue.serverTimestamp(), updatedBy: 'seed' };
+let created = 0;
+let replaced = 0;
 // Batches hold at most 500 writes.
 const BATCH_SIZE = 400;
 for (let start = 0; start < doctors.length; start += BATCH_SIZE) {
   const batch = db.batch();
   for (const { id, ...fields } of doctors.slice(start, start + BATCH_SIZE)) {
     const ref = db.collection('doctors').doc(id);
-    if (existing.has(id)) {
+    if (!existing.has(id)) {
+      batch.create(ref, { ...fields, active: true, ...stamp });
+      created += 1;
+    } else if (options.overwrite) {
       // Replace each catalogue field whole (maps too, so a removed weekday goes), keep `active`.
-      batch.set(ref, fields, { mergeFields: Object.keys(fields) });
-    } else {
-      batch.set(ref, { ...fields, active: true });
+      const replacement = { ...fields, ...stamp };
+      batch.set(ref, replacement, { mergeFields: Object.keys(replacement) });
+      replaced += 1;
     }
   }
   await batch.commit();
 }
-console.log(`seed: wrote ${doctors.length} doctors to ${emulator ? `the emulator (${emulator})` : `project ${app.options.projectId}`}.`);
+const skipped = existing.size - replaced;
+const target = emulator ? `the emulator (${emulator})` : `project ${app.options.projectId}`;
+console.log(`seed: ${target}: added ${created}, replaced ${replaced}, left ${skipped} existing doctor(s) as they are.`);
+if (skipped > 0) console.log('seed: run with --overwrite to replace existing doctors from doctors.js.');

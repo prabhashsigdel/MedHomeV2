@@ -1,5 +1,8 @@
 package com.medhome.nepal.domain
 
+import java.util.Locale
+import kotlin.random.Random
+
 /** Medical specialties. [key] is what Firestore stores; the label comes from string resources. */
 enum class Specialty(val key: String) {
     GENERAL_PHYSICIAN("general_physician"),
@@ -52,6 +55,9 @@ value class TimeOfDay(val minutes: Int) : Comparable<TimeOfDay> {
 
     override fun compareTo(other: TimeOfDay): Int = minutes.compareTo(other.minutes)
 
+    /** "HH:mm" (24-hour, Western digits), as Firestore stores it. Never shown to users. */
+    fun toStorage(): String = String.format(Locale.ROOT, "%02d:%02d", hour, minute)
+
     companion object {
         const val MINUTES_PER_HOUR = 60
         const val MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR
@@ -97,5 +103,16 @@ data class Doctor(
         private val ID = Regex("[A-Za-z0-9-]{1,64}")
 
         fun isValidId(id: String): Boolean = ID.matches(id)
+
+        private const val NEW_ID_PREFIX = "doc-"
+        private const val NEW_ID_LENGTH = 12
+        private const val NEW_ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+        /**
+         * A new doctor's ID: "doc-" and 12 random lowercase letters and digits ("doc-k3f9x2ab7qpz").
+         * A valid ID that can't clash with the seed's numbered ones ("doc-001").
+         */
+        fun newId(random: Random = Random.Default): String =
+            NEW_ID_PREFIX + String(CharArray(NEW_ID_LENGTH) { NEW_ID_ALPHABET[random.nextInt(NEW_ID_ALPHABET.length)] })
     }
 }

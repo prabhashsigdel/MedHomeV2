@@ -1,6 +1,8 @@
 package com.medhome.nepal.ui.components
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
@@ -134,7 +136,8 @@ fun <T> GlassChoiceSheet(
     }
 
     GlassBottomSheet(onDismissRequest = onDismissRequest, sheetState = sheetState, title = title) {
-        Column(modifier = Modifier.selectableGroup()) {
+        // Scrolls when the options are taller than the screen (the 12 specialties on a small phone).
+        Column(modifier = Modifier.verticalScroll(rememberScrollState()).selectableGroup()) {
             options.forEach { option ->
                 RadioOptionRow(
                     label = option.label,

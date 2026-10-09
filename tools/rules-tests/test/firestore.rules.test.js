@@ -87,16 +87,14 @@ describe('doctors', () => {
     await assertFails(getDocs(collection(signedOut(), 'doctors')));
   });
 
-  it('no client can create a doctor, not even an admin', async () => {
+  it('patients and signed-out users cannot create a doctor (admin writes: admin.rules.test.js)', async () => {
     const doctor = { name: 'Fake', specialty: 'cardiology', active: true, feeNpr: 1 };
     await assertFails(setDoc(doc(as('alice'), 'doctors/doc-999'), doctor));
-    await assertFails(setDoc(doc(as('admin'), 'doctors/doc-999'), doctor));
     await assertFails(setDoc(doc(signedOut(), 'doctors/doc-999'), doctor));
   });
 
-  it('no client can update or delete a doctor, not even an admin', async () => {
+  it('patients cannot update a doctor, and nobody can delete one, not even an admin', async () => {
     await assertFails(updateDoc(doc(as('alice'), 'doctors/doc-001'), { feeNpr: 1 }));
-    await assertFails(updateDoc(doc(as('admin'), 'doctors/doc-001'), { active: false }));
     await assertFails(deleteDoc(doc(as('alice'), 'doctors/doc-001')));
     await assertFails(deleteDoc(doc(as('admin'), 'doctors/doc-001')));
   });

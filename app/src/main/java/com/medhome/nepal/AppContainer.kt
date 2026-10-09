@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.medhome.nepal.data.AdminRepository
 import com.medhome.nepal.data.BookingRepository
+import com.medhome.nepal.data.FirestoreAdminRepository
 import com.medhome.nepal.data.CredentialClient
 import com.medhome.nepal.data.CredentialManagerClient
 import com.medhome.nepal.data.DataStoreThemeSettings
@@ -70,6 +72,13 @@ class AppContainer(context: Context) {
         firestore = { FirebaseFirestore.getInstance() },
         currentUid = { authDataSource.currentUser?.uid },
         verifiedClaim = authDataSource::emailVerifiedClaim,
+        listeners = listeners,
+    )
+
+    /** Only admins' screens use it; the rules refuse everyone else. */
+    val adminRepository: AdminRepository = FirestoreAdminRepository(
+        firestore = { FirebaseFirestore.getInstance() },
+        currentUid = { authDataSource.currentUser?.uid },
         listeners = listeners,
     )
 }

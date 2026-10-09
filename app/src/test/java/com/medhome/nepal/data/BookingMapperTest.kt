@@ -80,4 +80,23 @@ class BookingMapperTest {
         assertEquals("Asha Rai", booking.doctor.name)
         assertEquals("Valley Care", booking.doctor.hospital)
     }
+
+    @Test
+    fun `an admin reads a doctor's booked bookings with the patient's uid only`() {
+        assertEquals(DoctorBookingRow("abc123", "alice", startAt), BookingMapper.parseForDoctor("abc123", valid(), "doc-001"))
+    }
+
+    @Test
+    fun `an admin's list skips cancelled, other doctors' and malformed bookings`() {
+        assertNull(BookingMapper.parseForDoctor("abc123", valid() + ("status" to "cancelled"), "doc-001"))
+        assertNull(BookingMapper.parseForDoctor("abc123", valid(), "doc-002"))
+        assertNull(BookingMapper.parseForDoctor("abc123", valid() - "startAt", "doc-001"))
+        assertNull(BookingMapper.parseForDoctor("a/b", valid(), "doc-001"))
+    }
+
+    @Test
+    fun `a patient uid that could be a path is dropped, not followed`() {
+        assertNull(BookingMapper.parseForDoctor("abc123", valid() + ("patientUid" to "../users/x"), "doc-001")?.patientUid)
+        assertNull(BookingMapper.parseForDoctor("abc123", valid() + ("patientUid" to 42L), "doc-001")?.patientUid)
+    }
 }

@@ -31,3 +31,5 @@ tools/seed/node_modules
 tools/rules-tests/node_modules
 firebase-debug.log
 firestore-debug.log
+# Kotlin compiler caches
+.kotlin/

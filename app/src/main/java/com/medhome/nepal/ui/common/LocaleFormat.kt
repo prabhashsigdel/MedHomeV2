@@ -44,6 +44,11 @@ object LocaleFormat {
         DateFormatSymbols.getInstance(ULocale.forLocale(locale))
             .getWeekdays(DateFormatSymbols.FORMAT, DateFormatSymbols.ABBREVIATED)[day.ordinal + FIRST_ICU_WEEKDAY]
 
+    /** The weekday's full name in [locale]: "Sunday", "आइतबार". */
+    fun weekdayLong(day: Weekday, locale: Locale): String =
+        DateFormatSymbols.getInstance(ULocale.forLocale(locale))
+            .getWeekdays(DateFormatSymbols.STANDALONE, DateFormatSymbols.WIDE)[day.ordinal + FIRST_ICU_WEEKDAY]
+
     /**
      * A calendar date in [style], day first in every language by decision ("Thursday, 8
      * October"), with the locale's names and digits. Gregorian (AD) always.

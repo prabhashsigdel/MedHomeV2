@@ -89,7 +89,7 @@
 
     <!-- Doctor and admin placeholder -->
     <string name="staff_home_title">Doctor tools are coming soon</string>
-    <string name="staff_home_body">We\'re building tools for doctors and admins. For now, you can change the language or sign out.</string>
+    <string name="staff_home_body">We\'re building tools for doctors. For now, you can change the language or sign out.</string>
 
     <!-- Profile -->
     <string name="profile_title">Profile</string>
@@ -314,5 +314,84 @@
     <plurals name="book_day_free">
         <item quantity="one">%1$s free time</item>
         <item quantity="other">%1$s free times</item>
+    </plurals>
+
+    <!-- Admin: managing doctors (admins only). -->
+    <string name="admin_doctors_title">Manage doctors</string>
+    <string name="admin_open_settings">Settings</string>
+    <string name="admin_search">Search by name or hospital</string>
+    <string name="admin_add_doctor">Add doctor</string>
+    <string name="admin_status_active">Active</string>
+    <string name="admin_status_inactive">Inactive</string>
+    <string name="admin_doctors_none_title">No doctors yet</string>
+    <string name="admin_doctors_none_body">Add the first doctor to show them to patients.</string>
+    <string name="admin_no_match_title">No doctors match</string>
+    <string name="admin_no_match_body">Try another name or hospital.</string>
+    <string name="admin_doctor_load_failed">Couldn\'t load this doctor. Try again.</string>
+    <string name="admin_doctor_missing_title">Doctor not found</string>
+    <string name="admin_doctor_missing_body">This doctor no longer exists, or their details can\'t be read.</string>
+    <string name="admin_doctor_offline_body">Connect to the internet to see this doctor.</string>
+    <string name="admin_doctor_saved_notice">You\'re offline. Showing details saved on this phone.</string>
+    <string name="admin_visibility_active">Shown to patients: they can find and book this doctor.</string>
+    <string name="admin_visibility_inactive">Hidden from patients. Existing bookings stay booked.</string>
+    <string name="admin_hide_doctor">Hide from patients</string>
+    <string name="admin_show_doctor">Show to patients</string>
+    <string name="admin_edit_details">Edit details</string>
+    <string name="admin_slot_minutes">Appointment length</string>
+    <string name="admin_upcoming_title">Upcoming bookings</string>
+    <string name="admin_upcoming_none">No upcoming bookings.</string>
+    <string name="admin_upcoming_failed">Couldn\'t load bookings. Try again.</string>
+    <string name="admin_patient_unknown">Patient</string>
+    <string name="admin_hide_title">Hide this doctor?</string>
+    <string name="admin_show_title">Show this doctor?</string>
+    <string name="admin_hide_body">Patients won\'t be able to find or book %1$s. Bookings already made stay booked.</string>
+    <string name="admin_show_body">Patients will be able to find and book %1$s again.</string>
+    <string name="admin_counting">Checking upcoming bookings…</string>
+    <string name="admin_count_failed">Couldn\'t check upcoming bookings.</string>
+    <string name="admin_hide_confirm">Hide doctor</string>
+    <string name="admin_show_confirm">Show doctor</string>
+    <string name="admin_error_network">You\'re offline. Connect to the internet and try again.</string>
+    <string name="admin_error_denied">This change wasn\'t allowed. Check the details, or sign in again.</string>
+    <string name="admin_error_not_found">This doctor no longer exists.</string>
+    <string name="admin_error_exists">This doctor seems to be saved already. Go back and check the list.</string>
+    <string name="admin_error_unknown">Something went wrong. Try again.</string>
+    <string name="admin_add_title">Add doctor</string>
+    <string name="admin_edit_title">Edit doctor</string>
+    <string name="admin_field_name">Full name</string>
+    <string name="admin_field_specialty">Specialty</string>
+    <string name="admin_specialty_none">Choose</string>
+    <string name="admin_field_hospital">Hospital or clinic</string>
+    <string name="admin_field_fee">Fee (Rs.)</string>
+    <string name="admin_field_experience">Experience (years)</string>
+    <string name="admin_field_bio">About the doctor</string>
+    <string name="admin_field_slot_minutes">Appointment length (minutes)</string>
+    <string name="admin_schedule_title">Weekly hours</string>
+    <string name="admin_schedule_hint">Nepal time. Up to 3 time ranges a day; a day without hours is closed.</string>
+    <string name="admin_day_closed">Closed</string>
+    <string name="admin_add_hours">Add hours</string>
+    <string name="admin_remove_hours">Remove</string>
+    <string name="admin_add_hours_on">Add hours on %1$s</string>
+    <string name="admin_remove_hours_of">Remove %1$s on %2$s</string>
+    <string name="admin_range_start">Starts</string>
+    <string name="admin_range_end">Ends</string>
+    <string name="admin_range_end_before_start">Ends before it starts</string>
+    <string name="admin_range_overlaps">Overlaps other hours on this day</string>
+    <string name="admin_error_form">Fix the fields marked below.</string>
+    <string name="admin_error_required">Required</string>
+    <string name="admin_error_name_too_long">At most 100 characters</string>
+    <string name="admin_error_hospital_too_long">At most 120 characters</string>
+    <string name="admin_error_bio_too_long">At most 2,000 characters</string>
+    <string name="admin_error_specialty">Choose a specialty</string>
+    <string name="admin_error_fee">Enter a fee from 0 to 100,000</string>
+    <string name="admin_error_experience">Enter 0 to 70 years</string>
+    <string name="admin_error_slot_minutes">Enter 5 to 240 minutes</string>
+    <string name="admin_settings_title">Settings</string>
+    <plurals name="admin_upcoming_count">
+        <item quantity="one">%1$s upcoming booking</item>
+        <item quantity="other">%1$s upcoming bookings</item>
+    </plurals>
+    <plurals name="admin_minutes">
+        <item quantity="one">%1$s minute</item>
+        <item quantity="other">%1$s minutes</item>
     </plurals>
 </resources>

@@ -116,6 +116,12 @@ private fun DoctorDetails(doctor: Doctor, showingSaved: Boolean, onBook: () -> U
 /** A label on the left and its value on the right; TalkBack reads them together. */
 @Composable
 internal fun FactRow(@StringRes label: Int, value: String) {
+    FactRow(label = stringResource(label), value = value)
+}
+
+/** [FactRow] with its label already resolved (a date, say). */
+@Composable
+internal fun FactRow(label: String, value: String) {
     val colors = GlassTheme.colors
     Row(
         modifier = Modifier
@@ -124,7 +130,7 @@ internal fun FactRow(@StringRes label: Int, value: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource(label),
+            text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = colors.textSecondary,
             modifier = Modifier.weight(1f),
@@ -136,7 +142,7 @@ internal fun FactRow(@StringRes label: Int, value: String) {
 
 /** Sunday to Saturday, each day's hours or "Closed", and a note that times are Nepal time. */
 @Composable
-private fun WeeklyHours(schedule: Map<Weekday, List<TimeRange>>, modifier: Modifier = Modifier) {
+internal fun WeeklyHours(schedule: Map<Weekday, List<TimeRange>>, modifier: Modifier = Modifier) {
     val colors = GlassTheme.colors
     val locale = currentLocale()
     val rangeTemplate = stringResource(R.string.doctor_hours_range)

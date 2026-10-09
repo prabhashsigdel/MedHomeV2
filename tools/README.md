@@ -23,15 +23,22 @@ npm test        # starts the emulator, runs every test, stops it
 
 The first run downloads the emulator (about 60 MB). Tests live in `rules-tests/test/` and
 cover users (sign-up as patient only, no role/email/createdAt changes, no cross-user access,
-admin role changes, owner delete), doctors (signed-in read only, no client writes) and
+admin role changes, owner delete), doctors (signed-in read of active ones, no deletes),
 bookings (`bookings.rules.test.js`: booking a slot, double booking, unverified email, past and
-off-schedule slots, booking for someone else, the 3-upcoming limit, reading and cancelling).
+off-schedule slots, booking for someone else, the 3-upcoming limit, reading and cancelling) and
+admins (`admin.rules.test.js`: adding and editing doctors with every field validated, show /
+hide, the `updatedAt` / `updatedBy` stamp, no deletes; patients, doctors and signed-out users
+can't write doctors or make themselves admins; admins can read but never write bookings).
 
 ## Seeding doctors
 
-The seed is idempotent: every doctor has a fixed ID (`doc-001` ...) and is overwritten in
-full, so running it twice gives the same result. Doctors not in `seed/doctors.js` are left
-alone. All names and hospitals are fictional.
+By default the seed only **adds doctors that don't exist yet** (every doctor in
+`seed/doctors.js` has a fixed ID, `doc-001` ...). A doctor already in Firestore is left exactly
+as it is, so changes admins made in the app survive a re-run. To replace existing doctors'
+details from `doctors.js` on purpose, pass `--overwrite`: each catalogue field is replaced in
+full, but `active` is kept (a doctor an admin hid stays hidden). Doctors not in `doctors.js`
+(for example ones added in the app) are never touched. Everything the seed writes is stamped
+`updatedBy: "seed"`. All names and hospitals are fictional.
 
 ### 1. Get a service account key (once)
 
@@ -53,7 +60,8 @@ If it ever leaks, delete it under **Service accounts** in Google Cloud IAM and m
 cd tools/seed
 npm ci                                        # first time only
 npm run check                                 # validates doctors.js, writes nothing
-node seed.js --key ~/keys/medhome-admin.json  # writes the 12 doctors
+node seed.js --key ~/keys/medhome-admin.json  # adds any of the 12 doctors that are missing
+node seed.js --key ~/keys/medhome-admin.json --overwrite  # also replaces existing ones (undoes admin edits)
 ```
 
 Or set the key once per shell instead of `--key`:
@@ -81,10 +89,25 @@ npx firebase deploy --config ../../firebase.json --only firestore:indexes --proj
 npx firebase deploy --config ../../firebase.json --only firestore:rules --project <your-project-id>
 ```
 
-Deploy the indexes first: the Bookings tab (`bookings` by `patientUid`, newest first) and
-taken slots (`slotLocks` by `doctorId` and `startAt`) need the composite indexes in
+Deploy the indexes first: the Bookings tab (`bookings` by `patientUid`, newest first), taken
+slots (`slotLocks` by `doctorId` and `startAt`) and the admin's upcoming bookings of a doctor
+(`bookings` by `doctorId`, `status` and `startAt`) need the composite indexes in
 `firestore.indexes.json`, and their queries fail until those finish building (a few minutes;
 see Firestore > Indexes in the console).
 
 The project ID is shown in Project settings (it is also `project_id` in `app/google-services.json`).
 Deploying publishes `firestore.rules` exactly as it is in your working copy.
+
+## Making an account an admin
+
+Admins can add, edit and hide doctors and see each doctor's upcoming bookings in the app. The
+role is never granted in the app: set it by hand.
+
+1. Sign up in the app as usual (this creates `users/{uid}` with `role: "patient"`).
+2. In the Firebase console open **Firestore Database**, collection `users`, and find your
+   document (its ID is your UID, shown under **Authentication > Users**).
+3. Change the `role` field from `patient` to `admin` and save.
+4. Sign out of the app and sign in again (or restart it): the doctors panel opens instead of
+   the patient tabs.
+
+To undo it, set `role` back to `patient`. `doctor` gives the doctor placeholder screen.

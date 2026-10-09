@@ -52,6 +52,8 @@ import com.medhome.nepal.ui.components.MeshBackground
 import com.medhome.nepal.ui.components.LocalBottomBarClearance
 import com.medhome.nepal.ui.components.LocalHazeState
 import com.medhome.nepal.ui.components.NavBarItem
+import com.medhome.nepal.ui.admin.AdminShell
+import com.medhome.nepal.ui.admin.AdminViewModels
 import com.medhome.nepal.ui.booking.BookAppointmentScreen
 import com.medhome.nepal.ui.booking.BookingDetailScreen
 import com.medhome.nepal.ui.booking.BookingViewModels
@@ -80,11 +82,12 @@ import kotlinx.serialization.Serializable
 import kotlin.reflect.KClass
 
 /** Which signed-in experience a role gets. The role itself is never shown in the UI. */
-enum class SignedInHome { PATIENT_TABS, STAFF_PLACEHOLDER }
+enum class SignedInHome { PATIENT_TABS, ADMIN_PANEL, STAFF_PLACEHOLDER }
 
 fun signedInHomeFor(role: Role): SignedInHome = when (role) {
     Role.PATIENT -> SignedInHome.PATIENT_TABS
-    Role.DOCTOR, Role.ADMIN -> SignedInHome.STAFF_PLACEHOLDER
+    Role.ADMIN -> SignedInHome.ADMIN_PANEL
+    Role.DOCTOR -> SignedInHome.STAFF_PLACEHOLDER
 }
 
 /**
@@ -97,9 +100,11 @@ fun MainShell(
     profileViewModelFactory: ViewModelProvider.Factory = ProfileViewModel.Factory,
     doctorViewModelFactory: ViewModelProvider.Factory = DoctorViewModels.Factory,
     bookingViewModelFactory: ViewModelProvider.Factory = BookingViewModels.Factory,
+    adminViewModelFactory: ViewModelProvider.Factory = AdminViewModels.Factory,
 ) {
     when (signedInHomeFor(session.profile.role)) {
         SignedInHome.PATIENT_TABS -> PatientShell(session, profileViewModelFactory, doctorViewModelFactory, bookingViewModelFactory)
+        SignedInHome.ADMIN_PANEL -> AdminShell(session, adminViewModelFactory, profileViewModelFactory)
         SignedInHome.STAFF_PLACEHOLDER -> StaffHomeScreen(viewModel = viewModel(factory = profileViewModelFactory))
     }
 }

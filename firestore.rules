@@ -76,13 +76,116 @@ service cloud.firestore {
       allow delete: if isOwner(uid);
     }
 
+    // ---- Doctors ----------------------------------------------------------------------------
+    //
     // The doctors catalogue: signed-in users may read active doctors (a list must ask for
-    // active == true); admins may read every doctor. No client may write it: it is maintained
-    // with the Admin SDK (tools/seed), which bypasses these rules. isAdmin() is only evaluated
-    // for inactive or missing doctors, so ordinary reads cost no extra document read.
+    // active == true); admins may read every doctor. isAdmin() is only evaluated for inactive or
+    // missing doctors, so ordinary reads cost no extra document read.
+    //
+    // Admins (users/{uid}.role == 'admin', set by hand in the console) may add and edit doctors,
+    // in full and well formed, with the same limits as the app's DoctorMapper and tools/seed.
+    // Nobody deletes a doctor (bookings point at them): hiding is active == false. A document ID
+    // can't change, so neither can a doctor's. The seed uses the Admin SDK, which bypasses this.
+
+    // Letters, digits and hyphens, as Doctor.isValidId (no "_": slot IDs split on it).
+    function isDoctorId(id) {
+      return id is string && id.matches('[A-Za-z0-9-]{1,64}');
+    }
+
+    // Text exactly as DoctorMapper cleans it, so what is stored is what patients see and copy
+    // into a booking (the booking rules compare the snapshot with the stored doctor): words of
+    // visible characters (no control or invisible format characters, except the zero-width
+    // joiners Devanagari needs) separated by single spaces, nothing before or after.
+    function isLine(value, max) {
+      return value is string
+        && value.size() <= max
+        && value.matches('([^\\p{Cc}\\p{Cf}\\p{Z}]|[\\x{200C}\\x{200D}])+( ([^\\p{Cc}\\p{Cf}\\p{Z}]|[\\x{200C}\\x{200D}])+)*');
+    }
+
+    // Like isLine, but lines may be broken, with at most one blank line between them (a bio).
+    function isParagraph(value, max) {
+      return value is string
+        && value.size() <= max
+        && value.matches('(([^\\p{Cc}\\p{Cf}\\p{Z}]|[\\x{200C}\\x{200D}])+( ([^\\p{Cc}\\p{Cf}\\p{Z}]|[\\x{200C}\\x{200D}])+)*)(\\n\\n?([^\\p{Cc}\\p{Cf}\\p{Z}]|[\\x{200C}\\x{200D}])+( ([^\\p{Cc}\\p{Cf}\\p{Z}]|[\\x{200C}\\x{200D}])+)*)*');
+    }
+
+    function isWholeNumber(value, min, max) {
+      return value is int && value >= min && value <= max;
+    }
+
+    // {start, end}: "HH:mm", start before end ("HH:mm" strings sort like the times they name).
+    function isRange(range) {
+      return range is map
+        && range.keys().hasOnly(['start', 'end'])
+        && isClockTime(range.get('start', null))
+        && isClockTime(range.get('end', null))
+        && range.start < range.end;
+    }
+
+    // Two well-formed ranges that don't share a minute (touching is fine).
+    function apart(a, b) {
+      return a.end <= b.start || b.end <= a.start;
+    }
+
+    // At most 3 ranges (the app and booking rules read no more), each valid, none overlapping.
+    function isDayHours(ranges) {
+      return ranges is list
+        && ranges.size() <= 3
+        && (ranges.size() < 1 || isRange(ranges[0]))
+        && (ranges.size() < 2 || (isRange(ranges[1]) && apart(ranges[0], ranges[1])))
+        && (ranges.size() < 3 || (isRange(ranges[2]) && apart(ranges[0], ranges[2]) && apart(ranges[1], ranges[2])));
+    }
+
+    function isWeeklySchedule(schedule) {
+      return schedule is map
+        && schedule.keys().hasOnly(['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'])
+        && isDayHours(schedule.get('sun', []))
+        && isDayHours(schedule.get('mon', []))
+        && isDayHours(schedule.get('tue', []))
+        && isDayHours(schedule.get('wed', []))
+        && isDayHours(schedule.get('thu', []))
+        && isDayHours(schedule.get('fri', []))
+        && isDayHours(schedule.get('sat', []));
+    }
+
+    // The whole doctor as it will be stored, stamped with who wrote it and when.
+    function isValidDoctorWrite() {
+      let doctor = request.resource.data;
+      return doctor.keys().hasOnly(['name', 'specialty', 'hospital', 'feeNpr', 'experienceYears', 'bio',
+          'slotMinutes', 'weeklySchedule', 'active', 'updatedAt', 'updatedBy'])
+        && doctor.keys().hasAll(['name', 'specialty', 'hospital', 'feeNpr', 'experienceYears', 'bio',
+          'slotMinutes', 'weeklySchedule', 'active', 'updatedAt', 'updatedBy'])
+        && isLine(doctor.name, 100)
+        && doctor.specialty in ['general_physician', 'cardiology', 'dermatology', 'pediatrics', 'gynecology',
+          'orthopedics', 'ent', 'neurology', 'psychiatry', 'ophthalmology', 'dentistry', 'gastroenterology']
+        && isLine(doctor.hospital, 120)
+        && isWholeNumber(doctor.feeNpr, 0, 100000)
+        && isWholeNumber(doctor.experienceYears, 0, 70)
+        && isParagraph(doctor.bio, 2000)
+        && isWholeNumber(doctor.slotMinutes, 5, 240)
+        && isWeeklySchedule(doctor.weeklySchedule)
+        && doctor.active is bool
+        && doctor.updatedAt == request.time
+        && doctor.updatedBy == request.auth.uid;
+    }
+
+    // Only `active` and the stamp change.
+    function isActiveToggle() {
+      return changedKeys().hasOnly(['active', 'updatedAt', 'updatedBy'])
+        && request.resource.data.active is bool
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
+
     match /doctors/{doctorId} {
       allow read: if isSignedIn() && (resource.data.active == true || isAdmin());
-      allow write: if false;
+      // Admin writes also need a verified email (an admin's account is checked twice).
+      allow create: if isDoctorId(doctorId) && emailVerified() && isAdmin() && isValidDoctorWrite();
+      // Showing or hiding alone is checked on its own, so a doctor stored in an older or broken
+      // shape (which patients' screens drop anyway) can still be hidden.
+      allow update: if emailVerified() && isAdmin()
+        && (isValidDoctorWrite() || isActiveToggle());
+      allow delete: if false;
     }
 
     // ---- Booking ----------------------------------------------------------------------------
@@ -188,8 +291,9 @@ service cloud.firestore {
     }
 
     match /bookings/{bookingId} {
-      // Own bookings only; a list must ask for patientUid == your uid.
-      allow read: if isSignedIn() && resource.data.patientUid == request.auth.uid;
+      // Own bookings only (a list must ask for patientUid == your uid), or any booking for
+      // admins (read-only: the writes below all require the booking's own patient).
+      allow read: if isSignedIn() && (resource.data.patientUid == request.auth.uid || isAdmin());
 
       // A new booking, with its slot lock and a quota place in the same write.
       allow create: if isSignedIn()

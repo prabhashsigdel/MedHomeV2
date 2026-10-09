@@ -92,7 +92,7 @@
 
     <!-- Doctor and admin placeholder -->
     <string name="staff_home_title">डाक्टरका उपकरणहरू छिट्टै आउँदैछन्</string> <!-- review -->
-    <string name="staff_home_body">हामी डाक्टर र एडमिनका लागि उपकरणहरू बनाउँदैछौं। हाललाई तपाईं भाषा परिवर्तन गर्न वा लगआउट गर्न सक्नुहुन्छ।</string>
+    <string name="staff_home_body">हामी डाक्टरका लागि उपकरणहरू बनाउँदैछौं। हाललाई तपाईं भाषा परिवर्तन गर्न वा लगआउट गर्न सक्नुहुन्छ।</string> <!-- review -->
 
     <!-- Profile -->
     <string name="profile_title">प्रोफाइल</string>
@@ -313,5 +313,84 @@
     <plurals name="book_day_free">
         <item quantity="one">%1$s खाली समय</item> <!-- review -->
         <item quantity="other">%1$s खाली समय</item> <!-- review -->
+    </plurals>
+
+    <!-- Admin: managing doctors (admins only). -->
+    <string name="admin_doctors_title">डाक्टरहरू व्यवस्थापन</string> <!-- review -->
+    <string name="admin_open_settings">सेटिङ</string> <!-- review -->
+    <string name="admin_search">नाम वा अस्पतालबाट खोज्नुहोस्</string> <!-- review -->
+    <string name="admin_add_doctor">डाक्टर थप्नुहोस्</string> <!-- review -->
+    <string name="admin_status_active">सक्रिय</string> <!-- review -->
+    <string name="admin_status_inactive">निष्क्रिय</string> <!-- review -->
+    <string name="admin_doctors_none_title">अहिलेसम्म कुनै डाक्टर छैनन्</string> <!-- review -->
+    <string name="admin_doctors_none_body">बिरामीहरूलाई देखाउन पहिलो डाक्टर थप्नुहोस्।</string> <!-- review -->
+    <string name="admin_no_match_title">कुनै डाक्टर मेल खाएनन्</string> <!-- review -->
+    <string name="admin_no_match_body">अर्को नाम वा अस्पताल प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="admin_doctor_load_failed">यो डाक्टर लोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="admin_doctor_missing_title">डाक्टर फेला परेनन्</string> <!-- review -->
+    <string name="admin_doctor_missing_body">यो डाक्टर अब छैनन्, वा उनको विवरण पढ्न सकिँदैन।</string> <!-- review -->
+    <string name="admin_doctor_offline_body">यो डाक्टर हेर्न इन्टरनेटमा जोडिनुहोस्।</string> <!-- review -->
+    <string name="admin_doctor_saved_notice">तपाईं अफलाइन हुनुहुन्छ। यो फोनमा सुरक्षित विवरण देखाइँदैछ।</string> <!-- review -->
+    <string name="admin_visibility_active">बिरामीलाई देखिन्छ: उनीहरूले यो डाक्टर खोज्न र बुक गर्न सक्छन्।</string> <!-- review -->
+    <string name="admin_visibility_inactive">बिरामीबाट लुकाइएको। भइसकेका बुकिङहरू कायम रहन्छन्।</string> <!-- review -->
+    <string name="admin_hide_doctor">बिरामीबाट लुकाउनुहोस्</string> <!-- review -->
+    <string name="admin_show_doctor">बिरामीलाई देखाउनुहोस्</string> <!-- review -->
+    <string name="admin_edit_details">विवरण सम्पादन गर्नुहोस्</string> <!-- review -->
+    <string name="admin_slot_minutes">भेटको अवधि</string> <!-- review -->
+    <string name="admin_upcoming_title">आगामी बुकिङहरू</string> <!-- review -->
+    <string name="admin_upcoming_none">कुनै आगामी बुकिङ छैन।</string> <!-- review -->
+    <string name="admin_upcoming_failed">बुकिङहरू लोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="admin_patient_unknown">बिरामी</string> <!-- review -->
+    <string name="admin_hide_title">यो डाक्टरलाई लुकाउने?</string> <!-- review -->
+    <string name="admin_show_title">यो डाक्टरलाई देखाउने?</string> <!-- review -->
+    <string name="admin_hide_body">बिरामीहरूले %1$s लाई खोज्न वा बुक गर्न सक्ने छैनन्। भइसकेका बुकिङहरू कायम रहन्छन्।</string> <!-- review -->
+    <string name="admin_show_body">बिरामीहरूले %1$s लाई फेरि खोज्न र बुक गर्न सक्नेछन्।</string> <!-- review -->
+    <string name="admin_counting">आगामी बुकिङहरू जाँच गर्दै…</string> <!-- review -->
+    <string name="admin_count_failed">आगामी बुकिङहरू जाँच गर्न सकिएन।</string> <!-- review -->
+    <string name="admin_hide_confirm">डाक्टर लुकाउनुहोस्</string> <!-- review -->
+    <string name="admin_show_confirm">डाक्टर देखाउनुहोस्</string> <!-- review -->
+    <string name="admin_error_network">तपाईं अफलाइन हुनुहुन्छ। इन्टरनेटमा जोडिएर फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="admin_error_denied">यो परिवर्तन स्वीकार भएन। विवरण जाँच गर्नुहोस्, वा फेरि लगइन गर्नुहोस्।</string> <!-- review -->
+    <string name="admin_error_not_found">यो डाक्टर अब छैनन्।</string> <!-- review -->
+    <string name="admin_error_exists">यो डाक्टर पहिले नै सुरक्षित भएको जस्तो छ। पछाडि गएर सूची जाँच गर्नुहोस्।</string> <!-- review -->
+    <string name="admin_error_unknown">केही गडबड भयो। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="admin_add_title">डाक्टर थप्नुहोस्</string> <!-- review -->
+    <string name="admin_edit_title">डाक्टर सम्पादन</string> <!-- review -->
+    <string name="admin_field_name">पूरा नाम</string> <!-- review -->
+    <string name="admin_field_specialty">विशेषज्ञता</string> <!-- review -->
+    <string name="admin_specialty_none">छान्नुहोस्</string> <!-- review -->
+    <string name="admin_field_hospital">अस्पताल वा क्लिनिक</string> <!-- review -->
+    <string name="admin_field_fee">शुल्क (रु.)</string> <!-- review -->
+    <string name="admin_field_experience">अनुभव (वर्ष)</string> <!-- review -->
+    <string name="admin_field_bio">डाक्टरको बारेमा</string> <!-- review -->
+    <string name="admin_field_slot_minutes">भेटको अवधि (मिनेट)</string> <!-- review -->
+    <string name="admin_schedule_title">साप्ताहिक समय</string> <!-- review -->
+    <string name="admin_schedule_hint">नेपाली समय। दिनमा बढीमा ३ समय-अवधि; समय नभएको दिन बन्द रहन्छ।</string> <!-- review -->
+    <string name="admin_day_closed">बन्द</string> <!-- review -->
+    <string name="admin_add_hours">समय थप्नुहोस्</string> <!-- review -->
+    <string name="admin_remove_hours">हटाउनुहोस्</string> <!-- review -->
+    <string name="admin_add_hours_on">%1$s मा समय थप्नुहोस्</string> <!-- review -->
+    <string name="admin_remove_hours_of">%2$s को %1$s हटाउनुहोस्</string> <!-- review -->
+    <string name="admin_range_start">सुरु</string> <!-- review -->
+    <string name="admin_range_end">अन्त्य</string> <!-- review -->
+    <string name="admin_range_end_before_start">सुरु हुनुअघि नै सकिन्छ</string> <!-- review -->
+    <string name="admin_range_overlaps">यस दिनको अर्को समयसँग खप्टिन्छ</string> <!-- review -->
+    <string name="admin_error_form">तल चिन्ह लगाइएका फिल्डहरू सच्याउनुहोस्।</string> <!-- review -->
+    <string name="admin_error_required">आवश्यक छ</string> <!-- review -->
+    <string name="admin_error_name_too_long">बढीमा १०० अक्षर</string> <!-- review -->
+    <string name="admin_error_hospital_too_long">बढीमा १२० अक्षर</string> <!-- review -->
+    <string name="admin_error_bio_too_long">बढीमा २,००० अक्षर</string> <!-- review -->
+    <string name="admin_error_specialty">विशेषज्ञता छान्नुहोस्</string> <!-- review -->
+    <string name="admin_error_fee">० देखि १,००,००० सम्मको शुल्क लेख्नुहोस्</string> <!-- review -->
+    <string name="admin_error_experience">० देखि ७० वर्ष लेख्नुहोस्</string> <!-- review -->
+    <string name="admin_error_slot_minutes">५ देखि २४० मिनेट लेख्नुहोस्</string> <!-- review -->
+    <string name="admin_settings_title">सेटिङ</string> <!-- review -->
+    <plurals name="admin_upcoming_count">
+        <item quantity="one">%1$s आगामी बुकिङ</item> <!-- review -->
+        <item quantity="other">%1$s आगामी बुकिङ</item> <!-- review -->
+    </plurals>
+    <plurals name="admin_minutes">
+        <item quantity="one">%1$s मिनेट</item> <!-- review -->
+        <item quantity="other">%1$s मिनेट</item> <!-- review -->
     </plurals>
 </resources>

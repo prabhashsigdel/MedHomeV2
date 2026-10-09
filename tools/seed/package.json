@@ -1,7 +1,7 @@
 {
   "name": "medhome-seed",
   "private": true,
-  "description": "Writes the fictional doctors catalogue to Firestore with the Admin SDK. Idempotent.",
+  "description": "Adds the fictional doctors catalogue to Firestore with the Admin SDK (missing doctors only unless --overwrite).",
   "type": "module",
   "scripts": {
     "seed": "node seed.js",

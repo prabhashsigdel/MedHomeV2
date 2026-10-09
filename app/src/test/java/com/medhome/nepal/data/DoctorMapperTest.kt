@@ -148,4 +148,39 @@ class DoctorMapperTest {
         assertEquals(name, DoctorMapper.parse("d", valid().apply { put("name", name) })?.name)
         assertNotNull(DoctorMapper.parse("d", valid().apply { put("name", "सीता शर्मा") }))
     }
+
+    @Test
+    fun `admins see inactive doctors too, marked inactive`() {
+        val inactive = valid().apply { put("active", false) }
+        assertNull(DoctorMapper.parse("doc-001", inactive))
+        val managed = requireNotNull(DoctorMapper.parseManaged("doc-001", inactive))
+        assertEquals(false, managed.active)
+        assertEquals("Asha Rai", managed.doctor.name)
+        assertEquals(false, DoctorMapper.parseManaged("doc-001", valid().apply { remove("active") })?.active)
+        assertEquals(true, DoctorMapper.parseManaged("doc-001", valid())?.active)
+    }
+
+    @Test
+    fun `admins don't see malformed doctors either`() {
+        assertNull(DoctorMapper.parseManaged("doc-001", valid().apply { put("specialty", "astrology") }))
+        assertNull(DoctorMapper.parseManaged("doc_001", valid()))
+        assertNull(DoctorMapper.parseManaged("doc-001", null))
+    }
+
+    @Test
+    fun `written fields read back as the same doctor`() {
+        val doctor = requireNotNull(DoctorMapper.parse("doc-001", valid()))
+        val fields = DoctorMapper.toFields(doctor)
+        assertEquals(
+            setOf("name", "specialty", "hospital", "feeNpr", "experienceYears", "bio", "slotMinutes", "weeklySchedule"),
+            fields.keys,
+        )
+        // Integers as Long, times as "HH:mm", weekdays by key: what the rules check.
+        assertEquals(800L, fields["feeNpr"])
+        assertEquals(
+            mapOf("start" to "09:00", "end" to "12:00"),
+            (fields["weeklySchedule"] as Map<*, *>)["wed"].let { (it as List<*>).first() },
+        )
+        assertEquals(doctor, DoctorMapper.parse("doc-001", fields + ("active" to true)))
+    }
 }
