@@ -52,7 +52,15 @@ data class GlassColors(
     /** Every glass border is 1px, fading from [glassBorderTop] down to [glassBorderBottom]. */
     val glassBorderTop: Color,
     val glassBorderBottom: Color,
-    /** The selected tab: a lighter glass pill, not an accent color. */
+    /**
+     * Fields, secondary buttons, chips and the selected-tab pill: the same top-to-bottom
+     * gradient, but every point of it keeps 3:1 against the fill on both sides, so the whole
+     * outline (bottom edge included) is visible. Brighter at the top in dark; in light, a white
+     * line can't reach 3:1 on white glass, so it is grey ink, lighter at the top.
+     */
+    val controlBorderTop: Color,
+    val controlBorderBottom: Color,
+    /** The selected tab: a lighter glass pill with a control border, not an accent fill. */
     val selectedPill: Color,
     /** Icon and label of the selected tab: the link indigo in light, white in dark. */
     val selectedTabContent: Color,
@@ -114,6 +122,8 @@ fun lightGlassColors(accent: Color = DefaultAccent, background: MeshPalette = So
     controlFill = Color.White.copy(alpha = 0.40f),
     glassBorderTop = Color.White.copy(alpha = 0.90f),
     glassBorderBottom = Color.White.copy(alpha = 0.30f),
+    controlBorderTop = Color(0xFF1A1E1C).copy(alpha = 0.56f),
+    controlBorderBottom = Color(0xFF1A1E1C).copy(alpha = 0.68f),
     selectedPill = Color.White.copy(alpha = 0.60f),
     selectedTabContent = accent.darken(LINK_DARKEN_FRACTION),
     divider = Color(0xFF1A1E1C).copy(alpha = 0.08f),
@@ -153,7 +163,9 @@ fun darkGlassColors(accent: Color = DefaultAccent, background: MeshPalette = War
     controlFill = Color.White.copy(alpha = 0.06f),
     glassBorderTop = Color.White.copy(alpha = 0.40f),
     glassBorderBottom = Color.White.copy(alpha = 0.06f),
-    selectedPill = Color.White.copy(alpha = 0.10f),
+    controlBorderTop = Color.White.copy(alpha = 0.80f),
+    controlBorderBottom = Color.White.copy(alpha = 0.58f),
+    selectedPill = Color.White.copy(alpha = 0.20f),
     selectedTabContent = Color.White,
     divider = Color.White.copy(alpha = 0.10f),
     floatingScrim = background.base.copy(alpha = FLOATING_SCRIM_ALPHA),

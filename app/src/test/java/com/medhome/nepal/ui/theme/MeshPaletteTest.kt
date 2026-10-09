@@ -69,6 +69,34 @@ class MeshPaletteTest {
     }
 
     @Test
+    fun `the exact sample points include every glow center`() {
+        for (palette in listOf(WarmDusk, SoftDaylight)) {
+            for (size in SampledAreas) {
+                val points = palette.extremeCandidates(size)
+                for (glow in palette.glows) {
+                    assertTrue(Offset(glow.center.x * size.width, glow.center.y * size.height) in points)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `the exact sample points find extremes at least as far out as a dense grid`() {
+        for (palette in listOf(WarmDusk, SoftDaylight)) {
+            val (darkest, brightest) = palette.darkestAndBrightest()
+            val grid = SampledAreas.flatMap { size ->
+                (0..GRID_STEPS).flatMap { i ->
+                    (0..GRID_STEPS).map { j ->
+                        palette.colorAt(Offset(size.width * i / GRID_STEPS, size.height * j / GRID_STEPS), size)
+                    }
+                }
+            }
+            assertTrue(darkest.luminance() <= grid.minOf { it.luminance() } + GRID_TOLERANCE)
+            assertTrue(brightest.luminance() >= grid.maxOf { it.luminance() } - GRID_TOLERANCE)
+        }
+    }
+
+    @Test
     fun `every sampled color is opaque`() {
         for (palette in listOf(WarmDusk, SoftDaylight)) {
             val (darkest, brightest) = palette.darkestAndBrightest()
@@ -78,6 +106,11 @@ class MeshPaletteTest {
     }
 
     private enum class Band { TOP, MIDDLE, BOTTOM }
+
+    private companion object {
+        const val GRID_STEPS = 120
+        const val GRID_TOLERANCE = 0.0005f
+    }
 
     private fun assertPlaced(glow: Glow, left: Boolean, band: Band) {
         assertEquals("left/right of $glow", left, glow.center.x < 0.5f)

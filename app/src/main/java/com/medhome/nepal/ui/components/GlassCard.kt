@@ -94,12 +94,12 @@ fun Modifier.glassSurface(
         .glassBorder(shape)
 }
 
-/** Fields, secondary buttons and chips: the fainter control fill with the glass border. */
+/** Fields, secondary buttons and chips: the fainter control fill with a 3:1 outline. */
 @Composable
 fun Modifier.glassControl(shape: Shape): Modifier = this
     .clip(shape)
     .background(GlassTheme.colors.controlFill)
-    .glassBorder(shape)
+    .controlBorder(shape)
 
 /**
  * Sheets and dialogs live in their own window, with nothing of the app to show through, so
@@ -121,6 +121,19 @@ fun Modifier.glassBorder(shape: Shape): Modifier {
     val colors = GlassTheme.colors
     val brush = remember(colors.glassBorderTop, colors.glassBorderBottom) {
         Brush.verticalGradient(listOf(colors.glassBorderTop, colors.glassBorderBottom))
+    }
+    return border(BorderStroke(GlassDimens.BorderWidth, brush), shape)
+}
+
+/**
+ * The 1px outline of controls: the same top-to-bottom gradient as [glassBorder], strong enough
+ * at every point for 3:1 against what's on either side of it.
+ */
+@Composable
+fun Modifier.controlBorder(shape: Shape): Modifier {
+    val colors = GlassTheme.colors
+    val brush = remember(colors.controlBorderTop, colors.controlBorderBottom) {
+        Brush.verticalGradient(listOf(colors.controlBorderTop, colors.controlBorderBottom))
     }
     return border(BorderStroke(GlassDimens.BorderWidth, brush), shape)
 }

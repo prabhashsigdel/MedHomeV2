@@ -2,8 +2,6 @@ package com.medhome.nepal.ui.theme
 
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -14,7 +12,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalConfiguration
@@ -76,11 +73,14 @@ private fun animateGlassColors(target: GlassColors, reducedMotion: Boolean): Gla
         warning = target.warning.animated("warning"),
         error = target.error.animated("error"),
         onError = target.onError.animated("onError"),
-        background = animateMesh(target.background, reducedMotion),
+        // Not animated here: meshGradient crossfades two cached layers instead.
+        background = target.background,
         glassFill = target.glassFill.animated("glassFill"),
         controlFill = target.controlFill.animated("controlFill"),
         glassBorderTop = target.glassBorderTop.animated("glassBorderTop"),
         glassBorderBottom = target.glassBorderBottom.animated("glassBorderBottom"),
+        controlBorderTop = target.controlBorderTop.animated("controlBorderTop"),
+        controlBorderBottom = target.controlBorderBottom.animated("controlBorderBottom"),
         selectedPill = target.selectedPill.animated("selectedPill"),
         selectedTabContent = target.selectedTabContent.animated("selectedTabContent"),
         divider = target.divider.animated("divider"),
@@ -100,28 +100,8 @@ private fun animateGlassColors(target: GlassColors, reducedMotion: Boolean): Gla
     )
 }
 
-/**
- * The glows move as well as recolor, since the light and dark palettes place them differently.
- * Only during a theme switch: the background itself never animates.
- */
-@Composable
-private fun animateMesh(target: MeshPalette, reducedMotion: Boolean): MeshPalette {
-    val colorSpec = if (reducedMotion) snap() else tween<Color>(THEME_CROSSFADE_MS, easing = MotionTokens.EaseOut)
-    val offsetSpec = if (reducedMotion) snap() else tween<Offset>(THEME_CROSSFADE_MS, easing = MotionTokens.EaseOut)
-    val floatSpec = if (reducedMotion) snap() else tween<Float>(THEME_CROSSFADE_MS, easing = MotionTokens.EaseOut)
-    return MeshPalette(
-        base = animateColorAsState(target.base, colorSpec, label = "meshBase").value,
-        glows = target.glows.mapIndexed { index, glow ->
-            Glow(
-                color = animateColorAsState(glow.color, colorSpec, label = "glowColor$index").value,
-                center = animateOffsetAsState(glow.center, offsetSpec, label = "glowCenter$index").value,
-                radius = animateFloatAsState(glow.radius, floatSpec, label = "glowRadius$index").value,
-            )
-        },
-    )
-}
-
-private const val THEME_CROSSFADE_MS = 300
+/** Theme switches crossfade over this long (the mesh background too, see meshGradient). */
+const val THEME_CROSSFADE_MS = 300
 
 /** Every Material color is opaque, so stock components stay readable wherever they appear. */
 internal fun GlassColors.toColorScheme(): ColorScheme {

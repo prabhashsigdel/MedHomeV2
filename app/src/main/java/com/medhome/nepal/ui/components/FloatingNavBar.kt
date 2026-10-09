@@ -42,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -97,7 +98,8 @@ fun FloatingNavBar(
                     .offset { IntOffset(indicatorOffset.roundToPx(), IndicatorInset.roundToPx()) }
                     .size(width = pillWidth, height = IndicatorHeight)
                     .background(GlassTheme.colors.selectedPill, IndicatorShape)
-                    .glassBorder(IndicatorShape),
+                    // A 3:1 outline: the selected tab is told apart by more than its color.
+                    .controlBorder(IndicatorShape),
             )
             Row(modifier = Modifier.fillMaxWidth()) {
                 items.forEachIndexed { index, item ->
@@ -140,7 +142,10 @@ private fun RowScope.NavBarTab(item: NavBarItem, selected: Boolean, onClick: () 
         )
         Text(
             text = stringResource(item.label),
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 11.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            ),
             color = tint,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

@@ -38,7 +38,8 @@ class HomeFitTest {
 
     private fun assertShortcutsFitAboveBar() {
         compose.setContent { MedHomeTheme(darkTheme = false) { MainShell(session) } }
-        compose.mainClock.advanceTimeBy(SETTLE_MS)
+        // Entrance animations run on the test clock; idle means they have finished.
+        compose.waitForIdle()
 
         val label = ApplicationProvider.getApplicationContext<Application>().getString(R.string.shortcut_medicine_reminders)
         // Unclipped position + size: bounds are clipped to the scroll viewport (0 when off screen).
@@ -47,7 +48,6 @@ class HomeFitTest {
         // The tagged box includes the bar's 16dp outer margin, so its top is where the gap ends.
         val barTop = compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).fetchSemanticsNode().boundsInRoot.top
         val density = compose.density.density
-        println("HOME FIT: last shortcut ends ${lastRowBottom / density}dp, bar area starts ${barTop / density}dp")
         assertTrue(
             "Last shortcut ends at ${lastRowBottom / density}dp, under the bar area from ${barTop / density}dp",
             lastRowBottom <= barTop + TOLERANCE_PX,
@@ -61,7 +61,6 @@ class HomeFitTest {
     fun `all home sections fit above the bar in Nepali`() = assertShortcutsFitAboveBar()
 
     private companion object {
-        const val SETTLE_MS = 1_000L
         const val TOLERANCE_PX = 1f
     }
 }

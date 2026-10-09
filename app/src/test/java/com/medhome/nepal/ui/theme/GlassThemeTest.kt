@@ -66,9 +66,10 @@ class GlassThemeTest {
     }
 
     @Test
-    fun `the selected tab is indigo in light and white in dark`() {
+    fun `the selected tab is indigo in light and white on a 20 percent pill in dark`() {
         assertEquals(lightGlassColors().link, lightGlassColors().selectedTabContent)
         assertEquals(Color.White, darkGlassColors().selectedTabContent)
+        assertEquals(Color.White.copy(alpha = 0.20f), darkGlassColors().selectedPill)
     }
 
     @Test
@@ -119,7 +120,7 @@ class GlassThemeTest {
     }
 
     @Test
-    fun `tab bar labels pass text contrast on the bar and the selected pill in every palette`() {
+    fun `tab bar labels pass text contrast where they rest in every palette`() {
         for ((name, colors) in palettes) {
             val (darkest, brightest) = colors.background.darkestAndBrightest()
             for (region in listOf(darkest, brightest)) {
@@ -129,12 +130,75 @@ class GlassThemeTest {
                 for (backdrop in listOf(bar, fallbackBar)) {
                     assertTrue("$name unselected on $backdrop", contrastRatio(colors.textSecondary, backdrop) >= MIN_TEXT_CONTRAST)
                 }
-                // The selected label sits on the pill, which slides under the others too.
+                // The selected label rests on the pill. (Unselected labels only pass over it for a
+                // moment while it slides, so they are checked on the bar alone.)
                 for (backdrop in listOf(pill, colors.selectedPill.compositeOver(fallbackBar))) {
                     assertTrue("$name selected on $backdrop", contrastRatio(colors.selectedTabContent, backdrop) >= MIN_TEXT_CONTRAST)
-                    assertTrue("$name unselected on $backdrop", contrastRatio(colors.textSecondary, backdrop) >= MIN_TEXT_CONTRAST)
                 }
             }
+        }
+    }
+
+    @Test
+    fun `the selected tab's pill outline keeps 3 to 1 against the bar and its own fill`() {
+        for ((name, colors) in palettes) {
+            val (darkest, brightest) = colors.background.darkestAndBrightest()
+            for (region in listOf(darkest, brightest)) {
+                val bars = listOf(
+                    colors.glassFill.compositeOver(colors.floatingScrim.compositeOver(region)),
+                    colors.glassFallback.compositeOver(region),
+                )
+                for (bar in bars) {
+                    val pill = colors.selectedPill.compositeOver(bar)
+                    for (outline in listOf(colors.controlBorderTop, colors.controlBorderBottom)) {
+                        assertTrue("$name outline vs bar $bar", contrastRatio(outline, bar) >= MIN_UI_CONTRAST)
+                        assertTrue("$name outline vs pill $pill", contrastRatio(outline, pill) >= MIN_UI_CONTRAST)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `control outlines keep 3 to 1 along their whole height in every palette`() {
+        for ((name, colors) in palettes) {
+            for (side in colors.controlSides()) {
+                assertTrue("$name top on $side", contrastRatio(colors.controlBorderTop, side) >= MIN_UI_CONTRAST)
+                assertTrue("$name bottom on $side", contrastRatio(colors.controlBorderBottom, side) >= MIN_UI_CONTRAST)
+            }
+        }
+    }
+
+    @Test
+    fun `the error border of invalid fields keeps 3 to 1 in every palette`() {
+        for ((name, colors) in palettes) {
+            for (side in colors.controlSides()) {
+                assertTrue("$name error on $side", contrastRatio(colors.error, side) >= MIN_UI_CONTRAST)
+            }
+        }
+    }
+
+    @Test
+    fun `dismiss and retry links pass inside tinted status boxes in every palette`() {
+        for ((name, colors) in palettes) {
+            for (tone in listOf(colors.error, colors.warning, colors.link)) {
+                for (backdrop in colors.glassBackdrops()) {
+                    val tinted = tone.copy(alpha = STATUS_TINT_ALPHA).compositeOver(colors.statusUnderlay.compositeOver(backdrop))
+                    assertTrue("$name link on $tinted", contrastRatio(colors.link, tinted) >= MIN_TEXT_CONTRAST)
+                }
+            }
+        }
+    }
+
+    /**
+     * What a control's outline separates: the outside (bare background or a card) and the
+     * inside (the control's fill over it), at the background's darkest and brightest region.
+     */
+    private fun GlassColors.controlSides(): List<Color> {
+        val (darkest, brightest) = background.darkestAndBrightest()
+        return listOf(darkest, brightest).flatMap { region ->
+            val card = glassFill.compositeOver(region)
+            listOf(region, controlFill.compositeOver(region), card, controlFill.compositeOver(card))
         }
     }
 

@@ -270,7 +270,7 @@ private fun ChoicePill(
             .pressScale(interactionSource)
             .clip(GlassShapes.Chip)
             .background(fill)
-            .glassBorder(GlassShapes.Chip)
+            .controlBorder(GlassShapes.Chip)
             .selectable(
                 selected = selected,
                 interactionSource = interactionSource,
