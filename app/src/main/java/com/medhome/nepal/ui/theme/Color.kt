@@ -38,8 +38,14 @@ data class GlassColors(
     val textSecondary: Color,
     val warning: Color,
     val error: Color,
-    /** Text on a filled [error] surface (the Danger button). */
+    /** Text on a filled [error] surface (Material's error role). */
     val onError: Color,
+    /**
+     * The Danger button's fill: a true red in both themes under white [onDanger] text. Not
+     * [error], which is pale in the dark theme so it can be read as text on glass.
+     */
+    val danger: Color,
+    val onDanger: Color,
     /** The mesh gradient behind everything, and inside sheets and dialogs. */
     val background: MeshPalette,
     /** Cards, sheets, dialogs and the floating bar: a neutral translucent white. */
@@ -117,6 +123,8 @@ fun lightGlassColors(accent: Color = DefaultAccent, background: MeshPalette = So
     warning = Color(0xFF803905),
     error = Color(0xFF931F17),
     onError = Color.White,
+    danger = Color(0xFFB3261E),
+    onDanger = Color.White,
     background = background,
     glassFill = Color.White.copy(alpha = 0.45f),
     controlFill = Color.White.copy(alpha = 0.40f),
@@ -158,6 +166,8 @@ fun darkGlassColors(accent: Color = DefaultAccent, background: MeshPalette = War
     warning = Color(0xFFF9CFA0),
     error = Color(0xFFFFC9C4),
     onError = Color(0xFF3A0B0E),
+    danger = Color(0xFFC62828),
+    onDanger = Color.White,
     background = background,
     glassFill = Color.White.copy(alpha = 0.12f),
     controlFill = Color.White.copy(alpha = 0.06f),

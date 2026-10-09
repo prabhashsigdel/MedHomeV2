@@ -73,6 +73,14 @@ class GlassThemeTest {
     }
 
     @Test
+    fun `the danger button is red in both themes`() {
+        for ((name, colors) in palettes) {
+            val danger = colors.danger
+            assertTrue("$name danger is red", danger.red > 0.6f && danger.green < 0.25f && danger.blue < 0.25f)
+        }
+    }
+
+    @Test
     fun `dark text is white and light text stays dark`() {
         val dark = darkGlassColors()
         assertEquals(Color.White, dark.textPrimary)
@@ -91,6 +99,7 @@ class GlassThemeTest {
         for ((name, colors) in palettes) {
             assertTrue("$name on accent", contrastRatio(colors.onAccent, colors.accent) >= MIN_TEXT_CONTRAST)
             assertTrue("$name on error", contrastRatio(colors.onError, colors.error) >= MIN_TEXT_CONTRAST)
+            assertTrue("$name on danger", contrastRatio(colors.onDanger, colors.danger) >= MIN_TEXT_CONTRAST)
         }
     }
 

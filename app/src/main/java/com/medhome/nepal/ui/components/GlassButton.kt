@@ -58,25 +58,27 @@ fun GlassButton(
     style: GlassButtonStyle = GlassButtonStyle.Primary,
     loading: Boolean = false,
     enabled: Boolean = true,
+    /** Sized to its label (48dp tall) instead of full width, for secondary places like the danger zone. */
+    compact: Boolean = false,
 ) {
     val colors = GlassTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
     val shape = GlassShapes.Button
     val contentColor = when (style) {
         GlassButtonStyle.Primary -> colors.onAccent
-        GlassButtonStyle.Danger -> colors.onError
+        GlassButtonStyle.Danger -> colors.onDanger
         GlassButtonStyle.Secondary -> colors.textPrimary
     }
     val surface = when (style) {
         GlassButtonStyle.Primary -> Modifier.background(colors.accent, shape)
-        GlassButtonStyle.Danger -> Modifier.background(colors.error, shape)
+        GlassButtonStyle.Danger -> Modifier.background(colors.danger, shape)
         GlassButtonStyle.Secondary -> Modifier.glassControl(shape)
     }
     val loadingLabel = stringResource(R.string.state_loading)
     Box(
         modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = GlassDimens.ButtonHeight)
+            .then(if (compact) Modifier else Modifier.fillMaxWidth())
+            .heightIn(min = if (compact) GlassDimens.MinTouchTarget else GlassDimens.ButtonHeight)
             .pressScale(interactionSource)
             .alpha(if (enabled || loading) 1f else DISABLED_ALPHA)
             .clip(shape)
@@ -102,7 +104,7 @@ fun GlassButton(
             maxLines = MAX_LABEL_LINES,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = if (compact) 20.dp else 16.dp, vertical = 8.dp)
                 .graphicsLayer { alpha = labelAlpha },
         )
         if (spinnerAlpha > 0f) {

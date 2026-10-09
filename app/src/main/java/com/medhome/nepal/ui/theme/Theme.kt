@@ -73,6 +73,8 @@ private fun animateGlassColors(target: GlassColors, reducedMotion: Boolean): Gla
         warning = target.warning.animated("warning"),
         error = target.error.animated("error"),
         onError = target.onError.animated("onError"),
+        danger = target.danger.animated("danger"),
+        onDanger = target.onDanger.animated("onDanger"),
         // Not animated here: meshGradient crossfades two cached layers instead.
         background = target.background,
         glassFill = target.glassFill.animated("glassFill"),

@@ -101,11 +101,13 @@ fun ProfileScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = GlassTheme.colors.textSecondary,
             )
+            // Compact on purpose: a destructive action shouldn't be the biggest thing on the screen.
             GlassButton(
                 text = R.string.action_delete_account,
                 onClick = viewModel::openDeleteDialog,
                 style = GlassButtonStyle.Danger,
                 enabled = enabled,
+                compact = true,
             )
         }
     }
