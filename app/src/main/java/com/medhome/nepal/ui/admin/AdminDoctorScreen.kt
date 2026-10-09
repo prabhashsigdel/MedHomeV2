@@ -1,12 +1,14 @@
 package com.medhome.nepal.ui.admin
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -55,14 +58,16 @@ const val ADMIN_APPOINTMENT_TAG = "admin_appointment"
 
 /**
  * One doctor for the admin: details, shown to or hidden from patients (with a confirm dialog
- * that counts their upcoming bookings), Edit details, and the upcoming bookings (read-only:
- * date, time and the patient's first name).
+ * that counts their upcoming bookings and, when hiding, can cancel them too), Edit details, and
+ * the upcoming bookings (date, time and the patient's first name), each of which can be
+ * cancelled for the clinic.
  */
 @Composable
 fun AdminDoctorScreen(viewModel: AdminDoctorViewModel, onEdit: (String) -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val appointments by viewModel.appointments.collectAsStateWithLifecycle()
     val dialog by viewModel.dialog.collectAsStateWithLifecycle()
+    val cancelDialog by viewModel.cancelDialog.collectAsStateWithLifecycle()
 
     GlassScreen(showBack = true, drawBackground = false) {
         when (val current = state) {
@@ -86,7 +91,7 @@ fun AdminDoctorScreen(viewModel: AdminDoctorViewModel, onEdit: (String) -> Unit)
                     modifier = Modifier.entrance(2),
                 )
                 SectionTitle(text = R.string.admin_upcoming_title, modifier = Modifier.entrance(3))
-                Appointments(state = appointments, onRetry = viewModel::retryAppointments)
+                Appointments(state = appointments, onRetry = viewModel::retryAppointments, onCancel = viewModel::requestCancel)
                 SectionTitle(text = R.string.doctor_hours, modifier = Modifier.entrance(4))
                 WeeklyHours(schedule = current.doctor.doctor.weeklySchedule, modifier = Modifier.entrance(4))
             }
@@ -103,9 +108,14 @@ fun AdminDoctorScreen(viewModel: AdminDoctorViewModel, onEdit: (String) -> Unit)
                 state = current,
                 doctorName = doctorName,
                 onConfirm = viewModel::confirmToggle,
+                onRetryCancel = viewModel::retryCancelBookings,
                 onDismiss = viewModel::dismissDialog,
             )
         }
+    }
+    // Only over a loaded doctor (the screen may have gone to an error under it).
+    if (doctorName != null) cancelDialog?.let { current ->
+        CancelBookingDialog(state = current, onConfirm = viewModel::confirmCancel, onDismiss = viewModel::dismissCancel)
     }
 }
 
@@ -173,7 +183,7 @@ private fun VisibilityCard(active: Boolean, onToggle: () -> Unit) {
 }
 
 @Composable
-private fun Appointments(state: AppointmentsUiState, onRetry: () -> Unit) {
+private fun Appointments(state: AppointmentsUiState, onRetry: () -> Unit, onCancel: (DoctorAppointment) -> Unit) {
     when (state) {
         AppointmentsUiState.Loading -> LoadingCard()
         is AppointmentsUiState.Failed -> StatusMessage(message = R.string.admin_upcoming_failed, kind = MessageKind.Error, onRetry = onRetry)
@@ -193,7 +203,7 @@ private fun Appointments(state: AppointmentsUiState, onRetry: () -> Unit) {
                 state.appointments.forEachIndexed { index, appointment ->
                     key(appointment.bookingId) {
                         if (index > 0) SettingsDivider()
-                        AppointmentRow(appointment)
+                        AppointmentRow(appointment, onCancel = { onCancel(appointment) })
                     }
                 }
             }
@@ -201,13 +211,47 @@ private fun Appointments(state: AppointmentsUiState, onRetry: () -> Unit) {
     }
 }
 
-/** Date and time on the left, the patient's first name on the right. Nothing else about them. */
+/** Date, time and the patient's first name (nothing else about them), and Cancel. */
 @Composable
-private fun AppointmentRow(appointment: DoctorAppointment) {
-    Box(modifier = Modifier.fillMaxWidth().testTag(ADMIN_APPOINTMENT_TAG)) {
-        FactRow(
-            label = dateTimeText(appointment.date, appointment.start),
-            value = appointment.patientFirstName ?: stringResource(R.string.admin_patient_unknown),
+private fun AppointmentRow(appointment: DoctorAppointment, onCancel: () -> Unit) {
+    val colors = GlassTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(ADMIN_APPOINTMENT_TAG)
+            .padding(start = 22.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .semantics(mergeDescendants = true) {},
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = dateTimeText(appointment.date, appointment.start),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.textSecondary,
+            )
+            Text(
+                text = appointment.patientFirstName ?: stringResource(R.string.admin_patient_unknown),
+                style = MaterialTheme.typography.titleMedium,
+                color = colors.textPrimary,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        val description = stringResource(
+            R.string.admin_cancel_booking_of,
+            dateTimeText(appointment.date, appointment.start),
+            appointment.patientFirstName ?: stringResource(R.string.admin_patient_unknown),
+        )
+        GlassButton(
+            text = R.string.admin_cancel_booking,
+            onClick = onCancel,
+            style = GlassButtonStyle.Secondary,
+            compact = true,
+            // Every row's button says "Cancel": TalkBack hears which booking.
+            modifier = Modifier.semantics { contentDescription = description },
         )
     }
 }
@@ -216,47 +260,173 @@ private fun AppointmentRow(appointment: DoctorAppointment) {
 private fun ActiveDialog(
     state: ActiveDialogState,
     doctorName: String,
-    onConfirm: () -> Unit,
+    onConfirm: (cancelBookings: Boolean) -> Unit,
+    onRetryCancel: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // Back and tapping outside go through onDismiss, which the ViewModel ignores while saving.
+    GlassDialog(onDismissRequest = onDismiss) {
+        val result = state.cancelResult
+        if (result != null) {
+            BulkCancelReport(state = state, result = result, onRetry = onRetryCancel, onClose = onDismiss)
+        } else {
+            ConfirmActive(state = state, doctorName = doctorName, onConfirm = onConfirm, onDismiss = onDismiss)
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.ConfirmActive(
+    state: ActiveDialogState,
+    doctorName: String,
+    onConfirm: (cancelBookings: Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val colors = GlassTheme.colors
-    // Back and tapping outside go through onDismiss, which the ViewModel ignores while saving.
-    GlassDialog(onDismissRequest = onDismiss) {
-        Text(
-            text = stringResource(if (state.activate) R.string.admin_show_title else R.string.admin_hide_title),
-            style = MaterialTheme.typography.headlineSmall,
-            color = colors.textPrimary,
-            modifier = Modifier.semantics { heading() },
-        )
-        Text(
-            text = stringResource(if (state.activate) R.string.admin_show_body else R.string.admin_hide_body, doctorName),
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.textSecondary,
-        )
-        Text(
+    val locale = currentLocale()
+    DialogTitle(if (state.activate) R.string.admin_show_title else R.string.admin_hide_title)
+    Text(
+        text = stringResource(if (state.activate) R.string.admin_show_body else R.string.admin_hide_body, doctorName),
+        style = MaterialTheme.typography.bodyMedium,
+        color = colors.textSecondary,
+    )
+    Text(
+        text = when {
+            state.upcomingCount != null -> pluralStringResource(
+                R.plurals.admin_upcoming_count,
+                state.upcomingCount,
+                LocaleFormat.number(state.upcomingCount, locale),
+            )
+            state.countFailed -> stringResource(R.string.admin_count_failed)
+            else -> stringResource(R.string.admin_counting)
+        },
+        style = MaterialTheme.typography.titleMedium,
+        color = colors.textPrimary,
+    )
+    state.error?.let { StatusMessage(message = adminErrorText(it), kind = MessageKind.Error) }
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        val count = state.upcomingCount
+        if (state.canCancelBookings && count != null) {
+            GlassButton(
+                text = pluralStringResource(R.plurals.admin_hide_and_cancel, count, LocaleFormat.number(count, locale)),
+                onClick = { onConfirm(true) },
+                style = GlassButtonStyle.Danger,
+                loading = state.isSaving && state.cancellingBookings,
+                enabled = state.canConfirm,
+            )
+        }
+        GlassButton(
             text = when {
-                state.upcomingCount != null -> pluralStringResource(
-                    R.plurals.admin_upcoming_count,
-                    state.upcomingCount,
-                    LocaleFormat.number(state.upcomingCount, currentLocale()),
-                )
-                state.countFailed -> stringResource(R.string.admin_count_failed)
-                else -> stringResource(R.string.admin_counting)
+                state.activate -> R.string.admin_show_confirm
+                state.canCancelBookings -> R.string.admin_hide_only
+                else -> R.string.admin_hide_confirm
             },
-            style = MaterialTheme.typography.titleMedium,
+            onClick = { onConfirm(false) },
+            style = when {
+                state.activate -> GlassButtonStyle.Primary
+                state.canCancelBookings -> GlassButtonStyle.Secondary
+                else -> GlassButtonStyle.Danger
+            },
+            loading = state.isSaving && !state.cancellingBookings,
+            enabled = state.canConfirm,
+        )
+        GlassButton(text = R.string.action_cancel, onClick = onDismiss, style = GlassButtonStyle.Secondary, enabled = !state.isSaving)
+    }
+}
+
+/** The doctor is hidden, but some bookings may still be booked: how many, why, and Retry. */
+@Composable
+private fun ColumnScope.BulkCancelReport(
+    state: ActiveDialogState,
+    result: BulkCancelResult,
+    onRetry: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val colors = GlassTheme.colors
+    val locale = currentLocale()
+    DialogTitle(R.string.admin_hidden_title)
+    if (result.cancelled > 0) {
+        Text(
+            text = pluralStringResource(R.plurals.admin_bulk_cancelled, result.cancelled, LocaleFormat.number(result.cancelled, locale)),
+            style = MaterialTheme.typography.bodyMedium,
             color = colors.textPrimary,
         )
-        state.error?.let { StatusMessage(message = adminErrorText(it), kind = MessageKind.Error) }
+    }
+    Text(
+        text = if (result.failed > 0) {
+            pluralStringResource(R.plurals.admin_bulk_failed, result.failed, LocaleFormat.number(result.failed, locale))
+        } else {
+            stringResource(R.string.admin_bulk_check_failed)
+        },
+        style = MaterialTheme.typography.titleMedium,
+        color = colors.textPrimary,
+    )
+    result.error?.let { StatusMessage(message = adminCancelErrorText(it), kind = MessageKind.Error) }
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        GlassButton(
+            text = R.string.action_retry,
+            onClick = onRetry,
+            style = GlassButtonStyle.Danger,
+            loading = state.isSaving,
+            enabled = !state.isSaving,
+        )
+        GlassButton(text = R.string.action_done, onClick = onClose, style = GlassButtonStyle.Secondary, enabled = !state.isSaving)
+    }
+}
+
+/** "Cancel this booking?" with when and whose. Back and tapping outside keep it, except while cancelling. */
+@Composable
+private fun CancelBookingDialog(state: CancelBookingDialogState, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val appointment = state.appointment
+    GlassDialog(onDismissRequest = onDismiss) {
+        DialogTitle(R.string.admin_cancel_booking_title)
+        Text(
+            text = stringResource(
+                R.string.admin_cancel_booking_body,
+                dateTimeText(appointment.date, appointment.start),
+                appointment.patientFirstName ?: stringResource(R.string.admin_patient_unknown),
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = GlassTheme.colors.textSecondary,
+        )
+        state.error?.let { StatusMessage(message = adminCancelErrorText(it), kind = MessageKind.Error) }
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             GlassButton(
-                text = if (state.activate) R.string.admin_show_confirm else R.string.admin_hide_confirm,
+                text = R.string.admin_cancel_booking_confirm,
                 onClick = onConfirm,
-                style = if (state.activate) GlassButtonStyle.Primary else GlassButtonStyle.Danger,
-                loading = state.isSaving,
+                style = GlassButtonStyle.Danger,
+                loading = state.isCancelling,
+                enabled = !state.isCancelling,
             )
-            GlassButton(text = R.string.action_cancel, onClick = onDismiss, style = GlassButtonStyle.Secondary, enabled = !state.isSaving)
+            GlassButton(
+                text = R.string.admin_keep_booking,
+                onClick = onDismiss,
+                style = GlassButtonStyle.Secondary,
+                enabled = !state.isCancelling,
+            )
         }
     }
+}
+
+@Composable
+private fun DialogTitle(@StringRes text: Int) {
+    Text(
+        text = stringResource(text),
+        style = MaterialTheme.typography.headlineSmall,
+        color = GlassTheme.colors.textPrimary,
+        modifier = Modifier.semantics { heading() },
+    )
+}
+
+/** Why cancelling a booking failed, in this feature's words. */
+@StringRes
+internal fun adminCancelErrorText(error: AdminError): Int = when (error) {
+    AdminError.BOOKING_STARTED -> R.string.admin_cancel_error_started
+    AdminError.NOT_FOUND -> R.string.admin_cancel_error_not_found
+    AdminError.NETWORK,
+    AdminError.PERMISSION_DENIED,
+    AdminError.ALREADY_EXISTS,
+    AdminError.UNKNOWN -> adminErrorText(error)
 }
 
 /** This feature's own messages for a failed admin write. */
@@ -264,6 +434,7 @@ internal fun adminErrorText(error: AdminError): Int = when (error) {
     AdminError.NETWORK -> R.string.admin_error_network
     AdminError.PERMISSION_DENIED -> R.string.admin_error_denied
     AdminError.NOT_FOUND -> R.string.admin_error_not_found
+    AdminError.BOOKING_STARTED -> R.string.admin_cancel_error_started
     AdminError.ALREADY_EXISTS -> R.string.admin_error_exists
     AdminError.UNKNOWN -> R.string.admin_error_unknown
 }

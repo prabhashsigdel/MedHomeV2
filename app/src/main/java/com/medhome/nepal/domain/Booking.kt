@@ -11,6 +11,17 @@ enum class BookingStatus(val key: String) {
     }
 }
 
+/** Who cancelled a booking. [key] is what Firestore stores. */
+enum class CancelledBy(val key: String) {
+    PATIENT("patient"),
+    CLINIC("clinic"),
+    ;
+
+    companion object {
+        fun fromKey(key: String?): CancelledBy? = entries.firstOrNull { it.key == key }
+    }
+}
+
 /** The doctor as they were when booked (a booking keeps its fee if the doctor's changes later). */
 data class BookedDoctor(
     val name: String,
@@ -30,6 +41,8 @@ data class Booking(
     val slotId: String,
     /** Which of the patient's 3 quota places (1..3) this booking holds. */
     val quotaPlace: Int,
+    /** Who cancelled it; null while booked, or when the stored value is unknown. */
+    val cancelledBy: CancelledBy? = null,
 ) {
     val date: CalendarDate get() = NepalTime.dateOf(startAtMillis)
     val start: TimeOfDay get() = NepalTime.timeOf(startAtMillis)

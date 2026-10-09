@@ -14,6 +14,7 @@ import com.medhome.nepal.domain.Booking
 import com.medhome.nepal.domain.BookingError
 import com.medhome.nepal.domain.BookingException
 import com.medhome.nepal.domain.BookingStatus
+import com.medhome.nepal.domain.CancelledBy
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.Slot
 import com.medhome.nepal.domain.Slots
@@ -123,12 +124,18 @@ class FirestoreBookingRepository(
                     // A place is free when empty, or once the booking it holds has started.
                     !held.exists() || (held.getTimestamp(FIELD_QUOTA_START_AT)?.toDate()?.time ?: Long.MAX_VALUE) <= clock()
                 } ?: throw BookingException(BookingError.LIMIT_REACHED)
+                // Copied as stored: the rules require the profile's current name. It is what the
+                // admin's list shows, so they never need to read the profile itself.
+                val patientName = transaction.get(db.collection(COLLECTION_USERS).document(uid))
+                    .getString(FIELD_USER_NAME)
+                    ?: throw BookingException(BookingError.UNKNOWN)
 
                 val startAt = timestampOf(slot.startAtMillis)
                 transaction.set(
                     bookingRef,
                     mapOf(
                         BookingMapper.FIELD_PATIENT_UID to uid,
+                        BookingMapper.FIELD_PATIENT_NAME to patientName,
                         BookingMapper.FIELD_DOCTOR_ID to slot.doctorId,
                         // Copied as stored, not as cleaned for display: the rules compare them.
                         BookingMapper.FIELD_DOCTOR to mapOf(
@@ -189,6 +196,7 @@ class FirestoreBookingRepository(
                     mapOf(
                         BookingMapper.FIELD_STATUS to BookingStatus.CANCELLED.key,
                         BookingMapper.FIELD_CANCELLED_AT to FieldValue.serverTimestamp(),
+                        BookingMapper.FIELD_CANCELLED_BY to CancelledBy.PATIENT.key,
                     ),
                 )
                 if (lockExists) transaction.delete(lockRef)
@@ -297,6 +305,7 @@ class FirestoreBookingRepository(
         const val FIELD_LOCK_BOOKING_ID = "bookingId"
         const val FIELD_QUOTA_BOOKING_ID = "bookingId"
         const val FIELD_QUOTA_START_AT = "startAt"
+        const val FIELD_USER_NAME = "name"
         const val MAX_BOOKINGS_READ = 100L
         const val MAX_CAUSE_DEPTH = 5
     }

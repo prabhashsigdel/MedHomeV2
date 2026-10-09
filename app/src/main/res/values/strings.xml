@@ -304,6 +304,10 @@
     <string name="booking_cancel_confirm_body">The time will be freed for other patients. This can\'t be undone.</string>
     <string name="booking_keep">Keep appointment</string>
     <string name="booking_cancelled_notice">This appointment was cancelled.</string>
+    <string name="booking_status_cancelled_by_you">Cancelled by you</string>
+    <string name="booking_status_cancelled_by_clinic">Cancelled by clinic</string>
+    <string name="booking_cancelled_by_you_notice">You cancelled this appointment.</string>
+    <string name="booking_cancelled_by_clinic_notice">The clinic cancelled this appointment. You can book another time.</string>
     <string name="booking_past_notice">This appointment has passed.</string>
     <string name="booking_not_found_title">Booking not available</string>
     <string name="booking_not_found_body">This booking isn\'t on your account any more.</string>
@@ -344,7 +348,7 @@
     <string name="admin_patient_unknown">Patient</string>
     <string name="admin_hide_title">Hide this doctor?</string>
     <string name="admin_show_title">Show this doctor?</string>
-    <string name="admin_hide_body">Patients won\'t be able to find or book %1$s. Bookings already made stay booked.</string>
+    <string name="admin_hide_body">Patients won\'t be able to find or book %1$s. You can keep the bookings already made, or cancel them.</string>
     <string name="admin_show_body">Patients will be able to find and book %1$s again.</string>
     <string name="admin_counting">Checking upcoming bookings…</string>
     <string name="admin_count_failed">Couldn\'t check upcoming bookings.</string>
@@ -386,9 +390,32 @@
     <string name="admin_error_experience">Enter 0 to 70 years</string>
     <string name="admin_error_slot_minutes">Enter 5 to 240 minutes</string>
     <string name="admin_settings_title">Settings</string>
+    <string name="admin_cancel_booking">Cancel</string>
+    <string name="admin_cancel_booking_of">Cancel booking, %1$s, %2$s</string>
+    <string name="admin_cancel_booking_title">Cancel this booking?</string>
+    <string name="admin_cancel_booking_body">%1$s, %2$s. The slot frees up, and the patient will see that the clinic cancelled it.</string>
+    <string name="admin_cancel_booking_confirm">Cancel booking</string>
+    <string name="admin_keep_booking">Keep booking</string>
+    <string name="admin_cancel_error_started">This appointment has already started, so it can\'t be cancelled.</string>
+    <string name="admin_cancel_error_not_found">This booking can\'t be found or read.</string>
+    <string name="admin_hide_only">Hide only</string>
+    <string name="admin_hidden_title">Doctor hidden</string>
+    <string name="admin_bulk_check_failed">Couldn\'t check for more upcoming bookings to cancel.</string>
     <plurals name="admin_upcoming_count">
         <item quantity="one">%1$s upcoming booking</item>
         <item quantity="other">%1$s upcoming bookings</item>
+    </plurals>
+    <plurals name="admin_hide_and_cancel">
+        <item quantity="one">Hide and cancel %1$s upcoming booking</item>
+        <item quantity="other">Hide and cancel %1$s upcoming bookings</item>
+    </plurals>
+    <plurals name="admin_bulk_cancelled">
+        <item quantity="one">%1$s booking cancelled.</item>
+        <item quantity="other">%1$s bookings cancelled.</item>
+    </plurals>
+    <plurals name="admin_bulk_failed">
+        <item quantity="one">%1$s booking couldn\'t be cancelled. It is still booked.</item>
+        <item quantity="other">%1$s bookings couldn\'t be cancelled. They are still booked.</item>
     </plurals>
     <plurals name="admin_minutes">
         <item quantity="one">%1$s minute</item>

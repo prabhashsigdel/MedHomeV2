@@ -7,6 +7,7 @@ import androidx.compose.ui.res.stringResource
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.Booking
 import com.medhome.nepal.domain.BookingError
+import com.medhome.nepal.domain.CancelledBy
 import com.medhome.nepal.domain.DayPeriod
 import com.medhome.nepal.ui.common.LocaleFormat
 import com.medhome.nepal.ui.common.currentLocale
@@ -48,3 +49,19 @@ val DayPeriod.label: Int
         DayPeriod.AFTERNOON -> R.string.book_afternoon
         DayPeriod.EVENING -> R.string.book_evening
     }
+
+/** The card's status line for a cancelled booking: who cancelled it, when known. */
+@StringRes
+fun cancelledStatusText(cancelledBy: CancelledBy?): Int = when (cancelledBy) {
+    CancelledBy.PATIENT -> R.string.booking_status_cancelled_by_you
+    CancelledBy.CLINIC -> R.string.booking_status_cancelled_by_clinic
+    null -> R.string.booking_status_cancelled
+}
+
+/** The detail screen's notice for a cancelled booking. */
+@StringRes
+fun cancelledNoticeText(cancelledBy: CancelledBy?): Int = when (cancelledBy) {
+    CancelledBy.PATIENT -> R.string.booking_cancelled_by_you_notice
+    CancelledBy.CLINIC -> R.string.booking_cancelled_by_clinic_notice
+    null -> R.string.booking_cancelled_notice
+}

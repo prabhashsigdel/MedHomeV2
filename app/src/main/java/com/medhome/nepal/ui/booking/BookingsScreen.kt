@@ -78,7 +78,7 @@ fun BookingsScreen(viewModel: BookingsViewModel, onOpenBooking: (String) -> Unit
     }
 }
 
-/** One booking: doctor, specialty, date and time, and "Cancelled" when it was. One button for TalkBack. */
+/** One booking: doctor, specialty, date and time, and who cancelled it when it was. One button for TalkBack. */
 @Composable
 private fun BookingCard(booking: Booking, onClick: () -> Unit) {
     val colors = GlassTheme.colors
@@ -106,7 +106,7 @@ private fun BookingCard(booking: Booking, onClick: () -> Unit) {
                 )
                 if (booking.status == BookingStatus.CANCELLED) {
                     Text(
-                        text = stringResource(R.string.booking_status_cancelled),
+                        text = stringResource(cancelledStatusText(booking.cancelledBy)),
                         style = MaterialTheme.typography.labelMedium,
                         color = colors.error,
                     )

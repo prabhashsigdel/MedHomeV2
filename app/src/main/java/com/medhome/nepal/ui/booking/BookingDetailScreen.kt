@@ -97,7 +97,7 @@ private fun BookingDetails(state: BookingDetailUiState.Ready, onCancel: () -> Un
     }
     when {
         booking.status == BookingStatus.CANCELLED ->
-            StatusMessage(message = R.string.booking_cancelled_notice, kind = MessageKind.Warning)
+            StatusMessage(message = cancelledNoticeText(booking.cancelledBy), kind = MessageKind.Warning)
         !state.canCancel -> StatusMessage(message = R.string.booking_past_notice, kind = MessageKind.Info)
     }
 

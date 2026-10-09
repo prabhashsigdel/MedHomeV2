@@ -82,9 +82,14 @@ function boundaryAfter(minutes, stepMinutes) {
   return Math.ceil((Date.now() + minutes * 60_000) / step) * step;
 }
 
+/** Each test patient's profile name, which a booking must copy. */
+const NAMES = { alice: 'Alice Gurung', bob: 'Bob Thapa' };
+
+/** A booking as the app writes it; an override of `undefined` leaves that field out. */
 function bookingData(uid, s, place, overrides = {}) {
-  return {
+  const data = {
     patientUid: uid,
+    patientName: NAMES[uid] ?? 'Someone',
     doctorId: s.doctorId,
     doctor: SNAPSHOT,
     startAt: s.startAt,
@@ -94,6 +99,7 @@ function bookingData(uid, s, place, overrides = {}) {
     createdAt: serverTimestamp(),
     ...overrides,
   };
+  return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
 }
 
 let nextId = 0;
@@ -122,6 +128,10 @@ describe('bookings', () => {
     await env.clearFirestore();
     await env.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore();
+      const createdAt = Timestamp.fromMillis(Date.now() - DAY_MS);
+      for (const [uid, name] of Object.entries(NAMES)) {
+        await setDoc(doc(db, `users/${uid}`), { name, email: `${uid}@example.com`, role: 'patient', createdAt });
+      }
       await setDoc(doc(db, 'doctors/doc-001'), DOCTOR);
       await setDoc(doc(db, 'doctors/doc-002'), { ...DOCTOR, name: 'Old Doctor', active: false });
       // Open all day in 5-minute slots, for lead-time tests at any hour.
@@ -170,10 +180,15 @@ describe('bookings', () => {
     return { bookingId, commit: batch.commit() };
   }
 
-  /** Cancels the way the app does: status + cancelledAt, lock and quota place deleted together. */
+  /**
+   * Cancels the way the app does: status, cancelledAt and cancelledBy "patient", with the lock
+   * and quota place deleted together.
+   */
   function cancel(db, uid, bookingId, s, { place = 1, deleteLock = true, deleteQuota = true, changes = {} } = {}) {
     const batch = writeBatch(db);
-    batch.update(doc(db, `bookings/${bookingId}`), { status: 'cancelled', cancelledAt: serverTimestamp(), ...changes });
+    batch.update(doc(db, `bookings/${bookingId}`), {
+      status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'patient', ...changes,
+    });
     if (deleteLock) batch.delete(doc(db, `slotLocks/${s.slotId}`));
     if (deleteQuota) batch.delete(doc(db, `users/${uid}/bookingQuota/${place}`));
     return batch.commit();
@@ -323,6 +338,26 @@ describe('bookings', () => {
       await assertFails(book(verified('alice'), 'alice', s, { parts: { booking: false, lock: false, quota: true } }).commit);
     });
 
+    it("the booking must carry the patient's current profile name", async () => {
+      const s = slot(1, 10);
+      await assertFails(book(verified('alice'), 'alice', s, { overrides: { patientName: 'Someone Else' } }).commit);
+      await assertFails(book(verified('alice'), 'alice', s, { overrides: { patientName: 'alice gurung' } }).commit);
+      await assertFails(book(verified('alice'), 'alice', s, { overrides: { patientName: NAMES.bob } }).commit);
+      await assertFails(book(verified('alice'), 'alice', s, { overrides: { patientName: undefined } }).commit);
+      await assertSucceeds(book(verified('alice'), 'alice', s).commit);
+    });
+
+    it('a name changed in the profile must be the one copied', async () => {
+      await assertSucceeds(updateDoc(doc(verified('alice'), 'users/alice'), { name: 'Alice Rai' }));
+      const s = slot(1, 10);
+      await assertFails(book(verified('alice'), 'alice', s).commit);
+      await assertSucceeds(book(verified('alice'), 'alice', s, { overrides: { patientName: 'Alice Rai' } }).commit);
+    });
+
+    it('a patient without a profile cannot book', async () => {
+      await assertFails(book(verified('carol'), 'carol', slot(1, 10)).commit);
+    });
+
     it('the lock and the quota place must point at the new booking', async () => {
       const s = slot(1, 10);
       await assertFails(book(verified('alice'), 'alice', s, { lockOverrides: { bookingId: 'someoneElse' } }).commit);
@@ -413,7 +448,7 @@ describe('bookings', () => {
       await seedBooking('bob', theirs);
       const db = verified('alice');
       const batch = writeBatch(db);
-      batch.update(doc(db, `bookings/${id}`), { status: 'cancelled', cancelledAt: serverTimestamp() });
+      batch.update(doc(db, `bookings/${id}`), { status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'patient' });
       batch.delete(doc(db, `slotLocks/${mine.slotId}`));
       batch.delete(doc(db, `slotLocks/${theirs.slotId}`));
       await assertFails(batch.commit());
@@ -421,7 +456,9 @@ describe('bookings', () => {
 
     it('a cancelled booking cannot be cancelled again', async () => {
       const id = await seedBooking('alice', slot(1, 10), { status: 'cancelled' });
-      await assertFails(updateDoc(doc(verified('alice'), `bookings/${id}`), { status: 'cancelled', cancelledAt: serverTimestamp() }));
+      await assertFails(updateDoc(doc(verified('alice'), `bookings/${id}`), {
+        status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'patient',
+      }));
     });
 
     it('cancelling does not need a verified email (only booking does)', async () => {
@@ -449,13 +486,23 @@ describe('bookings', () => {
       await assertFails(cancel(verified('alice'), 'alice', id, s, { deleteLock: false }));
     });
 
-    it('cancelling changes only the status and the cancel time', async () => {
+    it('cancelling changes only the status, the cancel time and who cancelled', async () => {
       const s = slot(1, 10);
       const id = await seedBooking('alice', s);
       const past = Timestamp.fromMillis(Date.now() - DAY_MS);
       await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { startAt: slot(2, 10).startAt } }));
       await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelledAt: past } }));
       await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { status: 'done' } }));
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { patientName: 'Renamed' } }));
+    });
+
+    it('a patient cancel says it was the patient, never the clinic', async () => {
+      const s = slot(1, 10);
+      const id = await seedBooking('alice', s);
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelledBy: 'clinic' } }));
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelledBy: deleteField() } }));
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelledBy: 'someone' } }));
+      await assertSucceeds(cancel(verified('alice'), 'alice', id, s));
     });
 
     it('bookings are never otherwise edited, deleted or un-cancelled', async () => {
@@ -466,6 +513,7 @@ describe('bookings', () => {
 
       const cancelledId = await seedBooking('alice', slot(2, 10), { status: 'cancelled' });
       await assertFails(updateDoc(doc(verified('alice'), `bookings/${cancelledId}`), { status: 'booked', cancelledAt: deleteField() }));
+      await assertFails(updateDoc(doc(verified('alice'), `bookings/${cancelledId}`), { cancelledBy: 'clinic' }));
     });
 
     it('a slot lock cannot be deleted or changed on its own', async () => {

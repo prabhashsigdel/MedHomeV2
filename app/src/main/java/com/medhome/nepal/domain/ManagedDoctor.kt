@@ -4,8 +4,9 @@ package com.medhome.nepal.domain
 data class ManagedDoctor(val doctor: Doctor, val active: Boolean)
 
 /**
- * One upcoming booking of a doctor, as admins see it: when, and the patient's first name only
- * (null when it couldn't be read). Never the patient's email, phone or ID.
+ * One upcoming booking of a doctor, as admins see it: when, and the patient's first name only,
+ * from the name the booking was made under (null for bookings made before it was stored). Never
+ * the patient's email, phone or ID.
  */
 data class DoctorAppointment(
     val bookingId: String,
@@ -23,8 +24,11 @@ enum class AdminError {
     /** The rules refused the write (no longer an admin, or invalid data). */
     PERMISSION_DENIED,
 
-    /** The doctor doesn't exist (any more). */
+    /** The doctor (or, when cancelling, the booking) doesn't exist (any more). */
     NOT_FOUND,
+
+    /** Cancelling a booking that has already started. */
+    BOOKING_STARTED,
 
     /** A new doctor's ID is already taken. */
     ALREADY_EXISTS,

@@ -25,10 +25,13 @@ The first run downloads the emulator (about 60 MB). Tests live in `rules-tests/t
 cover users (sign-up as patient only, no role/email/createdAt changes, no cross-user access,
 admin role changes, owner delete), doctors (signed-in read of active ones, no deletes),
 bookings (`bookings.rules.test.js`: booking a slot, double booking, unverified email, past and
-off-schedule slots, booking for someone else, the 3-upcoming limit, reading and cancelling) and
-admins (`admin.rules.test.js`: adding and editing doctors with every field validated, show /
-hide, the `updatedAt` / `updatedBy` stamp, no deletes; patients, doctors and signed-out users
-can't write doctors or make themselves admins; admins can read but never write bookings).
+off-schedule slots, booking for someone else, the 3-upcoming limit, the `patientName` copy of
+the profile name, reading and cancelling with `cancelledBy: "patient"`) and admins
+(`admin.rules.test.js`: adding and editing doctors with every field validated, show / hide, the
+`updatedAt` / `updatedBy` stamp, no deletes; patients, doctors and signed-out users can't write
+doctors or make themselves admins; admins can't read patient profiles, and the only booking
+write they may make is cancelling an upcoming one for the clinic, freeing exactly its slot lock
+and quota place).
 
 ## Seeding doctors
 
@@ -98,9 +101,13 @@ see Firestore > Indexes in the console).
 The project ID is shown in Project settings (it is also `project_id` in `app/google-services.json`).
 Deploying publishes `firestore.rules` exactly as it is in your working copy.
 
+The rules and the app change together: the rules require `patientName` on new bookings and
+`cancelledBy` on cancels, which older app builds don't write (their booking and cancelling would
+be refused). Install the matching app build when you deploy the rules.
+
 ## Making an account an admin
 
-Admins can add, edit and hide doctors and see each doctor's upcoming bookings in the app. The
+Admins can add, edit and hide doctors and see and cancel each doctor's upcoming bookings in the app. The
 role is never granted in the app: set it by hand.
 
 1. Sign up in the app as usual (this creates `users/{uid}` with `role: "patient"`).

@@ -48,8 +48,8 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      // Own document, or any document for admins. isOwner is checked first to skip the get().
-      allow read: if isOwner(uid) || isAdmin();
+      // Own document only. Admins don't read profiles: a booking carries the name it was made under.
+      allow read: if isOwner(uid);
 
       // Self-signup always creates a patient. createdAt must be the server timestamp.
       allow create: if isOwner(uid)
@@ -196,6 +196,11 @@ service cloud.firestore {
     //   users/{uid}/bookingQuota/{1|2|3}          one of the patient's 3 upcoming-booking places
     // Each rule checks the others with getAfter(), so none can be written alone. Times in IDs
     // are Nepal time, a fixed UTC+05:45 (no daylight saving since 1986), as in the app.
+    //
+    // Cancelling is the same three documents: the booking turns cancelled (cancelledBy says by
+    // whom), and its lock and quota place are deleted in the same write. The patient cancels
+    // their own; an admin may cancel anyone's for the clinic, while it is upcoming, and nothing
+    // else.
 
     function emailVerified() {
       return request.auth.token.email_verified == true;
@@ -216,6 +221,23 @@ service cloud.firestore {
     // Firestore auto IDs: never a path or anything longer.
     function isAutoId(id) {
       return id is string && id.matches('[A-Za-z0-9]{1,40}');
+    }
+
+    // After this write, quota place [place] of [uid] holds [bookingId].
+    function holdsAfter(uid, place, bookingId) {
+      return existsAfter(quotaPath(uid, place))
+        && getAfter(quotaPath(uid, place)).data.bookingId == bookingId;
+    }
+
+    // An admin is cancelling [bookingId] for the clinic in this very write: booked before it,
+    // cancelled by the clinic after it (the booking's own rule checks the rest).
+    function isClinicCancelling(bookingId) {
+      return isAutoId(bookingId)
+        && get(bookingPath(bookingId)).data.status == 'booked'
+        && getAfter(bookingPath(bookingId)).data.status == 'cancelled'
+        && getAfter(bookingPath(bookingId)).data.cancelledBy == 'clinic'
+        && emailVerified()
+        && isAdmin();
     }
 
     // Wall-clock time in Nepal, as a timestamp whose UTC fields read as Nepal time.
@@ -292,16 +314,18 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
       // Own bookings only (a list must ask for patientUid == your uid), or any booking for
-      // admins (read-only: the writes below all require the booking's own patient).
+      // admins (who may only cancel one for the clinic, below).
       allow read: if isSignedIn() && (resource.data.patientUid == request.auth.uid || isAdmin());
 
       // A new booking, with its slot lock and a quota place in the same write.
       allow create: if isSignedIn()
         && emailVerified()
         && isAutoId(bookingId)
-        && request.resource.data.keys().hasOnly(['patientUid', 'doctorId', 'doctor', 'startAt', 'slotId', 'quotaPlace', 'status', 'createdAt'])
-        && request.resource.data.keys().hasAll(['patientUid', 'doctorId', 'doctor', 'startAt', 'slotId', 'quotaPlace', 'status', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['patientUid', 'patientName', 'doctorId', 'doctor', 'startAt', 'slotId', 'quotaPlace', 'status', 'createdAt'])
+        && request.resource.data.keys().hasAll(['patientUid', 'patientName', 'doctorId', 'doctor', 'startAt', 'slotId', 'quotaPlace', 'status', 'createdAt'])
         && request.resource.data.patientUid == request.auth.uid
+        // The name the admin's list shows, so admins never read the profile itself.
+        && request.resource.data.patientName == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.name
         && request.resource.data.status == 'booked'
         && request.resource.data.createdAt == request.time
         && request.resource.data.doctorId is string
@@ -318,16 +342,23 @@ service cloud.firestore {
         && getAfter(lockPath(request.resource.data.slotId)).data.bookingId == bookingId
         && getAfter(quotaPath(request.auth.uid, request.resource.data.quotaPlace)).data.bookingId == bookingId;
 
-      // Cancelling: own booking, before it starts, only status and cancelledAt change, and the
-      // slot lock goes in the same write so the slot frees up.
+      // Cancelling, before it starts: only status, cancelledAt and cancelledBy change, and the slot
+      // lock goes in the same write so the slot frees up. The patient cancels their own
+      // ("patient"); an admin cancels for the clinic ("clinic") and must free the patient's quota
+      // place too. Nobody un-cancels.
       allow update: if isSignedIn()
-        && resource.data.patientUid == request.auth.uid
         && resource.data.status == 'booked'
         && request.time < resource.data.startAt
-        && changedKeys().hasOnly(['status', 'cancelledAt'])
+        && changedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy'])
         && request.resource.data.status == 'cancelled'
         && request.resource.data.cancelledAt == request.time
-        && !existsAfter(lockPath(resource.data.slotId));
+        && !existsAfter(lockPath(resource.data.slotId))
+        && ((resource.data.patientUid == request.auth.uid
+            && request.resource.data.cancelledBy == 'patient')
+          || (request.resource.data.cancelledBy == 'clinic'
+            && emailVerified()
+            && isAdmin()
+            && !holdsAfter(resource.data.patientUid, resource.data.quotaPlace, bookingId)));
 
       // History stays: no client deletes a booking.
       allow delete: if false;
@@ -350,10 +381,13 @@ service cloud.firestore {
         && getAfter(bookingPath(request.resource.data.bookingId)).data.doctorId == request.resource.data.doctorId
         && getAfter(bookingPath(request.resource.data.bookingId)).data.startAt == request.resource.data.startAt;
 
-      // Only when its booking is cancelled in the same write.
+      // Only when its booking is cancelled in the same write: by its patient, or by an admin
+      // for the clinic (then only the lock that booking names).
       allow delete: if isSignedIn()
-        && getAfter(bookingPath(resource.data.bookingId)).data.patientUid == request.auth.uid
-        && getAfter(bookingPath(resource.data.bookingId)).data.status == 'cancelled';
+        && ((getAfter(bookingPath(resource.data.bookingId)).data.patientUid == request.auth.uid
+            && getAfter(bookingPath(resource.data.bookingId)).data.status == 'cancelled')
+          || (isClinicCancelling(resource.data.bookingId)
+            && get(bookingPath(resource.data.bookingId)).data.slotId == slotId));
 
       allow update: if false;
     }
@@ -373,12 +407,20 @@ service cloud.firestore {
           && booking.startAt == request.resource.data.startAt;
       }
 
+      // Admins may read one place (not list them) to see whether it holds a booking they cancel.
       allow read: if isOwner(uid);
+      allow get: if isAdmin();
       allow create: if isOwner(uid) && place in ['1', '2', '3'] && holdsNewBooking();
       allow update: if isOwner(uid) && resource.data.startAt <= request.time && holdsNewBooking();
-      allow delete: if isOwner(uid)
-        && (resource.data.startAt <= request.time
-          || getAfter(bookingPath(resource.data.bookingId)).data.status == 'cancelled');
+      // The owner frees a place once its booking has started or is cancelled. An admin frees
+      // only the place of the booking they are cancelling for the clinic in the same write.
+      allow delete: if (isOwner(uid)
+          && (resource.data.startAt <= request.time
+            || getAfter(bookingPath(resource.data.bookingId)).data.status == 'cancelled'))
+        || (isSignedIn()
+          && isClinicCancelling(resource.data.bookingId)
+          && get(bookingPath(resource.data.bookingId)).data.patientUid == uid
+          && string(get(bookingPath(resource.data.bookingId)).data.quotaPlace) == place);
     }
 
     // Everything else is denied by default.

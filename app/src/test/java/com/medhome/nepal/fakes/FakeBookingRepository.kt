@@ -8,6 +8,7 @@ import com.medhome.nepal.domain.Booking
 import com.medhome.nepal.domain.BookingError
 import com.medhome.nepal.domain.BookingException
 import com.medhome.nepal.domain.BookingStatus
+import com.medhome.nepal.domain.CancelledBy
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.NepalTime
 import com.medhome.nepal.domain.Slot
@@ -28,6 +29,7 @@ fun booking(
     startAtMillis: Long,
     status: BookingStatus = BookingStatus.BOOKED,
     quotaPlace: Int = 1,
+    cancelledBy: CancelledBy? = null,
 ): Booking {
     val slot = Slot(doctor.id, NepalTime.dateOf(startAtMillis), NepalTime.timeOf(startAtMillis))
     return Booking(
@@ -38,6 +40,7 @@ fun booking(
         status = status,
         slotId = slot.id,
         quotaPlace = quotaPlace,
+        cancelledBy = cancelledBy,
     )
 }
 
@@ -88,9 +91,18 @@ class FakeBookingRepository(
         if (booking.startAtMillis <= clock()) throw BookingException(BookingError.ALREADY_STARTED)
         cancelled += booking.id
         bookings.value = bookings.value.orEmpty().map {
-            if (it.id == booking.id) it.copy(status = BookingStatus.CANCELLED) else it
+            if (it.id == booking.id) it.copy(status = BookingStatus.CANCELLED, cancelledBy = CancelledBy.PATIENT) else it
         }
         taken.value = taken.value - booking.slotId
+    }
+
+    /** What the patient's listener shows after the clinic cancels [bookingId]. */
+    fun cancelByClinic(bookingId: String) {
+        val cancelled = bookings.value.orEmpty().firstOrNull { it.id == bookingId } ?: return
+        bookings.value = bookings.value.orEmpty().map {
+            if (it.id == bookingId) it.copy(status = BookingStatus.CANCELLED, cancelledBy = CancelledBy.CLINIC) else it
+        }
+        taken.value = taken.value - cancelled.slotId
     }
 
     override suspend fun cancelAllUpcoming() {

@@ -61,6 +61,20 @@ fun GlassButton(
     /** Sized to its label (48dp tall) instead of full width, for secondary places like the danger zone. */
     compact: Boolean = false,
 ) {
+    GlassButton(stringResource(text), onClick, modifier, style, loading, enabled, compact)
+}
+
+/** [GlassButton] with its label already resolved (a plural, say). */
+@Composable
+fun GlassButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    style: GlassButtonStyle = GlassButtonStyle.Primary,
+    loading: Boolean = false,
+    enabled: Boolean = true,
+    compact: Boolean = false,
+) {
     val colors = GlassTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
     val shape = GlassShapes.Button
@@ -97,7 +111,7 @@ fun GlassButton(
         val labelAlpha by animateFloatAsState(if (loading) 0f else 1f, spec, label = "buttonLabel")
         val spinnerAlpha by animateFloatAsState(if (loading) 1f else 0f, spec, label = "buttonSpinner")
         Text(
-            text = stringResource(text),
+            text = text,
             style = MaterialTheme.typography.labelLarge,
             color = contentColor,
             textAlign = TextAlign.Center,

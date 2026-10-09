@@ -3,6 +3,8 @@ package com.medhome.nepal.data
 import com.google.firebase.Timestamp
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.CalendarDate
+import com.medhome.nepal.domain.CancelledBy
+import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.NepalTime
 import com.medhome.nepal.domain.Specialty
 import com.medhome.nepal.domain.TimeOfDay
@@ -82,8 +84,29 @@ class BookingMapperTest {
     }
 
     @Test
-    fun `an admin reads a doctor's booked bookings with the patient's uid only`() {
-        assertEquals(DoctorBookingRow("abc123", "alice", startAt), BookingMapper.parseForDoctor("abc123", valid(), "doc-001"))
+    fun `who cancelled is read, and an old cancel without it was the patient's`() {
+        assertNull(parse(valid())?.cancelledBy)
+        val cancelled = valid() + ("status" to "cancelled")
+        assertEquals(CancelledBy.PATIENT, parse(cancelled)?.cancelledBy)
+        assertEquals(CancelledBy.PATIENT, parse(cancelled + ("cancelledBy" to "patient"))?.cancelledBy)
+        assertEquals(CancelledBy.CLINIC, parse(cancelled + ("cancelledBy" to "clinic"))?.cancelledBy)
+        assertNull(parse(cancelled + ("cancelledBy" to "robot"))?.cancelledBy)
+        assertNull(parse(cancelled + ("cancelledBy" to 1L))?.cancelledBy)
+        // Only a cancelled booking has a canceller.
+        assertNull(parse(valid() + ("cancelledBy" to "clinic"))?.cancelledBy)
+    }
+
+    @Test
+    fun `an admin reads a doctor's booked bookings with the first name they were booked under`() {
+        val data = valid() + ("patientName" to "  Sita   Kumari Rai ")
+        assertEquals(DoctorAppointment("abc123", startAt, "Sita"), BookingMapper.parseForDoctor("abc123", data, "doc-001"))
+    }
+
+    @Test
+    fun `an old booking without a name, or a malformed one, shows no name`() {
+        assertEquals(DoctorAppointment("abc123", startAt, null), BookingMapper.parseForDoctor("abc123", valid(), "doc-001"))
+        assertNull(BookingMapper.parseForDoctor("abc123", valid() + ("patientName" to 42L), "doc-001")?.patientFirstName)
+        assertNull(BookingMapper.parseForDoctor("abc123", valid() + ("patientName" to "   "), "doc-001")?.patientFirstName)
     }
 
     @Test
@@ -95,8 +118,11 @@ class BookingMapperTest {
     }
 
     @Test
-    fun `a patient uid that could be a path is dropped, not followed`() {
-        assertNull(BookingMapper.parseForDoctor("abc123", valid() + ("patientUid" to "../users/x"), "doc-001")?.patientUid)
-        assertNull(BookingMapper.parseForDoctor("abc123", valid() + ("patientUid" to 42L), "doc-001")?.patientUid)
+    fun `an admin cancelling reads any patient's booking, but never a path as its uid`() {
+        assertEquals("alice", BookingMapper.parseAnyPatient("abc123", valid())?.patientUid)
+        assertEquals(2, BookingMapper.parseAnyPatient("abc123", valid())?.booking?.quotaPlace)
+        assertNull(BookingMapper.parseAnyPatient("abc123", valid() + ("patientUid" to "../users/x")))
+        assertNull(BookingMapper.parseAnyPatient("abc123", valid() + ("patientUid" to 42L)))
+        assertNull(BookingMapper.parseAnyPatient("abc123", null))
     }
 }

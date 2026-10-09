@@ -4,6 +4,7 @@ import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.BookingError
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.CalendarDate
+import com.medhome.nepal.domain.CancelledBy
 import com.medhome.nepal.domain.NepalTime
 import com.medhome.nepal.domain.Slot
 import com.medhome.nepal.domain.TimeOfDay
@@ -338,6 +339,43 @@ class BookingViewModelsTest {
     }
 
     @Test
+    fun `the patient's own cancel is recorded as theirs`() = runTest(dispatcher) {
+        bookings.bookings.value = listOf(booking(id = "b", startAtMillis = nepal(9, "16:00")))
+        val viewModel = BookingDetailViewModel("b", bookings, clock)
+        val state = collecting(viewModel.uiState)
+        viewModel.askToCancel()
+        viewModel.confirmCancel()
+        assertEquals(CancelledBy.PATIENT, (state.value as BookingDetailUiState.Ready).booking.cancelledBy)
+    }
+
+    @Test
+    fun `a booking the clinic cancels shows as cancelled by the clinic, live, without Cancel`() = runTest(dispatcher) {
+        bookings.bookings.value = listOf(booking(id = "b", startAtMillis = nepal(9, "16:00")))
+        val viewModel = BookingDetailViewModel("b", bookings, clock)
+        val state = collecting(viewModel.uiState)
+        viewModel.askToCancel()
+
+        bookings.cancelByClinic("b")
+        val ready = state.value as BookingDetailUiState.Ready
+        assertEquals(BookingStatus.CANCELLED, ready.booking.status)
+        assertEquals(CancelledBy.CLINIC, ready.booking.cancelledBy)
+        assertFalse(ready.canCancel)
+        // The open confirm dialog closes: there is nothing left to cancel.
+        assertFalse(ready.confirmingCancel)
+        assertTrue(bookings.cancelled.isEmpty())
+    }
+
+    @Test
+    fun `a clinic cancel moves the booking from Upcoming to Past`() = runTest(dispatcher) {
+        bookings.bookings.value = listOf(booking(id = "b", startAtMillis = nepal(9, "16:00")))
+        val state = collecting(BookingsViewModel(bookings, clock).uiState)
+        bookings.cancelByClinic("b")
+        val ready = state.value as BookingsUiState.Ready
+        assertTrue(ready.upcoming.isEmpty())
+        assertEquals(listOf(CancelledBy.CLINIC), ready.past.map { it.cancelledBy })
+    }
+
+    @Test
     fun `an unknown booking is not found`() = runTest(dispatcher) {
         val state = collecting(BookingDetailViewModel("nope", bookings, clock).uiState)
         assertEquals(BookingDetailUiState.NotFound, state.value)
@@ -356,6 +394,19 @@ class BookingViewModelsTest {
         assertEquals("soon", (state.value as NextAppointment.Upcoming).booking.id)
 
         bookings.bookings.value = listOf(booking(id = "old", startAtMillis = nepal(1, "10:00")))
+        assertEquals(NextAppointment.None, state.value)
+    }
+
+    @Test
+    fun `Home's next appointment moves on when the clinic cancels it`() = runTest(dispatcher) {
+        bookings.bookings.value = listOf(
+            booking(id = "late", startAtMillis = nepal(15, "10:00")),
+            booking(id = "soon", startAtMillis = nepal(9, "16:00")),
+        )
+        val state = collecting(NextAppointmentViewModel(bookings, clock).state)
+        bookings.cancelByClinic("soon")
+        assertEquals("late", (state.value as NextAppointment.Upcoming).booking.id)
+        bookings.cancelByClinic("late")
         assertEquals(NextAppointment.None, state.value)
     }
 }

@@ -24,6 +24,7 @@ import {
   Timestamp,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 
 const rulesPath = fileURLToPath(new URL('../../../firestore.rules', import.meta.url));
@@ -61,6 +62,7 @@ describe('admin', () => {
   let env;
 
   const as = (uid) => env.authenticatedContext(uid, { email: `${uid}@example.com`, email_verified: true }).firestore();
+  const unverified = (uid) => env.authenticatedContext(uid, { email: `${uid}@example.com`, email_verified: false }).firestore();
   const signedOut = () => env.unauthenticatedContext().firestore();
 
   before(async () => {
@@ -83,6 +85,7 @@ describe('admin', () => {
       await setDoc(doc(db, 'users/admin'), { name: 'Admin', email: 'admin@example.com', role: 'admin', createdAt });
       await setDoc(doc(db, 'users/alice'), { name: 'Alice Gurung', email: 'alice@example.com', role: 'patient', createdAt });
       await setDoc(doc(db, 'users/drx'), { name: 'Dr X', email: 'drx@example.com', role: 'doctor', createdAt });
+      await setDoc(doc(db, 'users/bob'), { name: 'Bob Thapa', email: 'bob@example.com', role: 'patient', createdAt });
       await setDoc(doc(db, 'doctors/doc-001'), seededDoctor());
       await setDoc(doc(db, 'doctors/doc-002'), seededDoctor({ name: 'Old Doctor', active: false }));
       const later = Timestamp.fromMillis(Date.now() + 2 * DAY_MS);
@@ -306,8 +309,8 @@ describe('admin', () => {
       await assertSucceeds(getDoc(doc(as('admin'), 'bookings/b1')));
     });
 
-    it('an admin can read a patient\'s profile (for the first name)', async () => {
-      await assertSucceeds(getDoc(doc(as('admin'), 'users/alice')));
+    it("an admin cannot read a patient's profile (the booking carries the name)", async () => {
+      await assertFails(getDoc(doc(as('admin'), 'users/alice')));
     });
 
     it('an admin cannot create, change or delete a booking', async () => {
@@ -316,6 +319,7 @@ describe('admin', () => {
         doctor: {}, createdAt: serverTimestamp(),
       }));
       await assertFails(updateDoc(doc(as('admin'), 'bookings/b1'), { status: 'cancelled', cancelledAt: serverTimestamp() }));
+      await assertFails(updateDoc(doc(as('admin'), 'bookings/b1'), { doctorId: 'doc-002' }));
       await assertFails(deleteDoc(doc(as('admin'), 'bookings/b1')));
     });
 
@@ -324,7 +328,146 @@ describe('admin', () => {
         doctorId: 'doc-001', startAt: Timestamp.now(), bookingId: 'b1',
       }));
       await assertFails(setDoc(doc(as('admin'), 'users/alice/bookingQuota/1'), { bookingId: 'b1', startAt: Timestamp.now() }));
-      await assertFails(getDoc(doc(as('admin'), 'users/alice/bookingQuota/1')));
+      await assertFails(getDocs(collection(as('admin'), 'users/alice/bookingQuota')));
+    });
+  });
+
+  describe('cancelling a booking for the clinic', () => {
+    const SNAPSHOT = { name: 'Asha Rai', specialty: 'cardiology', hospital: 'Valley Care Hospital', feeNpr: 800 };
+
+    /**
+     * Seeds a booking of [uid] starting [days] from now, with its slot lock and quota place while
+     * booked (rules off). The lock ID's shape doesn't matter to the cancel rules.
+     */
+    async function seed(id, { uid = 'alice', place = 1, days = 2, status = 'booked' } = {}) {
+      const startAt = Timestamp.fromMillis(Date.now() + days * DAY_MS);
+      const slotId = `doc-001_slot_${id}`;
+      await env.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, `bookings/${id}`), {
+          patientUid: uid, patientName: 'Alice Gurung', doctorId: 'doc-001', doctor: SNAPSHOT,
+          startAt, slotId, quotaPlace: place, status, createdAt: Timestamp.fromMillis(Date.now() - DAY_MS),
+        });
+        if (status === 'booked') {
+          await setDoc(doc(db, `slotLocks/${slotId}`), { doctorId: 'doc-001', startAt, bookingId: id });
+          await setDoc(doc(db, `users/${uid}/bookingQuota/${place}`), { bookingId: id, startAt });
+        }
+      });
+      return { id, uid, place, slotId };
+    }
+
+    /** Cancels the way the app's admin screen does: one write for booking, lock and quota place. */
+    function clinicCancel(db, booking, { changes = {}, deleteLock = true, deleteQuota = true, also = () => {} } = {}) {
+      const batch = writeBatch(db);
+      batch.update(doc(db, `bookings/${booking.id}`), {
+        status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'clinic', ...changes,
+      });
+      if (deleteLock) batch.delete(doc(db, `slotLocks/${booking.slotId}`));
+      if (deleteQuota) batch.delete(doc(db, `users/${booking.uid}/bookingQuota/${booking.place}`));
+      also(batch, db);
+      return batch.commit();
+    }
+
+    async function stored(path) {
+      let data;
+      await env.withSecurityRulesDisabled(async (context) => {
+        data = (await getDoc(doc(context.firestore(), path))).data();
+      });
+      return data;
+    }
+
+    it('an admin can cancel an upcoming booking, freeing its slot and quota place', async () => {
+      const booking = await seed('c1');
+      await assertSucceeds(clinicCancel(as('admin'), booking));
+      const after = await stored('bookings/c1');
+      if (after.status !== 'cancelled' || after.cancelledBy !== 'clinic') throw new Error('not cancelled by the clinic');
+      if (await stored(`slotLocks/${booking.slotId}`)) throw new Error('lock left behind');
+      if (await stored('users/alice/bookingQuota/1')) throw new Error('quota place left behind');
+    });
+
+    it('an admin can read one quota place, to see whether it holds the booking', async () => {
+      await seed('c1');
+      await assertSucceeds(getDoc(doc(as('admin'), 'users/alice/bookingQuota/1')));
+    });
+
+    it("an admin's cancel must free the slot lock and the quota place in the same write", async () => {
+      const booking = await seed('c1');
+      await assertFails(clinicCancel(as('admin'), booking, { deleteLock: false }));
+      await assertFails(clinicCancel(as('admin'), booking, { deleteQuota: false }));
+    });
+
+    it('an admin cancel must say "clinic"', async () => {
+      const booking = await seed('c1');
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelledBy: 'patient' } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelledBy: deleteField() } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelledBy: 'admin' } }));
+    });
+
+    it('an admin cannot change anything else while cancelling', async () => {
+      const booking = await seed('c1');
+      const past = Timestamp.fromMillis(Date.now() - DAY_MS);
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { startAt: Timestamp.fromMillis(Date.now() + 3 * DAY_MS) } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { patientName: 'Someone' } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { patientUid: 'bob' } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelledAt: past } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { status: 'done' } }));
+      await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { patientName: 'Someone' }));
+    });
+
+    it('an admin cannot un-cancel or re-cancel a booking', async () => {
+      await seed('c1', { status: 'cancelled' });
+      await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { status: 'booked', cancelledAt: deleteField() }));
+      await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { status: 'booked' }));
+      await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), {
+        status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'clinic',
+      }));
+    });
+
+    it('an admin cannot cancel a booking that has started', async () => {
+      const booking = await seed('c1', { days: -1 });
+      await assertFails(clinicCancel(as('admin'), booking));
+      await assertFails(clinicCancel(as('admin'), booking, { deleteQuota: false }));
+    });
+
+    it("an admin cannot free quota places unrelated to the booking they cancel", async () => {
+      const first = await seed('c1', { place: 1 });
+      await seed('c2', { place: 2 });
+      await seed('c3', { uid: 'bob', place: 1 });
+      // Another place of the same patient, or another patient's place, in the same write.
+      await assertFails(clinicCancel(as('admin'), first, {
+        also: (batch, db) => batch.delete(doc(db, 'users/alice/bookingQuota/2')),
+      }));
+      await assertFails(clinicCancel(as('admin'), first, {
+        also: (batch, db) => batch.delete(doc(db, 'users/bob/bookingQuota/1')),
+      }));
+      // A place on its own, with no cancel.
+      await assertFails(deleteDoc(doc(as('admin'), 'users/alice/bookingQuota/2')));
+      // Nor take one over.
+      await assertFails(updateDoc(doc(as('admin'), 'users/alice/bookingQuota/2'), { bookingId: 'c1' }));
+      await assertSucceeds(clinicCancel(as('admin'), first));
+    });
+
+    it('an admin cannot free slot locks unrelated to the booking they cancel', async () => {
+      const first = await seed('c1');
+      const other = await seed('c2', { uid: 'bob' });
+      await assertFails(clinicCancel(as('admin'), first, {
+        also: (batch, db) => batch.delete(doc(db, `slotLocks/${other.slotId}`)),
+      }));
+      await assertFails(deleteDoc(doc(as('admin'), `slotLocks/${other.slotId}`)));
+    });
+
+    it("patients and doctors cannot cancel someone else's booking for the clinic", async () => {
+      const booking = await seed('c1');
+      await assertFails(clinicCancel(as('bob'), booking));
+      await assertFails(clinicCancel(as('drx'), booking));
+      await assertFails(clinicCancel(signedOut(), booking));
+      // Not even the booking's own patient.
+      await assertFails(clinicCancel(as('alice'), booking));
+    });
+
+    it('an admin whose email is not verified cannot cancel', async () => {
+      const booking = await seed('c1');
+      await assertFails(clinicCancel(unverified('admin'), booking));
     });
   });
 });

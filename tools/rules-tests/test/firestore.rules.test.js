@@ -114,8 +114,8 @@ describe('users: reading', () => {
     await assertFails(getDoc(doc(signedOut(), 'users/alice')));
   });
 
-  it('an admin can read any profile', async () => {
-    await assertSucceeds(getDoc(doc(as('admin'), 'users/bob')));
+  it("an admin cannot read someone else's profile (bookings carry the name)", async () => {
+    await assertFails(getDoc(doc(as('admin'), 'users/bob')));
   });
 });
 

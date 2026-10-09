@@ -303,6 +303,10 @@
     <string name="booking_cancel_confirm_body">यो समय अरू बिरामीका लागि खुला हुनेछ। यसलाई फिर्ता गर्न सकिँदैन।</string> <!-- review -->
     <string name="booking_keep">अपोइन्टमेन्ट राख्नुहोस्</string> <!-- review -->
     <string name="booking_cancelled_notice">यो अपोइन्टमेन्ट रद्द गरिएको छ।</string> <!-- review -->
+    <string name="booking_status_cancelled_by_you">तपाईंले रद्द गर्नुभयो</string> <!-- review -->
+    <string name="booking_status_cancelled_by_clinic">क्लिनिकले रद्द गर्‍यो</string> <!-- review -->
+    <string name="booking_cancelled_by_you_notice">तपाईंले यो अपोइन्टमेन्ट रद्द गर्नुभयो।</string> <!-- review -->
+    <string name="booking_cancelled_by_clinic_notice">क्लिनिकले यो अपोइन्टमेन्ट रद्द गर्‍यो। तपाईं अर्को समय बुक गर्न सक्नुहुन्छ।</string> <!-- review -->
     <string name="booking_past_notice">यो अपोइन्टमेन्टको समय बितिसकेको छ।</string> <!-- review -->
     <string name="booking_not_found_title">बुकिङ उपलब्ध छैन</string> <!-- review -->
     <string name="booking_not_found_body">यो बुकिङ अब तपाईंको खातामा छैन।</string> <!-- review -->
@@ -343,7 +347,7 @@
     <string name="admin_patient_unknown">बिरामी</string> <!-- review -->
     <string name="admin_hide_title">यो डाक्टरलाई लुकाउने?</string> <!-- review -->
     <string name="admin_show_title">यो डाक्टरलाई देखाउने?</string> <!-- review -->
-    <string name="admin_hide_body">बिरामीहरूले %1$s लाई खोज्न वा बुक गर्न सक्ने छैनन्। भइसकेका बुकिङहरू कायम रहन्छन्।</string> <!-- review -->
+    <string name="admin_hide_body">बिरामीहरूले %1$s लाई खोज्न वा बुक गर्न सक्ने छैनन्। भइसकेका बुकिङहरू कायम राख्न वा रद्द गर्न सकिन्छ।</string> <!-- review -->
     <string name="admin_show_body">बिरामीहरूले %1$s लाई फेरि खोज्न र बुक गर्न सक्नेछन्।</string> <!-- review -->
     <string name="admin_counting">आगामी बुकिङहरू जाँच गर्दै…</string> <!-- review -->
     <string name="admin_count_failed">आगामी बुकिङहरू जाँच गर्न सकिएन।</string> <!-- review -->
@@ -388,6 +392,29 @@
     <plurals name="admin_upcoming_count">
         <item quantity="one">%1$s आगामी बुकिङ</item> <!-- review -->
         <item quantity="other">%1$s आगामी बुकिङ</item> <!-- review -->
+    </plurals>
+    <string name="admin_cancel_booking">रद्द गर्नुहोस्</string> <!-- review -->
+    <string name="admin_cancel_booking_of">बुकिङ रद्द गर्नुहोस्, %1$s, %2$s</string> <!-- review -->
+    <string name="admin_cancel_booking_title">यो बुकिङ रद्द गर्ने?</string> <!-- review -->
+    <string name="admin_cancel_booking_body">%1$s, %2$s। स्लट खाली हुन्छ, र बिरामीले क्लिनिकले रद्द गरेको देख्नेछन्।</string> <!-- review -->
+    <string name="admin_cancel_booking_confirm">बुकिङ रद्द गर्नुहोस्</string> <!-- review -->
+    <string name="admin_keep_booking">बुकिङ राख्नुहोस्</string> <!-- review -->
+    <string name="admin_cancel_error_started">यो अपोइन्टमेन्ट सुरु भइसकेको छ, त्यसैले रद्द गर्न सकिँदैन।</string> <!-- review -->
+    <string name="admin_cancel_error_not_found">यो बुकिङ फेला पार्न वा पढ्न सकिएन।</string> <!-- review -->
+    <string name="admin_hide_only">लुकाउने मात्र</string> <!-- review -->
+    <string name="admin_hidden_title">डाक्टर लुकाइयो</string> <!-- review -->
+    <string name="admin_bulk_check_failed">रद्द गर्न बाँकी आगामी बुकिङहरू जाँच गर्न सकिएन।</string> <!-- review -->
+    <plurals name="admin_hide_and_cancel">
+        <item quantity="one">लुकाउनुहोस् र %1$s आगामी बुकिङ रद्द गर्नुहोस्</item> <!-- review -->
+        <item quantity="other">लुकाउनुहोस् र %1$s आगामी बुकिङ रद्द गर्नुहोस्</item> <!-- review -->
+    </plurals>
+    <plurals name="admin_bulk_cancelled">
+        <item quantity="one">%1$s बुकिङ रद्द भयो।</item> <!-- review -->
+        <item quantity="other">%1$s बुकिङ रद्द भए।</item> <!-- review -->
+    </plurals>
+    <plurals name="admin_bulk_failed">
+        <item quantity="one">%1$s बुकिङ रद्द गर्न सकिएन। यो अझै बुक छ।</item> <!-- review -->
+        <item quantity="other">%1$s बुकिङ रद्द गर्न सकिएन। ती अझै बुक छन्।</item> <!-- review -->
     </plurals>
     <plurals name="admin_minutes">
         <item quantity="one">%1$s मिनेट</item> <!-- review -->

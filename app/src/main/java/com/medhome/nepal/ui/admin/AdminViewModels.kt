@@ -153,13 +153,35 @@ sealed interface AppointmentsUiState {
 
 /**
  * The confirm dialog for showing ([activate]) or hiding a doctor. [upcomingCount] is null while
- * it is being counted, and stays null if counting failed ([countFailed]).
+ * it is being counted, and stays null if counting failed ([countFailed]). Hiding a doctor with
+ * upcoming bookings can also cancel them ([cancellingBookings] while that is saving); when some
+ * couldn't be cancelled, the doctor is hidden and [cancelResult] says what is left, with Retry.
  */
 data class ActiveDialogState(
     val activate: Boolean,
     val upcomingCount: Int? = null,
     val countFailed: Boolean = false,
     val isSaving: Boolean = false,
+    val cancellingBookings: Boolean = false,
+    val error: AdminError? = null,
+    val cancelResult: BulkCancelResult? = null,
+) {
+    /**
+     * Hiding waits for the count (or its failure) so "Hide and cancel" can't appear under a tap
+     * meant for the button that was there before it.
+     */
+    val canConfirm: Boolean
+        get() = !isSaving && cancelResult == null && (activate || upcomingCount != null || countFailed)
+
+    /** Hiding, with bookings to cancel, and nothing done yet. */
+    val canCancelBookings: Boolean
+        get() = !activate && (upcomingCount ?: 0) > 0 && cancelResult == null
+}
+
+/** The confirm dialog for cancelling one booking for the clinic. */
+data class CancelBookingDialogState(
+    val appointment: DoctorAppointment,
+    val isCancelling: Boolean = false,
     val error: AdminError? = null,
 )
 
@@ -172,6 +194,7 @@ class AdminDoctorViewModel(
     private val doctorAttempts = MutableStateFlow(0)
     private val appointmentAttempts = MutableStateFlow(0)
     private val _dialog = MutableStateFlow<ActiveDialogState?>(null)
+    private val _cancelDialog = MutableStateFlow<CancelBookingDialogState?>(null)
     private var countJob: Job? = null
 
     val uiState: StateFlow<AdminDoctorUiState> =
@@ -186,6 +209,8 @@ class AdminDoctorViewModel(
 
     val dialog: StateFlow<ActiveDialogState?> = _dialog.asStateFlow()
 
+    val cancelDialog: StateFlow<CancelBookingDialogState?> = _cancelDialog.asStateFlow()
+
     fun retry() = doctorAttempts.update { it + 1 }
 
     fun retryAppointments() = appointmentAttempts.update { it + 1 }
@@ -193,7 +218,7 @@ class AdminDoctorViewModel(
     /** Opens the confirm dialog for the opposite of the doctor's current state, and counts their bookings. */
     fun requestToggle() {
         val ready = uiState.value as? AdminDoctorUiState.Ready ?: return
-        if (_dialog.value != null) return
+        if (_dialog.value != null || _cancelDialog.value != null) return
         _dialog.value = ActiveDialogState(activate = !ready.doctor.active)
         countJob = viewModelScope.launch {
             val count = try {
@@ -205,19 +230,33 @@ class AdminDoctorViewModel(
         }
     }
 
-    fun confirmToggle() {
+    /**
+     * Shows or hides the doctor. Hiding with [cancelBookings] (offered only when they have
+     * upcoming bookings) then cancels those too; if any are left, the dialog stays with the result.
+     */
+    fun confirmToggle(cancelBookings: Boolean = false) {
         val current = _dialog.value ?: return
-        if (current.isSaving) return
-        _dialog.value = current.copy(isSaving = true, error = null)
+        if (!current.canConfirm) return
+        val alsoCancel = cancelBookings && current.canCancelBookings
+        _dialog.value = current.copy(isSaving = true, cancellingBookings = alsoCancel, error = null)
         viewModelScope.launch {
             try {
                 repository.setActive(doctorId, current.activate)
                 countJob?.cancel()
-                _dialog.value = null
             } catch (e: AdminException) {
-                _dialog.update { it?.copy(isSaving = false, error = e.error) }
+                _dialog.update { it?.copy(isSaving = false, cancellingBookings = false, error = e.error) }
+                return@launch
             }
+            if (alsoCancel) cancelUpcoming() else _dialog.value = null
         }
+    }
+
+    /** After a bulk cancel left bookings behind: tries every booking still upcoming again. */
+    fun retryCancelBookings() {
+        val current = _dialog.value ?: return
+        if (current.isSaving || current.cancelResult == null) return
+        _dialog.value = current.copy(isSaving = true, cancellingBookings = true)
+        viewModelScope.launch { cancelUpcoming() }
     }
 
     /** Closes the dialog, unless the change is being saved. */
@@ -225,6 +264,42 @@ class AdminDoctorViewModel(
         if (_dialog.value?.isSaving == true) return
         countJob?.cancel()
         _dialog.value = null
+    }
+
+    private suspend fun cancelUpcoming() {
+        val result = BulkCancel.cancelUpcoming(repository, doctorId)
+        if (result.isComplete) {
+            _dialog.value = null
+        } else {
+            _dialog.update { it?.copy(isSaving = false, cancellingBookings = false, cancelResult = result) }
+        }
+    }
+
+    /** Asks before cancelling [appointment] for the clinic. */
+    fun requestCancel(appointment: DoctorAppointment) {
+        if (_dialog.value != null || _cancelDialog.value != null) return
+        _cancelDialog.value = CancelBookingDialogState(appointment)
+    }
+
+    fun confirmCancel() {
+        val current = _cancelDialog.value ?: return
+        if (current.isCancelling) return
+        _cancelDialog.value = current.copy(isCancelling = true, error = null)
+        viewModelScope.launch {
+            try {
+                repository.cancelBooking(current.appointment.bookingId)
+                // The live list drops the booking.
+                _cancelDialog.value = null
+            } catch (e: AdminException) {
+                _cancelDialog.update { it?.copy(isCancelling = false, error = e.error) }
+            }
+        }
+    }
+
+    /** Closes the cancel dialog, unless the booking is being cancelled. */
+    fun dismissCancel() {
+        if (_cancelDialog.value?.isCancelling == true) return
+        _cancelDialog.value = null
     }
 
     private fun doctorStateOf(load: Load<ManagedDoctorLookup>): AdminDoctorUiState = when (load) {

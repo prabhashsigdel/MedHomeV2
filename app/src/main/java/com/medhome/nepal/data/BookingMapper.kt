@@ -5,7 +5,9 @@ import com.medhome.nepal.domain.BookedDoctor
 import com.medhome.nepal.domain.Booking
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.CalendarDate
+import com.medhome.nepal.domain.CancelledBy
 import com.medhome.nepal.domain.Doctor
+import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.NepalTime
 import com.medhome.nepal.domain.Slots
 import com.medhome.nepal.domain.Specialty
@@ -28,6 +30,10 @@ object BookingMapper {
     const val FIELD_STATUS = "status"
     const val FIELD_CREATED_AT = "createdAt"
     const val FIELD_CANCELLED_AT = "cancelledAt"
+    const val FIELD_CANCELLED_BY = "cancelledBy"
+
+    /** The patient's profile name when they booked (the rules check it), for the admin's list. */
+    const val FIELD_PATIENT_NAME = "patientName"
 
     /** Firestore auto IDs (20 characters); anything else never names a booking. */
     private val BOOKING_ID = Regex("[A-Za-z0-9]{1,40}")
@@ -53,24 +59,41 @@ object BookingMapper {
             status = status,
             slotId = slotId,
             quotaPlace = place,
+            cancelledBy = if (status == BookingStatus.CANCELLED) cancelledByOf(data[FIELD_CANCELLED_BY]) else null,
         )
     }
 
     /**
-     * One of [doctorId]'s booked (not cancelled) bookings, for the admin's read-only list: when,
-     * and whose (the UID only to look up a first name; null when it isn't a plausible UID).
+     * Only patients could cancel before `cancelledBy` was stored, so a cancelled booking without
+     * it was cancelled by the patient. An unknown value stays unknown (null).
      */
-    fun parseForDoctor(id: String, data: Map<String, Any?>?, doctorId: String): DoctorBookingRow? {
+    private fun cancelledByOf(value: Any?): CancelledBy? =
+        if (value == null) CancelledBy.PATIENT else CancelledBy.fromKey(value as? String)
+
+    /**
+     * One of [doctorId]'s booked (not cancelled) bookings, for the admin's list: when, and the
+     * first word of the name it was booked under (null when missing or malformed). Nothing else
+     * about the patient leaves this function.
+     */
+    fun parseForDoctor(id: String, data: Map<String, Any?>?, doctorId: String): DoctorAppointment? {
         if (data == null || !isValidId(id)) return null
         if (data[FIELD_DOCTOR_ID] != doctorId) return null
         if (BookingStatus.fromKey(data[FIELD_STATUS] as? String) != BookingStatus.BOOKED) return null
         val startAt = (data[FIELD_START_AT] as? Timestamp)?.toMillis()?.takeIf { it in SupportedMillis } ?: return null
-        val patientUid = (data[FIELD_PATIENT_UID] as? String)?.takeIf(PATIENT_UID::matches)
-        return DoctorBookingRow(id, patientUid, startAt)
+        return DoctorAppointment(id, startAt, firstWord(data[FIELD_PATIENT_NAME]))
+    }
+
+    /** Any patient's booking with the patient's UID, for an admin cancelling it; null when malformed. */
+    fun parseAnyPatient(id: String, data: Map<String, Any?>?): PatientBooking? {
+        val patientUid = (data?.get(FIELD_PATIENT_UID) as? String)?.takeIf(PATIENT_UID::matches) ?: return null
+        return parse(id, data, patientUid)?.let { PatientBooking(patientUid, it) }
     }
 
     /** Firebase Auth UIDs (28 characters for its own accounts); never a path. */
     private val PATIENT_UID = Regex("[A-Za-z0-9_-]{1,128}")
+
+    private fun firstWord(name: Any?): String? =
+        DoctorMapper.cleanLine(name, DoctorMapper.MAX_NAME_LENGTH)?.substringBefore(' ')?.takeIf { it.isNotEmpty() }
 
     /** The {name, specialty, hospital, feeNpr} snapshot, cleaned the same way as a doctor. */
     private fun parseDoctor(value: Any?): BookedDoctor? {
@@ -95,5 +118,5 @@ object BookingMapper {
     private const val NANOS_PER_MILLI = 1_000_000
 }
 
-/** A doctor's booking before the patient's first name is looked up. Stays in the data layer. */
-data class DoctorBookingRow(val id: String, val patientUid: String?, val startAtMillis: Long)
+/** A booking and whose it is. Stays in the data layer (admins never see the UID). */
+data class PatientBooking(val patientUid: String, val booking: Booking)
