@@ -4,7 +4,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
-import com.medhome.nepal.data.DarkPalette
 import com.medhome.nepal.ui.motion.isReducedMotion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -13,11 +12,10 @@ import org.junit.Test
 
 class GlassThemeTest {
 
-    /** Every contrast rule must hold in light and in both dark palettes. */
+    /** Every contrast rule must hold over both backgrounds. */
     private val palettes = listOf(
         "light" to glassColorsFor(dark = false),
-        "warm dusk" to glassColorsFor(dark = true, DarkPalette.WARM_DUSK),
-        "midnight aurora" to glassColorsFor(dark = true, DarkPalette.MIDNIGHT_AURORA),
+        "dark" to glassColorsFor(dark = true),
     )
 
     @Test
@@ -55,7 +53,7 @@ class GlassThemeTest {
     fun `glass fills are neutral white at the specified strength`() {
         val light = lightGlassColors()
         val dark = darkGlassColors()
-        assertEquals(Color.White.copy(alpha = 0.55f), light.glassFill)
+        assertEquals(Color.White.copy(alpha = 0.45f), light.glassFill)
         assertEquals(Color.White.copy(alpha = 0.12f), dark.glassFill)
         assertEquals(Color.White.copy(alpha = 0.90f), light.glassBorderTop)
         assertEquals(Color.White.copy(alpha = 0.30f), light.glassBorderBottom)
@@ -68,6 +66,12 @@ class GlassThemeTest {
     }
 
     @Test
+    fun `the selected tab is indigo in light and white in dark`() {
+        assertEquals(lightGlassColors().link, lightGlassColors().selectedTabContent)
+        assertEquals(Color.White, darkGlassColors().selectedTabContent)
+    }
+
+    @Test
     fun `dark text is white and light text stays dark`() {
         val dark = darkGlassColors()
         assertEquals(Color.White, dark.textPrimary)
@@ -76,10 +80,9 @@ class GlassThemeTest {
     }
 
     @Test
-    fun `the palette option only changes the dark background`() {
+    fun `dark uses warm dusk and light uses soft daylight`() {
         assertEquals(WarmDusk, glassColorsFor(dark = true).background)
-        assertEquals(MidnightAurora, glassColorsFor(dark = true, DarkPalette.MIDNIGHT_AURORA).background)
-        assertEquals(SoftDaylight, glassColorsFor(dark = false, DarkPalette.MIDNIGHT_AURORA).background)
+        assertEquals(SoftDaylight, glassColorsFor(dark = false).background)
     }
 
     @Test
@@ -122,9 +125,14 @@ class GlassThemeTest {
             for (region in listOf(darkest, brightest)) {
                 val bar = colors.glassFill.compositeOver(colors.floatingScrim.compositeOver(region))
                 val pill = colors.selectedPill.compositeOver(bar)
-                for (backdrop in listOf(bar, pill, colors.glassFallback.compositeOver(region))) {
-                    assertTrue("$name primary on $backdrop", contrastRatio(colors.textPrimary, backdrop) >= MIN_TEXT_CONTRAST)
-                    assertTrue("$name secondary on $backdrop", contrastRatio(colors.textSecondary, backdrop) >= MIN_TEXT_CONTRAST)
+                val fallbackBar = colors.glassFallback.compositeOver(region)
+                for (backdrop in listOf(bar, fallbackBar)) {
+                    assertTrue("$name unselected on $backdrop", contrastRatio(colors.textSecondary, backdrop) >= MIN_TEXT_CONTRAST)
+                }
+                // The selected label sits on the pill, which slides under the others too.
+                for (backdrop in listOf(pill, colors.selectedPill.compositeOver(fallbackBar))) {
+                    assertTrue("$name selected on $backdrop", contrastRatio(colors.selectedTabContent, backdrop) >= MIN_TEXT_CONTRAST)
+                    assertTrue("$name unselected on $backdrop", contrastRatio(colors.textSecondary, backdrop) >= MIN_TEXT_CONTRAST)
                 }
             }
         }

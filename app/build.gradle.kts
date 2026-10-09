@@ -19,27 +19,21 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // The Developer section in Profile. Off in release; debug and staging turn it on.
-        buildConfigField("boolean", "DEVELOPER_OPTIONS", "false")
     }
 
     buildTypes {
-        debug {
-            buildConfigField("boolean", "DEVELOPER_OPTIONS", "true")
-        }
         release {
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
             }
         }
-        // Release as shipped (minified, not debuggable), plus the Developer section, signed with
-        // the debug key so it installs without the release keystore. Same application ID, so
+        // Release as shipped (minified, not debuggable), signed with the debug key so it
+        // installs without the release keystore. Same application ID, so
         // the one google-services.json client covers it.
         create("staging") {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
-            buildConfigField("boolean", "DEVELOPER_OPTIONS", "true")
         }
     }
     compileOptions {
@@ -48,7 +42,6 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true
     }
     androidResources {
         // Lists English and Nepali under Settings > App languages (Android 13+).

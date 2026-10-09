@@ -19,7 +19,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import com.medhome.nepal.data.DarkPalette
 import com.medhome.nepal.ui.motion.LocalReducedMotion
 import com.medhome.nepal.ui.motion.MotionTokens
 import com.medhome.nepal.ui.motion.isReducedMotion
@@ -32,8 +31,6 @@ import com.medhome.nepal.ui.motion.isReducedMotion
 @Composable
 fun MedHomeTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    /** The dark theme's background; a developer option (release builds always get the default). */
-    darkPalette: DarkPalette = DarkPalette.DEFAULT,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -44,7 +41,7 @@ fun MedHomeTheme(
         )
     }
     val colors = animateGlassColors(
-        target = glassColorsFor(darkTheme, darkPalette),
+        target = glassColorsFor(darkTheme),
         reducedMotion = reducedMotion,
     )
     CompositionLocalProvider(
@@ -85,6 +82,7 @@ private fun animateGlassColors(target: GlassColors, reducedMotion: Boolean): Gla
         glassBorderTop = target.glassBorderTop.animated("glassBorderTop"),
         glassBorderBottom = target.glassBorderBottom.animated("glassBorderBottom"),
         selectedPill = target.selectedPill.animated("selectedPill"),
+        selectedTabContent = target.selectedTabContent.animated("selectedTabContent"),
         divider = target.divider.animated("divider"),
         floatingScrim = target.floatingScrim.animated("floatingScrim"),
         glassFallback = target.glassFallback.animated("glassFallback"),
@@ -103,8 +101,8 @@ private fun animateGlassColors(target: GlassColors, reducedMotion: Boolean): Gla
 }
 
 /**
- * The glows move as well as recolor, since palettes place them differently. Only during a
- * theme or palette switch: the background itself never animates.
+ * The glows move as well as recolor, since the light and dark palettes place them differently.
+ * Only during a theme switch: the background itself never animates.
  */
 @Composable
 private fun animateMesh(target: MeshPalette, reducedMotion: Boolean): MeshPalette {

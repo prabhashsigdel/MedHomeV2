@@ -38,6 +38,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.AuthError
@@ -207,13 +208,15 @@ fun ScreenTitle(
 fun SectionTitle(
     @StringRes text: Int,
     modifier: Modifier = Modifier,
+    /** Space above the title; 0 where the parent already spaces its sections (Home). */
+    topPadding: Dp = 8.dp,
 ) {
     Text(
         text = stringResource(text),
         style = MaterialTheme.typography.titleSmall,
         color = GlassTheme.colors.textSecondary,
         modifier = modifier
-            .padding(top = 8.dp)
+            .padding(top = topPadding)
             .semantics { heading() },
     )
 }

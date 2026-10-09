@@ -4,7 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,14 +18,22 @@ import com.medhome.nepal.ui.components.SectionTitle
 import com.medhome.nepal.ui.components.SettingsDivider
 import com.medhome.nepal.ui.components.SettingsRow
 import com.medhome.nepal.ui.motion.entrance
+import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassTheme
 
-/** Extra space above each Home section, on top of the screen's item spacing and the title's own padding. */
-private val SectionGap = 12.dp
+/** Between Home's sections: tight enough that all three fit above the tab bar (HomeFitTest). */
+private val SectionGap = 14.dp
+
+/** Between a section's title and its card. */
+private val TitleGap = 6.dp
+
+/** Empty-state cards keep the side padding of every card but less height. */
+private val EmptyCardPadding = PaddingValues(horizontal = GlassDimens.CardPadding, vertical = 14.dp)
 
 /**
  * Patient home: date, greeting and the profile avatar, then the next appointment, today's
- * medicines and the shortcuts, each a titled section with room around it.
+ * medicines and the shortcuts, each a titled section. All three show above the tab bar on a
+ * 360x740dp phone without scrolling (HomeFitTest).
  */
 @Composable
 fun PatientHomeScreen(
@@ -42,16 +49,19 @@ fun PatientHomeScreen(
             modifier = Modifier.entrance(0),
         )
 
-        HomeSection(title = R.string.home_next_appointment, modifier = Modifier.padding(top = SectionGap).entrance(1)) {
-            EmptyStateCard(title = R.string.home_no_appointments, body = R.string.home_no_appointments_body)
-        }
+        // One column with its own rhythm, instead of the screen's wider item spacing.
+        Column(verticalArrangement = Arrangement.spacedBy(SectionGap)) {
+            HomeSection(title = R.string.home_next_appointment, modifier = Modifier.entrance(1)) {
+                EmptyStateCard(title = R.string.home_no_appointments, body = R.string.home_no_appointments_body)
+            }
 
-        HomeSection(title = R.string.home_todays_medicines, modifier = Modifier.padding(top = SectionGap).entrance(2)) {
-            EmptyStateCard(title = R.string.home_no_medicines, body = R.string.home_no_medicines_body)
-        }
+            HomeSection(title = R.string.home_todays_medicines, modifier = Modifier.entrance(2)) {
+                EmptyStateCard(title = R.string.home_no_medicines, body = R.string.home_no_medicines_body)
+            }
 
-        HomeSection(title = R.string.home_shortcuts, modifier = Modifier.padding(top = SectionGap).entrance(3)) {
-            ShortcutsCard(onShortcut = onShortcut)
+            HomeSection(title = R.string.home_shortcuts, modifier = Modifier.entrance(3)) {
+                ShortcutsCard(onShortcut = onShortcut)
+            }
         }
     }
 }
@@ -63,8 +73,8 @@ private fun HomeSection(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionTitle(text = title)
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(TitleGap)) {
+        SectionTitle(text = title, topPadding = 0.dp)
         content()
     }
 }
@@ -75,7 +85,7 @@ private fun EmptyStateCard(
     @StringRes body: Int,
 ) {
     val colors = GlassTheme.colors
-    GlassCard(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    GlassCard(contentPadding = EmptyCardPadding, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(text = stringResource(title), style = MaterialTheme.typography.titleMedium, color = colors.textPrimary)
         Text(text = stringResource(body), style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
     }

@@ -146,11 +146,6 @@
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
-    <!-- Developer builds only (debug and staging): compare the dark backgrounds. -->
-    <string name="settings_developer">Developer</string>
-    <string name="settings_dark_palette">Dark palette</string>
-    <string name="dark_palette_warm_dusk">Warm dusk</string>
-    <string name="dark_palette_midnight_aurora">Midnight aurora</string>
     <string name="settings_help_center">Help center</string>
     <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_terms">Terms of service</string>

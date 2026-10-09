@@ -5,7 +5,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
-import com.medhome.nepal.data.DarkPalette
 
 /** The one place to change the brand color. Links and accent text derive from it. */
 val DefaultAccent = Color(0xFF4F5BD5)
@@ -55,6 +54,8 @@ data class GlassColors(
     val glassBorderBottom: Color,
     /** The selected tab: a lighter glass pill, not an accent color. */
     val selectedPill: Color,
+    /** Icon and label of the selected tab: the link indigo in light, white in dark. */
+    val selectedTabContent: Color,
     /** Lines between rows of a card. */
     val divider: Color,
     /** Under the floating bar's fill, so blurred content behind it can't lower its contrast. */
@@ -109,14 +110,15 @@ fun lightGlassColors(accent: Color = DefaultAccent, background: MeshPalette = So
     error = Color(0xFF931F17),
     onError = Color.White,
     background = background,
-    glassFill = Color.White.copy(alpha = 0.55f),
+    glassFill = Color.White.copy(alpha = 0.45f),
     controlFill = Color.White.copy(alpha = 0.40f),
     glassBorderTop = Color.White.copy(alpha = 0.90f),
     glassBorderBottom = Color.White.copy(alpha = 0.30f),
     selectedPill = Color.White.copy(alpha = 0.60f),
+    selectedTabContent = accent.darken(LINK_DARKEN_FRACTION),
     divider = Color(0xFF1A1E1C).copy(alpha = 0.08f),
     floatingScrim = background.base.copy(alpha = FLOATING_SCRIM_ALPHA),
-    glassFallback = Color.White.copy(alpha = 0.55f).compositeOver(background.base).copy(alpha = FALLBACK_ALPHA),
+    glassFallback = Color.White.copy(alpha = 0.45f).compositeOver(background.base).copy(alpha = FALLBACK_ALPHA),
     statusUnderlay = Color.Transparent,
     materialSurfaces = MaterialSurfaces(
         surface = Color(0xFFFAFBFB),
@@ -152,6 +154,7 @@ fun darkGlassColors(accent: Color = DefaultAccent, background: MeshPalette = War
     glassBorderTop = Color.White.copy(alpha = 0.40f),
     glassBorderBottom = Color.White.copy(alpha = 0.06f),
     selectedPill = Color.White.copy(alpha = 0.10f),
+    selectedTabContent = Color.White,
     divider = Color.White.copy(alpha = 0.10f),
     floatingScrim = background.base.copy(alpha = FLOATING_SCRIM_ALPHA),
     glassFallback = Color.White.copy(alpha = 0.12f).compositeOver(background.base).copy(alpha = FALLBACK_ALPHA),
@@ -171,8 +174,7 @@ fun darkGlassColors(accent: Color = DefaultAccent, background: MeshPalette = War
 private const val FLOATING_SCRIM_ALPHA = 0.5f
 private const val FALLBACK_ALPHA = 0.94f
 
-/** The colors for a theme: [darkPalette] picks the dark background; light has one palette. */
-fun glassColorsFor(dark: Boolean, darkPalette: DarkPalette = DarkPalette.DEFAULT): GlassColors =
-    if (dark) darkGlassColors(background = darkPalette.mesh()) else lightGlassColors()
+/** The colors for a theme: Warm dusk in dark, Soft daylight in light. */
+fun glassColorsFor(dark: Boolean): GlassColors = if (dark) darkGlassColors() else lightGlassColors()
 
 val LocalGlassColors = staticCompositionLocalOf { lightGlassColors() }

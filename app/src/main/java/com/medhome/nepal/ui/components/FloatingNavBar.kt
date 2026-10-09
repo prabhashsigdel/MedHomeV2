@@ -71,7 +71,7 @@ private val IndicatorShape = RoundedCornerShape(nestedCornerRadius(GlassDimens.C
 
 /**
  * Floating glass tab bar, inset 16dp from the screen edges. The selected tab is a lighter glass
- * pill (no accent color) that slides between tabs; icon colors animate. Used by the patient shell.
+ * pill that slides between tabs, its icon and label indigo in light; icon colors animate. Used by the patient shell.
  */
 @Composable
 fun FloatingNavBar(
@@ -113,7 +113,7 @@ private fun RowScope.NavBarTab(item: NavBarItem, selected: Boolean, onClick: () 
     val colors = GlassTheme.colors
     val interactionSource = remember { MutableInteractionSource() }
     val tint by animateColorAsState(
-        targetValue = if (selected) colors.textPrimary else colors.textSecondary,
+        targetValue = if (selected) colors.selectedTabContent else colors.textSecondary,
         animationSpec = feedbackTween(),
         label = "navTint",
     )

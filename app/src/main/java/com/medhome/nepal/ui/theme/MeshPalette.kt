@@ -6,7 +6,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
-import com.medhome.nepal.data.DarkPalette
 import kotlin.math.max
 
 /**
@@ -62,23 +61,13 @@ fun MeshPalette.darkestAndBrightest(): Pair<Color, Color> {
     return colors.minBy { it.luminance() } to colors.maxBy { it.luminance() }
 }
 
-/** Dark: amber top-left, rose mid-right, violet bottom-left over a deep plum. The dark default. */
+/** Dark: amber top-left, rose mid-right, violet bottom-left over a deep plum. */
 val WarmDusk = MeshPalette(
     base = Color(0xFF120A1C),
     glows = listOf(
         Glow(Color(0xFFF2994A).copy(alpha = 0.20f), Offset(0.08f, 0.06f), radius = 0.62f),
         Glow(Color(0xFFE5577A).copy(alpha = 0.27f), Offset(1.00f, 0.45f), radius = 0.55f),
         Glow(Color(0xFF7B5CD6).copy(alpha = 0.32f), Offset(0.05f, 0.95f), radius = 0.65f),
-    ),
-)
-
-/** Dark: violet top-right, sky blue mid-left, magenta bottom-right over a deep navy. */
-val MidnightAurora = MeshPalette(
-    base = Color(0xFF070B1A),
-    glows = listOf(
-        Glow(Color(0xFF6E56CF).copy(alpha = 0.36f), Offset(0.92f, 0.06f), radius = 0.62f),
-        Glow(Color(0xFF3BA7E0).copy(alpha = 0.24f), Offset(0.00f, 0.50f), radius = 0.55f),
-        Glow(Color(0xFFB04BC9).copy(alpha = 0.32f), Offset(0.95f, 0.95f), radius = 0.65f),
     ),
 )
 
@@ -91,8 +80,3 @@ val SoftDaylight = MeshPalette(
         Glow(Color(0xFFA8D4F5).copy(alpha = 0.65f), Offset(0.05f, 0.95f), radius = 0.65f),
     ),
 )
-
-fun DarkPalette.mesh(): MeshPalette = when (this) {
-    DarkPalette.WARM_DUSK -> WarmDusk
-    DarkPalette.MIDNIGHT_AURORA -> MidnightAurora
-}

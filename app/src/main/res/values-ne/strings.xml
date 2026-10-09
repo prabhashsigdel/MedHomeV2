@@ -145,11 +145,6 @@
     <string name="theme_system">सिस्टम अनुसार</string>
     <string name="theme_light">उज्यालो</string> <!-- review -->
     <string name="theme_dark">अँध्यारो</string> <!-- review -->
-    <!-- Developer builds only (debug and staging): compare the dark backgrounds. -->
-    <string name="settings_developer">डेभलपर</string> <!-- review -->
-    <string name="settings_dark_palette">अँध्यारो रङ्ग संयोजन</string> <!-- review -->
-    <string name="dark_palette_warm_dusk">न्यानो साँझ</string> <!-- review -->
-    <string name="dark_palette_midnight_aurora">मध्यरातको आभा</string> <!-- review -->
     <string name="settings_help_center">मद्दत केन्द्र</string>
     <string name="settings_privacy_policy">गोपनीयता नीति</string>
     <string name="settings_terms">सेवाका सर्तहरू</string>

@@ -6,7 +6,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
-import com.medhome.nepal.data.DarkPalette
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,13 +17,12 @@ class MeshPaletteTest {
     @Test
     fun `palettes use the specified base and glow colors`() {
         assertPalette(WarmDusk, 0xFF120A1C, listOf(0xFFF2994A, 0xFFE5577A, 0xFF7B5CD6))
-        assertPalette(MidnightAurora, 0xFF070B1A, listOf(0xFF6E56CF, 0xFF3BA7E0, 0xFFB04BC9))
         assertPalette(SoftDaylight, 0xFFF7F2EC, listOf(0xFFFFB38A, 0xFFC9B6F2, 0xFFA8D4F5))
     }
 
     @Test
-    fun `every palette has three glows, so the theme crossfade animates them pairwise`() {
-        for (palette in listOf(WarmDusk, MidnightAurora, SoftDaylight)) assertEquals(3, palette.glows.size)
+    fun `both palettes have three glows, so the theme crossfade animates them pairwise`() {
+        for (palette in listOf(WarmDusk, SoftDaylight)) assertEquals(3, palette.glows.size)
     }
 
     @Test
@@ -33,17 +31,10 @@ class MeshPaletteTest {
         assertPlaced(WarmDusk.glows[0], left = true, Band.TOP)
         assertPlaced(WarmDusk.glows[1], left = false, Band.MIDDLE)
         assertPlaced(WarmDusk.glows[2], left = true, Band.BOTTOM)
-        // Midnight aurora: violet top-right, sky mid-left, magenta bottom-right.
-        assertPlaced(MidnightAurora.glows[0], left = false, Band.TOP)
-        assertPlaced(MidnightAurora.glows[1], left = true, Band.MIDDLE)
-        assertPlaced(MidnightAurora.glows[2], left = false, Band.BOTTOM)
-    }
-
-    @Test
-    fun `each dark palette maps to its mesh and warm dusk is the default`() {
-        assertEquals(WarmDusk, DarkPalette.WARM_DUSK.mesh())
-        assertEquals(MidnightAurora, DarkPalette.MIDNIGHT_AURORA.mesh())
-        assertEquals(DarkPalette.WARM_DUSK, DarkPalette.DEFAULT)
+        // Soft daylight: the same layout, so a theme switch only recolors the glows.
+        assertPlaced(SoftDaylight.glows[0], left = true, Band.TOP)
+        assertPlaced(SoftDaylight.glows[1], left = false, Band.MIDDLE)
+        assertPlaced(SoftDaylight.glows[2], left = true, Band.BOTTOM)
     }
 
     @Test
@@ -69,11 +60,9 @@ class MeshPaletteTest {
     @Test
     fun `dark palettes glow above their base and the light one tints below it`() {
         // The glows are large enough to reach every point, so the bare base itself never shows.
-        for (palette in listOf(WarmDusk, MidnightAurora)) {
-            val (darkest, brightest) = palette.darkestAndBrightest()
-            assertTrue(darkest.luminance() >= palette.base.luminance())
-            assertTrue(brightest.luminance() > darkest.luminance())
-        }
+        val (darkestDark, brightestDark) = WarmDusk.darkestAndBrightest()
+        assertTrue(darkestDark.luminance() >= WarmDusk.base.luminance())
+        assertTrue(brightestDark.luminance() > darkestDark.luminance())
         val (darkest, brightest) = SoftDaylight.darkestAndBrightest()
         assertTrue(brightest.luminance() <= SoftDaylight.base.luminance())
         assertTrue(darkest.luminance() < brightest.luminance())
@@ -81,7 +70,7 @@ class MeshPaletteTest {
 
     @Test
     fun `every sampled color is opaque`() {
-        for (palette in listOf(WarmDusk, MidnightAurora, SoftDaylight)) {
+        for (palette in listOf(WarmDusk, SoftDaylight)) {
             val (darkest, brightest) = palette.darkestAndBrightest()
             assertEquals(1f, darkest.alpha, 0.0001f)
             assertEquals(1f, brightest.alpha, 0.0001f)

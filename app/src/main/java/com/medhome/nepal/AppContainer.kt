@@ -7,7 +7,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.medhome.nepal.data.CredentialClient
 import com.medhome.nepal.data.CredentialManagerClient
-import com.medhome.nepal.data.DataStoreDeveloperSettings
 import com.medhome.nepal.data.DataStoreThemeSettings
 import com.medhome.nepal.data.FirebaseAuthDataSource
 import com.medhome.nepal.data.FirestoreProfileStore
@@ -41,9 +40,6 @@ class AppContainer(context: Context) {
     val savedAccountsPrompt = SavedAccountsPrompt()
 
     val themeSettings = DataStoreThemeSettings(context)
-
-    /** Read only behind BuildConfig.DEVELOPER_OPTIONS (debug and staging builds). */
-    val developerSettings = DataStoreDeveloperSettings(context)
 }
 
 val CreationExtras.appContainer: AppContainer

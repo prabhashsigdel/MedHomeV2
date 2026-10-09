@@ -37,8 +37,7 @@ interface ThemeSettings {
     suspend fun setThemeMode(mode: ThemeMode)
 }
 
-/** The app's one settings file. Shared by every settings class: two delegates on one file crash. */
-internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 /** Stored with DataStore. Excluded from backup and device transfer by data_extraction_rules. */
 class DataStoreThemeSettings(context: Context) : ThemeSettings {
