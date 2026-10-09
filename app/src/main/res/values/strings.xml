@@ -216,4 +216,46 @@
     <string name="about_description">MedHome helps you manage your health digitally.</string>
     <string name="about_student_project">A student project. Not a medical device and not a substitute for professional medical advice.</string>
     <string name="about_fonts">Fonts: Manrope and Noto Sans Devanagari, used under the SIL Open Font License.</string>
+
+    <!-- Doctors: finding a doctor and their details. -->
+    <string name="fee_npr">Rs. %1$s</string>
+    <string name="doctors_search">Search by name</string>
+    <string name="doctors_filter_all">All</string>
+    <string name="doctors_saved_notice">You\'re offline. Showing doctors saved on this phone.</string>
+    <string name="doctors_offline_title">You\'re offline</string>
+    <string name="doctors_offline_body">Connect to the internet to see doctors. They\'ll be saved for next time.</string>
+    <string name="doctors_none_title">No doctors yet</string>
+    <string name="doctors_none_body">Doctors will appear here once they join MedHome.</string>
+    <string name="doctors_no_match_title">No doctors found</string>
+    <string name="doctors_no_match_body">Try another name or specialty.</string>
+    <string name="doctors_clear_filters">Clear search</string>
+    <string name="doctor_fee">Consultation fee</string>
+    <string name="doctor_hospital">Hospital</string>
+    <string name="doctor_experience">Experience</string>
+    <plurals name="doctor_experience_years">
+        <item quantity="one">%1$s year</item>
+        <item quantity="other">%1$s years</item>
+    </plurals>
+    <string name="doctor_about">About</string>
+    <string name="doctor_hours">Weekly hours</string>
+    <string name="doctor_hours_note">Times are Nepal time.</string>
+    <string name="doctor_hours_closed">Closed</string>
+    <string name="doctor_hours_range">%1$s – %2$s</string>
+    <string name="doctor_book">Book appointment</string>
+    <string name="doctor_book_soon">Booking is coming soon.</string>
+    <string name="doctor_unavailable_title">Doctor not available</string>
+    <string name="doctor_unavailable_body">This doctor isn\'t taking appointments on MedHome right now.</string>
+    <string name="doctor_unavailable_offline">You\'re offline, and this doctor isn\'t saved on this phone yet.</string>
+    <string name="specialty_general_physician">General physician</string>
+    <string name="specialty_cardiology">Cardiology</string>
+    <string name="specialty_dermatology">Dermatology</string>
+    <string name="specialty_pediatrics">Pediatrics</string>
+    <string name="specialty_gynecology">Gynecology</string>
+    <string name="specialty_orthopedics">Orthopedics</string>
+    <string name="specialty_ent">Ear, nose and throat</string>
+    <string name="specialty_neurology">Neurology</string>
+    <string name="specialty_psychiatry">Psychiatry</string>
+    <string name="specialty_ophthalmology">Eye care</string>
+    <string name="specialty_dentistry">Dentistry</string>
+    <string name="specialty_gastroenterology">Gastroenterology</string>
 </resources>

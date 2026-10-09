@@ -21,7 +21,6 @@ import com.medhome.nepal.ui.theme.GlassTheme
  */
 @Keep // Part of a navigation route: its serializer must survive minification.
 enum class ComingSoonFeature(@param:StringRes val title: Int) {
-    FIND_DOCTOR(R.string.shortcut_find_doctor),
     MEDICINE_REMINDERS(R.string.shortcut_medicine_reminders),
 }
 

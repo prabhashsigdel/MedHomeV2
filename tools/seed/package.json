@@ -1,0 +1,16 @@
+{
+  "name": "medhome-seed",
+  "private": true,
+  "description": "Writes the fictional doctors catalogue to Firestore with the Admin SDK. Idempotent.",
+  "type": "module",
+  "scripts": {
+    "seed": "node seed.js",
+    "check": "node seed.js --dry-run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "firebase-admin": "14.5.0"
+  }
+}
