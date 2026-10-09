@@ -76,6 +76,15 @@ service cloud.firestore {
       allow delete: if isOwner(uid);
     }
 
+    // The doctors catalogue: signed-in users may read active doctors (a list must ask for
+    // active == true); admins may read every doctor. No client may write it: it is maintained
+    // with the Admin SDK (tools/seed), which bypasses these rules. isAdmin() is only evaluated
+    // for inactive or missing doctors, so ordinary reads cost no extra document read.
+    match /doctors/{doctorId} {
+      allow read: if isSignedIn() && (resource.data.active == true || isAdmin());
+      allow write: if false;
+    }
+
     // Everything else is denied by default.
     match /{document=**} {
       allow read, write: if false;

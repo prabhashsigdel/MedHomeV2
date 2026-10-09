@@ -29,9 +29,13 @@ import com.medhome.nepal.domain.Role as UserRole
 import com.medhome.nepal.domain.UserProfile
 import com.medhome.nepal.fakes.FakeAuthDataSource
 import com.medhome.nepal.fakes.FakeCredentialClient
+import com.medhome.nepal.fakes.FakeDoctorRepository
+import com.medhome.nepal.fakes.doctor
 import com.medhome.nepal.fakes.FakeProfileStore
 import com.medhome.nepal.session.SessionManager
 import com.medhome.nepal.session.SessionState
+import com.medhome.nepal.domain.Specialty
+import com.medhome.nepal.ui.doctors.DoctorViewModels
 import com.medhome.nepal.ui.home.HOME_AVATAR_TAG
 import com.medhome.nepal.ui.profile.ProfileViewModel
 import com.medhome.nepal.ui.theme.MedHomeTheme
@@ -45,7 +49,8 @@ import org.robolectric.annotation.Config
 
 /**
  * The patient shell's navigation, driven through the real UI: three tabs, Profile behind the
- * Home avatar (bar hidden, Back returns Home), its sub-pages, and tab-level Back.
+ * Home avatar (bar hidden, Back returns Home), its sub-pages, Find a doctor and a doctor's
+ * details (over a fake repository), and tab-level Back.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(application = Application::class, sdk = [35], qualifiers = "w360dp-h740dp")
@@ -73,6 +78,10 @@ class PatientShellNavigationTest {
         }
     }
 
+    private val asha = doctor(id = "doc-001", name = "Asha Rai")
+    private val bikash = doctor(id = "doc-002", name = "Bikash Thapa", specialty = Specialty.DERMATOLOGY)
+    private val doctorViewModelFactory = DoctorViewModels.factory { FakeDoctorRepository(listOf(asha, bikash)) }
+
     private val isTab = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
 
     private fun text(@StringRes id: Int, vararg args: Any): String =
@@ -81,7 +90,7 @@ class PatientShellNavigationTest {
     @Before
     fun showShell() {
         compose.setContent {
-            MedHomeTheme(darkTheme = false) { MainShell(session, profileViewModelFactory) }
+            MedHomeTheme(darkTheme = false) { MainShell(session, profileViewModelFactory, doctorViewModelFactory) }
         }
         settle()
     }
@@ -189,11 +198,56 @@ class PatientShellNavigationTest {
 
     @Test
     fun `a double tap on a shortcut opens one screen`() {
-        compose.onNodeWithText(text(R.string.shortcut_find_doctor)).performScrollTo().doubleTap()
+        compose.onNodeWithText(text(R.string.shortcut_medicine_reminders)).performScrollTo().doubleTap()
         compose.onNodeWithText(text(R.string.coming_soon_body)).assertIsDisplayed()
 
         pressBack()
         assertOnHome()
+    }
+
+    private fun openFindDoctor() {
+        compose.onNodeWithText(text(R.string.shortcut_find_doctor)).clickRow()
+        settle()
+    }
+
+    private fun assertOnFindDoctor() {
+        compose.onNodeWithText(text(R.string.doctors_search)).assertExists()
+        compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun `Find a doctor opens the doctor list without the bar`() {
+        openFindDoctor()
+        assertOnFindDoctor()
+        compose.onNodeWithText(asha.name).assertIsDisplayed()
+        compose.onNodeWithText(bikash.name).assertIsDisplayed()
+
+        pressBack()
+        assertOnHome()
+    }
+
+    @Test
+    fun `a doctor opens their details and back returns through the list to Home`() {
+        openFindDoctor()
+        compose.onNodeWithText(bikash.name).performClick()
+        settle()
+        compose.onNodeWithText(text(R.string.doctor_book)).assertExists()
+        compose.onNodeWithText(bikash.name).assertIsDisplayed()
+
+        pressBack()
+        assertOnFindDoctor()
+        pressBack()
+        assertOnHome()
+    }
+
+    @Test
+    fun `a double tap on a doctor opens their details once`() {
+        openFindDoctor()
+        compose.onNodeWithText(asha.name).doubleTap()
+        compose.onNodeWithText(text(R.string.doctor_book)).assertExists()
+
+        pressBack()
+        assertOnFindDoctor()
     }
 
     @Test

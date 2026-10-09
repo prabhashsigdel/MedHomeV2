@@ -8,6 +8,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.medhome.nepal.data.CredentialClient
 import com.medhome.nepal.data.CredentialManagerClient
 import com.medhome.nepal.data.DataStoreThemeSettings
+import com.medhome.nepal.data.DoctorRepository
+import com.medhome.nepal.data.FirestoreDoctorRepository
 import com.medhome.nepal.data.FirebaseAuthDataSource
 import com.medhome.nepal.data.FirestoreProfileStore
 import com.medhome.nepal.data.PasswordSaveOffers
@@ -40,6 +42,8 @@ class AppContainer(context: Context) {
     val savedAccountsPrompt = SavedAccountsPrompt()
 
     val themeSettings = DataStoreThemeSettings(context)
+
+    val doctorRepository: DoctorRepository = FirestoreDoctorRepository { FirebaseFirestore.getInstance() }
 }
 
 val CreationExtras.appContainer: AppContainer

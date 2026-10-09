@@ -215,4 +215,46 @@
     <string name="about_description">MedHome ले तपाईंलाई डिजिटल रूपमा स्वास्थ्य व्यवस्थापन गर्न मद्दत गर्छ।</string>
     <string name="about_student_project">विद्यार्थी परियोजना। यो चिकित्सा उपकरण होइन र व्यावसायिक चिकित्सकीय सल्लाहको विकल्प होइन।</string> <!-- review -->
     <string name="about_fonts">फन्टहरू: Manrope र Noto Sans Devanagari, SIL Open Font License अन्तर्गत प्रयोग गरिएका।</string> <!-- review -->
+
+    <!-- Doctors: finding a doctor and their details. -->
+    <string name="fee_npr">रु. %1$s</string> <!-- review -->
+    <string name="doctors_search">नामले खोज्नुहोस्</string> <!-- review -->
+    <string name="doctors_filter_all">सबै</string> <!-- review -->
+    <string name="doctors_saved_notice">तपाईं अफलाइन हुनुहुन्छ। यो फोनमा सुरक्षित डाक्टरहरू देखाइँदैछ।</string> <!-- review -->
+    <string name="doctors_offline_title">तपाईं अफलाइन हुनुहुन्छ</string> <!-- review -->
+    <string name="doctors_offline_body">डाक्टरहरू हेर्न इन्टरनेटमा जोडिनुहोस्। अर्को पटकका लागि उनीहरू सुरक्षित हुनेछन्।</string> <!-- review -->
+    <string name="doctors_none_title">अहिलेसम्म कुनै डाक्टर छैनन्</string> <!-- review -->
+    <string name="doctors_none_body">डाक्टरहरू MedHome मा जोडिएपछि यहाँ देखिनेछन्।</string> <!-- review -->
+    <string name="doctors_no_match_title">कुनै डाक्टर भेटिएनन्</string> <!-- review -->
+    <string name="doctors_no_match_body">अर्को नाम वा विशेषज्ञता प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="doctors_clear_filters">खोज हटाउनुहोस्</string> <!-- review -->
+    <string name="doctor_fee">परामर्श शुल्क</string> <!-- review -->
+    <string name="doctor_hospital">अस्पताल</string> <!-- review -->
+    <string name="doctor_experience">अनुभव</string> <!-- review -->
+    <plurals name="doctor_experience_years">
+        <item quantity="one">%1$s वर्ष</item> <!-- review -->
+        <item quantity="other">%1$s वर्ष</item> <!-- review -->
+    </plurals>
+    <string name="doctor_about">परिचय</string> <!-- review -->
+    <string name="doctor_hours">साप्ताहिक समय</string> <!-- review -->
+    <string name="doctor_hours_note">समय नेपाली समय अनुसार छ।</string> <!-- review -->
+    <string name="doctor_hours_closed">बन्द</string> <!-- review -->
+    <string name="doctor_hours_range">%1$s – %2$s</string>
+    <string name="doctor_book">अपोइन्टमेन्ट बुक गर्नुहोस्</string> <!-- review -->
+    <string name="doctor_book_soon">बुकिङ छिट्टै सुरु हुँदैछ।</string> <!-- review -->
+    <string name="doctor_unavailable_title">डाक्टर उपलब्ध हुनुहुन्न</string> <!-- review -->
+    <string name="doctor_unavailable_body">यो डाक्टरले अहिले MedHome मा अपोइन्टमेन्ट लिनुभएको छैन।</string> <!-- review -->
+    <string name="doctor_unavailable_offline">तपाईं अफलाइन हुनुहुन्छ, र यो डाक्टर अझै यो फोनमा सुरक्षित छैनन्।</string> <!-- review -->
+    <string name="specialty_general_physician">सामान्य चिकित्सक</string> <!-- review -->
+    <string name="specialty_cardiology">मुटु रोग</string> <!-- review -->
+    <string name="specialty_dermatology">छाला रोग</string> <!-- review -->
+    <string name="specialty_pediatrics">बाल रोग</string> <!-- review -->
+    <string name="specialty_gynecology">स्त्री रोग</string> <!-- review -->
+    <string name="specialty_orthopedics">हाड जोर्नी</string> <!-- review -->
+    <string name="specialty_ent">नाक, कान, घाँटी</string> <!-- review -->
+    <string name="specialty_neurology">स्नायु रोग</string> <!-- review -->
+    <string name="specialty_psychiatry">मानसिक रोग</string> <!-- review -->
+    <string name="specialty_ophthalmology">आँखा</string> <!-- review -->
+    <string name="specialty_dentistry">दन्त चिकित्सा</string> <!-- review -->
+    <string name="specialty_gastroenterology">पेट तथा आन्द्रा रोग</string> <!-- review -->
 </resources>

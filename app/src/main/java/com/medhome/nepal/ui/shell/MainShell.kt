@@ -46,6 +46,9 @@ import com.medhome.nepal.ui.components.MeshBackground
 import com.medhome.nepal.ui.components.LocalBottomBarClearance
 import com.medhome.nepal.ui.components.LocalHazeState
 import com.medhome.nepal.ui.components.NavBarItem
+import com.medhome.nepal.ui.doctors.DoctorDetailScreen
+import com.medhome.nepal.ui.doctors.DoctorViewModels
+import com.medhome.nepal.ui.doctors.FindDoctorScreen
 import com.medhome.nepal.ui.home.ComingSoonFeature
 import com.medhome.nepal.ui.home.ComingSoonScreen
 import com.medhome.nepal.ui.home.HomeShortcut
@@ -74,16 +77,17 @@ fun signedInHomeFor(role: Role): SignedInHome = when (role) {
 }
 
 /**
- * [profileViewModelFactory] is a seam for JVM tests, which have no Firebase-backed app container;
- * the app always uses the default.
+ * [profileViewModelFactory] and [doctorViewModelFactory] are seams for JVM tests, which have no
+ * Firebase-backed app container; the app always uses the defaults.
  */
 @Composable
 fun MainShell(
     session: SessionState.SignedIn,
     profileViewModelFactory: ViewModelProvider.Factory = ProfileViewModel.Factory,
+    doctorViewModelFactory: ViewModelProvider.Factory = DoctorViewModels.Factory,
 ) {
     when (signedInHomeFor(session.profile.role)) {
-        SignedInHome.PATIENT_TABS -> PatientShell(session, profileViewModelFactory)
+        SignedInHome.PATIENT_TABS -> PatientShell(session, profileViewModelFactory, doctorViewModelFactory)
         SignedInHome.STAFF_PLACEHOLDER -> StaffHomeScreen(viewModel = viewModel(factory = profileViewModelFactory))
     }
 }
@@ -93,6 +97,9 @@ fun MainShell(
 @Serializable internal data object HomeTab
 @Serializable internal data object HomeRoute
 @Serializable internal data class ComingSoonRoute(val feature: ComingSoonFeature)
+@Serializable internal data object FindDoctorRoute
+// The property name is DoctorViewModels.ARG_DOCTOR_ID: the detail ViewModel reads it from there.
+@Serializable internal data class DoctorDetailRoute(val doctorId: String)
 @Serializable internal data object ProfileRoute
 @Serializable internal data class SettingsRoute(val page: SettingsPage)
 @Serializable internal data object BookingsTab
@@ -101,17 +108,22 @@ fun MainShell(
 @Serializable internal data object RecordsRoute
 
 private enum class PatientTab(
+    val tab: ShellTab,
     val graph: Any,
     val root: Any,
     @param:StringRes val label: Int,
     @param:DrawableRes val icon: Int,
 ) {
-    HOME(HomeTab, HomeRoute, R.string.nav_home, R.drawable.ic_sym_home),
-    BOOKINGS(BookingsTab, BookingsRoute, R.string.nav_bookings, R.drawable.ic_sym_calendar_month),
-    RECORDS(RecordsTab, RecordsRoute, R.string.nav_records, R.drawable.ic_sym_description),
+    HOME(ShellTab.HOME, HomeTab, HomeRoute, R.string.nav_home, R.drawable.ic_sym_home),
+    BOOKINGS(ShellTab.BOOKINGS, BookingsTab, BookingsRoute, R.string.nav_bookings, R.drawable.ic_sym_calendar_month),
+    RECORDS(ShellTab.RECORDS, RecordsTab, RecordsRoute, R.string.nav_records, R.drawable.ic_sym_description),
     ;
 
     val graphClass: KClass<*> get() = graph::class
+
+    companion object {
+        fun of(tab: ShellTab): PatientTab = entries.first { it.tab == tab }
+    }
 }
 
 private val NavItems = PatientTab.entries.map { NavBarItem(it.label, it.icon) }
@@ -125,8 +137,10 @@ private val NavItems = PatientTab.entries.map { NavBarItem(it.label, it.icon) }
 private fun PatientShell(
     session: SessionState.SignedIn,
     profileViewModelFactory: ViewModelProvider.Factory,
+    doctorViewModelFactory: ViewModelProvider.Factory,
 ) {
     val navController = rememberNavController()
+    val shellNavigator = remember(navController) { ShellNavigator { navController.selectTab(PatientTab.of(it)) } }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val currentTab = PatientTab.entries.firstOrNull { destination.isIn(it.graphClass) } ?: PatientTab.HOME
@@ -144,7 +158,7 @@ private fun PatientShell(
 
     MeshBackground {
         val hazeState = LocalHazeState.current
-        CompositionLocalProvider(LocalTabRootClearance provides tabRootClearance) {
+        CompositionLocalProvider(LocalTabRootClearance provides tabRootClearance, LocalShellNavigator provides shellNavigator) {
             NavHost(
                 navController = navController,
                 startDestination = HomeTab,
@@ -163,9 +177,18 @@ private fun PatientShell(
                             PatientHomeScreen(
                                 profile = session.profile,
                                 onOpenProfile = navigateOnce { navController.navigate(ProfileRoute) { launchSingleTop = true } },
-                                onShortcut = navigateOnceWith(navController::openShortcut),
+                                onShortcut = navigateOnceWith { shortcut: HomeShortcut -> navController.openShortcut(shortcut, shellNavigator) },
                             )
                         }
+                    }
+                    composable<FindDoctorRoute> {
+                        FindDoctorScreen(
+                            onOpenDoctor = navigateOnceWith { id: String -> navController.navigate(DoctorDetailRoute(id)) },
+                            viewModel = viewModel(factory = doctorViewModelFactory),
+                        )
+                    }
+                    composable<DoctorDetailRoute> {
+                        DoctorDetailScreen(viewModel = viewModel(factory = doctorViewModelFactory))
                     }
                     composable<ComingSoonRoute> { entry ->
                         ComingSoonScreen(title = entry.toRoute<ComingSoonRoute>().feature.title, showBack = true)
@@ -241,12 +264,12 @@ private fun TabRoot(content: @Composable () -> Unit) {
 private fun NavDestination?.isIn(graph: KClass<*>): Boolean =
     this?.hierarchy?.any { it.hasRoute(graph) } == true
 
-/** Placeholders push a "coming soon" screen; Health records is a tab of its own. */
-private fun NavHostController.openShortcut(shortcut: HomeShortcut) {
+/** Find a doctor and placeholders are pushed on Home; Health records is a tab of its own. */
+private fun NavHostController.openShortcut(shortcut: HomeShortcut, shell: ShellNavigator) {
     when (shortcut) {
-        HomeShortcut.FIND_DOCTOR -> navigate(ComingSoonRoute(ComingSoonFeature.FIND_DOCTOR))
+        HomeShortcut.FIND_DOCTOR -> navigate(FindDoctorRoute)
         HomeShortcut.MEDICINE_REMINDERS -> navigate(ComingSoonRoute(ComingSoonFeature.MEDICINE_REMINDERS))
-        HomeShortcut.HEALTH_RECORDS -> selectTab(PatientTab.RECORDS)
+        HomeShortcut.HEALTH_RECORDS -> shell.selectTab(ShellTab.RECORDS)
     }
 }
 

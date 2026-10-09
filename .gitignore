@@ -17,3 +17,17 @@ local.properties
 app/google-services.json
 
 /.idea/
+
+# Firebase service account keys: never in the repository (the seed script refuses them too).
+*serviceAccount*.json
+*service-account*.json
+*service_account*.json
+*-firebase-adminsdk-*.json
+*credentials*.json
+*-admin.json
+
+# Node tooling
+tools/seed/node_modules
+tools/rules-tests/node_modules
+firebase-debug.log
+firestore-debug.log
