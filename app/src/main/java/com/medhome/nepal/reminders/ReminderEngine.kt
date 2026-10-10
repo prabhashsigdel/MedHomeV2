@@ -36,6 +36,9 @@ interface ReminderRepository {
     /** What happened to the doses of [date] (taken, snoozed). */
     fun recordsOn(date: CalendarDate): Flow<List<DoseRecord>>
 
+    /** What happened to every dose from [date] on (records go after [ReminderEngine.KEEP_RECORD_DAYS]). */
+    fun recordsFrom(date: CalendarDate): Flow<List<DoseRecord>>
+
     suspend fun medicine(id: Long): Medicine?
 
     /** Adds ([Medicine.id] 0) or replaces a medicine and sets its next reminder. Returns its ID. */
@@ -101,6 +104,9 @@ class ReminderEngine(
 
     override fun recordsOn(date: CalendarDate): Flow<List<DoseRecord>> =
         dao.observeRecordsOn(date.epochDay).visible().map { rows -> rows.mapNotNull(ReminderMapper::toRecord) }
+
+    override fun recordsFrom(date: CalendarDate): Flow<List<DoseRecord>> =
+        dao.observeRecordsFrom(date.epochDay).visible().map { rows -> rows.mapNotNull(ReminderMapper::toRecord) }
 
     /** Rows only while they are the signed-in patient's (or nobody's yet): never another account's. */
     private fun <T> Flow<List<T>>.visible(): Flow<List<T>> = combine(settings.owner) { rows, owner ->
@@ -459,8 +465,11 @@ class ReminderEngine(
 
     private suspend fun <T> locked(block: suspend () -> T): T = lock.withLock { block() }
 
-    private companion object {
-        /** Dose records older than this many days are deleted (only today's are shown). */
-        const val KEEP_RECORD_DAYS = 7
+    companion object {
+        /**
+         * Dose records older than this many days are deleted (when reminders are rescheduled: at
+         * app start, after a reboot and on time changes). The Medicines tab's history shows them.
+         */
+        const val KEEP_RECORD_DAYS = 30
     }
 }

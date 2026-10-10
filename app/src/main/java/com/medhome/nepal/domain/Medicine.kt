@@ -110,6 +110,27 @@ object DoseSchedule {
     }
 
     /**
+     * Every dose of [medicines] from [from] to [to] (inclusive, Nepal dates) with its state at
+     * [nowMillis], grouped by day, latest day first and each day in time order. Days with no
+     * doses are left out. Worked out from the medicines as they are now, so a medicine deleted
+     * (with its records) or rescheduled since changes the days before.
+     */
+    fun history(
+        medicines: List<Medicine>,
+        records: List<DoseRecord>,
+        from: CalendarDate,
+        to: CalendarDate,
+        nowMillis: Long,
+    ): List<Pair<CalendarDate, List<TodayDose>>> {
+        if (to < from) return emptyList()
+        val days = generateSequence(to) { day -> day.plusDays(-1).takeIf { it >= from } }
+        return days
+            .map { day -> day to today(medicines, records, day, nowMillis) }
+            .filter { (_, doses) -> doses.isNotEmpty() }
+            .toList()
+    }
+
+    /**
      * The first dose of [medicine] strictly after [afterMillis], or null when there is none
      * (it has ended). Looks at most a week past the later of today and the start date, which
      * always holds a due day when one exists.

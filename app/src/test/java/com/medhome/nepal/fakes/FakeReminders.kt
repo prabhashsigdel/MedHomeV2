@@ -144,6 +144,8 @@ class FakeReminderRepository(
 
     override fun recordsOn(date: CalendarDate): Flow<List<DoseRecord>> = records.map { all -> all.filter { it.dose.date == date } }
 
+    override fun recordsFrom(date: CalendarDate): Flow<List<DoseRecord>> = records.map { all -> all.filter { it.dose.date >= date } }
+
     override suspend fun medicine(id: Long): Medicine? = medicineState.value.firstOrNull { it.id == id }
 
     override suspend fun saveMedicine(medicine: Medicine): Long {

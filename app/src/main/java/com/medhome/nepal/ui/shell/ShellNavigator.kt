@@ -4,7 +4,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /** The patient shell's tabs, as screens see them. */
-enum class ShellTab { HOME, BOOKINGS, RECORDS }
+enum class ShellTab { HOME, BOOKINGS, MEDICINES, RECORDS }
 
 /**
  * Lets any screen inside the patient shell, pushed screens included, switch tabs, which only

@@ -25,6 +25,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 /**
  * A fact row's label never wraps or gets squeezed, whatever the value: the value wraps onto
@@ -32,6 +33,8 @@ import org.robolectric.annotation.Config
  * hospital and doctor name, a long full date, and every label the app passes to [FactRow].
  */
 @RunWith(AndroidJUnit4::class)
+// Real text measurement: the default (legacy) graphics mode makes every character 1px wide.
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(application = Application::class, sdk = [35])
 class FactRowLayoutTest {
 

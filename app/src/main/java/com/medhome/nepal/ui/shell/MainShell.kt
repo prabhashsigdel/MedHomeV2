@@ -47,7 +47,6 @@ import com.medhome.nepal.ui.reminders.MedicineFormScreen
 import com.medhome.nepal.ui.reminders.MedicineFormViewModel
 import com.medhome.nepal.ui.reminders.MedicinesScreen
 import com.medhome.nepal.ui.reminders.ReminderViewModels
-import com.medhome.nepal.ui.reminders.TodayRemindersScreen
 import com.medhome.nepal.ui.reminders.TodayRemindersViewModel
 import com.medhome.nepal.ui.reminders.rememberNotificationPermissionRequest
 import com.medhome.nepal.ui.settings.SettingsPage
@@ -91,10 +90,6 @@ fun MainShell(
 // settings pages are pushed on Home's stack (opened from the avatar).
 @Serializable internal data object HomeTab
 @Serializable internal data object HomeRoute
-@Serializable internal data object MedicinesRoute
-// The property name is ReminderViewModels.ARG_MEDICINE_ID; 0 adds a new medicine.
-@Serializable internal data class MedicineFormRoute(val medicineId: Long)
-@Serializable internal data object TodayRemindersRoute
 // The booking flow: its own graph, not a tab's, so it opens over any tab.
 @Serializable internal data object BookingFlow
 @Serializable internal data object FindDoctorRoute
@@ -108,6 +103,10 @@ fun MainShell(
 @Serializable internal data object BookingsRoute
 // The property name is BookingViewModels.ARG_BOOKING_ID.
 @Serializable internal data class BookingDetailRoute(val bookingId: String)
+@Serializable internal data object MedicinesTab
+@Serializable internal data object MedicinesRoute
+// The property name is ReminderViewModels.ARG_MEDICINE_ID; 0 adds a new medicine.
+@Serializable internal data class MedicineFormRoute(val medicineId: Long)
 @Serializable internal data object RecordsTab
 @Serializable internal data object RecordsRoute
 
@@ -120,6 +119,7 @@ private enum class PatientTab(
 ) {
     HOME(ShellTab.HOME, HomeTab, HomeRoute, R.string.nav_home, R.drawable.ic_sym_home),
     BOOKINGS(ShellTab.BOOKINGS, BookingsTab, BookingsRoute, R.string.nav_bookings, R.drawable.ic_sym_calendar_month),
+    MEDICINES(ShellTab.MEDICINES, MedicinesTab, MedicinesRoute, R.string.nav_medicines, R.drawable.ic_sym_medication),
     RECORDS(ShellTab.RECORDS, RecordsTab, RecordsRoute, R.string.nav_records, R.drawable.ic_sym_description),
     ;
 
@@ -198,31 +198,10 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
                                 onOpenBookings = { shellNavigator.selectTab(ShellTab.BOOKINGS) },
                                 today = today,
                                 onToggleDose = todayReminders::toggleTaken,
-                                onOpenReminders = navigateOnce { navController.navigate(TodayRemindersRoute) { launchSingleTop = true } },
+                                // The bell opens the Medicines tab (Today first).
+                                onOpenReminders = { shellNavigator.selectTab(ShellTab.MEDICINES) },
                             )
                         }
-                    }
-                    composable<MedicinesRoute> { entry ->
-                        val checkSetup by entry.savedStateHandle.getStateFlow(CHECK_REMINDER_SETUP, false).collectAsStateWithLifecycle()
-                        MedicinesScreen(
-                            viewModel = viewModel(factory = reminderViewModelFactory),
-                            checkSetup = checkSetup,
-                            onSetupChecked = { entry.savedStateHandle[CHECK_REMINDER_SETUP] = false },
-                            onAdd = navigateOnce { navController.navigate(MedicineFormRoute(MedicineFormViewModel.NEW)) },
-                            onOpen = navigateOnceWith { id: Long -> navController.navigate(MedicineFormRoute(id)) },
-                        )
-                    }
-                    composable<MedicineFormRoute> { entry ->
-                        MedicineFormScreen(
-                            viewModel = viewModel(factory = reminderViewModelFactory),
-                            onDone = { result -> navController.closeMedicineForm(entry, result) },
-                        )
-                    }
-                    composable<TodayRemindersRoute> {
-                        TodayRemindersScreen(
-                            viewModel = viewModel(factory = reminderViewModelFactory),
-                            onOpenMedicines = navigateOnce { navController.navigate(MedicinesRoute) { launchSingleTop = true } },
-                        )
                     }
                     composable<ProfileRoute> {
                         ProfileScreen(
@@ -253,6 +232,28 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
                     }
                     composable<BookingDetailRoute> {
                         BookingDetailScreen(viewModel = viewModel(factory = bookingViewModelFactory))
+                    }
+                }
+                navigation<MedicinesTab>(startDestination = MedicinesRoute) {
+                    composable<MedicinesRoute> { entry ->
+                        val checkSetup by entry.savedStateHandle.getStateFlow(CHECK_REMINDER_SETUP, false).collectAsStateWithLifecycle()
+                        TabRoot {
+                            MedicinesScreen(
+                                viewModel = viewModel(factory = reminderViewModelFactory),
+                                today = viewModel(factory = reminderViewModelFactory),
+                                history = viewModel(factory = reminderViewModelFactory),
+                                checkSetup = checkSetup,
+                                onSetupChecked = { entry.savedStateHandle[CHECK_REMINDER_SETUP] = false },
+                                onAdd = navigateOnce { navController.navigate(MedicineFormRoute(MedicineFormViewModel.NEW)) },
+                                onOpen = navigateOnceWith { id: Long -> navController.navigate(MedicineFormRoute(id)) },
+                            )
+                        }
+                    }
+                    composable<MedicineFormRoute> { entry ->
+                        MedicineFormScreen(
+                            viewModel = viewModel(factory = reminderViewModelFactory),
+                            onDone = { result -> navController.closeMedicineForm(entry, result) },
+                        )
                     }
                 }
                 navigation<RecordsTab>(startDestination = RecordsRoute) {
@@ -288,11 +289,11 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
     }
 }
 
-/** Find a doctor and Medicine reminders are pushed on Home; Health records is a tab of its own. */
+/** Find a doctor opens the booking flow over Home; Medicine reminders and Health records are tabs. */
 private fun NavHostController.openShortcut(shortcut: HomeShortcut, shell: ShellNavigator) {
     when (shortcut) {
         HomeShortcut.FIND_DOCTOR -> navigate(FindDoctorRoute)
-        HomeShortcut.MEDICINE_REMINDERS -> navigate(MedicinesRoute)
+        HomeShortcut.MEDICINE_REMINDERS -> shell.selectTab(ShellTab.MEDICINES)
         HomeShortcut.HEALTH_RECORDS -> shell.selectTab(ShellTab.RECORDS)
     }
 }

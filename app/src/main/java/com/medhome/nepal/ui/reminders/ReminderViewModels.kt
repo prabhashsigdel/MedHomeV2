@@ -20,6 +20,7 @@ import com.medhome.nepal.domain.NepalTime
 import com.medhome.nepal.domain.TimeOfDay
 import com.medhome.nepal.domain.TodayDose
 import com.medhome.nepal.domain.Weekday
+import com.medhome.nepal.reminders.ReminderEngine
 import com.medhome.nepal.reminders.ReminderRepository
 import com.medhome.nepal.reminders.ReminderSetupItem
 import com.medhome.nepal.ui.common.STOP_TIMEOUT_MS
@@ -98,6 +99,38 @@ class TodayRemindersViewModel(private val reminders: ReminderRepository, clock: 
     }
 
     fun dismissError() = changeFailed.update { false }
+}
+
+// History: the Medicines tab's last 30 days
+
+data class DoseHistory(
+    /** Days with doses, latest first, each day's doses in time order with taken / missed. */
+    val days: List<Pair<CalendarDate, List<TodayDose>>> = emptyList(),
+    val loading: Boolean = true,
+)
+
+/**
+ * The [HISTORY_DAYS] days before today (today is the Today view's), following the date at
+ * midnight. Records older than that are pruned, so the history never claims a dose was missed
+ * just because its record was deleted.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class DoseHistoryViewModel(reminders: ReminderRepository, private val clock: () -> Long) : ViewModel() {
+    val state: StateFlow<DoseHistory> = ticker(clock)
+        .map { NepalTime.dateOf(it) }
+        .distinctUntilChanged()
+        .flatMapLatest { today ->
+            val from = today.plusDays(-HISTORY_DAYS)
+            combine(reminders.medicines, reminders.recordsFrom(from)) { medicines, records ->
+                DoseHistory(DoseSchedule.history(medicines, records, from, today.plusDays(-1), clock()), loading = false)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), DoseHistory())
+
+    companion object {
+        /** As long as records are kept. */
+        const val HISTORY_DAYS = ReminderEngine.KEEP_RECORD_DAYS
+    }
 }
 
 // Medicines list
@@ -285,6 +318,10 @@ object ReminderViewModels {
             TodayRemindersViewModel(deps.reminders, deps.clock)
         }
         initializer { MedicinesViewModel(dependencies(this).reminders) }
+        initializer {
+            val deps = dependencies(this)
+            DoseHistoryViewModel(deps.reminders, deps.clock)
+        }
         initializer {
             val deps = dependencies(this)
             val id = createSavedStateHandle().get<Long>(ARG_MEDICINE_ID) ?: MedicineFormViewModel.NEW

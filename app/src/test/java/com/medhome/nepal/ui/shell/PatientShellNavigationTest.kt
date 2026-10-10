@@ -1,5 +1,11 @@
 package com.medhome.nepal.ui.shell
 
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.filterToOne
+import com.medhome.nepal.ui.reminders.DOSE_HISTORY_ROW_TAG
+import com.medhome.nepal.ui.reminders.HISTORY_DAY_TAG
 import org.junit.Assert.assertTrue
 import androidx.compose.ui.test.isHeading
 import com.medhome.nepal.ui.reminders.STILL_LATE_TOGGLE_TAG
@@ -200,11 +206,11 @@ class PatientShellNavigationTest {
     }
 
     @Test
-    fun `the bar has Home, Bookings and Records and no Profile tab`() {
-        compose.onAllNodes(isTab).assertCountEquals(3)
-        compose.onNode(isTab and hasText(text(R.string.nav_home))).assertExists()
-        compose.onNode(isTab and hasText(text(R.string.nav_bookings))).assertExists()
-        compose.onNode(isTab and hasText(text(R.string.nav_records))).assertExists()
+    fun `the bar has Home, Bookings, Medicines and Records in that order, and no Profile tab`() {
+        compose.onAllNodes(isTab).assertCountEquals(4)
+        val labels = listOf(R.string.nav_home, R.string.nav_bookings, R.string.nav_medicines, R.string.nav_records).map { text(it) }
+        val shown = compose.onAllNodes(isTab).fetchSemanticsNodes().map { it.config[SemanticsProperties.Text].joinToString() }
+        assertEquals(labels, shown)
         compose.onAllNodesWithText(text(R.string.profile_title)).assertCountEquals(0)
     }
 
@@ -265,20 +271,53 @@ class PatientShellNavigationTest {
     // Reminders
 
     @Test
-    fun `the bell opens today's reminders without the bar and Back returns Home`() {
+    fun `the bell opens the Medicines tab on Today, and Back returns Home`() {
         compose.onNodeWithTag(HOME_BELL_TAG).performClick()
         settle()
-        compose.onNodeWithText(text(R.string.today_reminders_title)).assertIsDisplayed()
-        compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).assertDoesNotExist()
+        assertOnMedicinesTab()
+        compose.onNodeWithText(text(R.string.medicines_today)).assertIsSelected()
 
         pressBack()
         assertOnHome()
     }
 
     @Test
+    fun `the Medicine reminders shortcut opens the Medicines tab`() {
+        compose.onNodeWithText(text(R.string.shortcut_medicine_reminders)).clickRow()
+        settle()
+        assertOnMedicinesTab()
+    }
+
+    @Test
+    fun `Today marks a dose taken with a tap, and History lists past days`() {
+        val today = NepalTime.dateOf(System.currentTimeMillis())
+        reminders.medicineState.value = listOf(medicine(id = 1, times = listOf(TimeOfDay(23 * 60 + 59)), startDate = today.plusDays(-3)))
+        compose.onNode(isTab and hasText(text(R.string.nav_medicines))).performClick()
+        settle()
+        compose.onNodeWithTag(DOSE_ROW_TAG).performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        assertEquals(listOf("taken:true"), reminders.calls)
+
+        compose.onNodeWithText(text(R.string.medicines_history)).performClick()
+        settle()
+        compose.onAllNodesWithTag(HISTORY_DAY_TAG).assertCountEquals(3)
+        compose.onAllNodesWithTag(DOSE_HISTORY_ROW_TAG).assertCountEquals(3)
+        compose.onAllNodesWithText(text(R.string.dose_missed), useUnmergedTree = true).assertCountEquals(3)
+    }
+
+    private fun assertOnMedicinesTab() {
+        compose.onNode(isTab and hasText(text(R.string.nav_medicines))).assertIsSelected()
+        compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).assertIsDisplayed()
+    }
+
+    @Test
     fun `saving a medicine closes the form back to the list, with no guide or dialog when nothing is missing`() {
         reminders.medicineState.value = listOf(medicine(id = 1, name = "Paracetamol", startDate = NepalTime.dateOf(System.currentTimeMillis())))
         compose.onNodeWithText(text(R.string.shortcut_medicine_reminders)).clickRow()
+        settle()
+        compose.onAllNodesWithText(text(R.string.nav_medicines))
+            .filterToOne(hasClickAction() and !hasAnyAncestor(hasTestTag(FLOATING_NAV_BAR_TAG)))
+            .performClick()
         settle()
         compose.onNodeWithTag(MEDICINE_CARD_TAG).performSemanticsAction(SemanticsActions.OnClick)
         settle()

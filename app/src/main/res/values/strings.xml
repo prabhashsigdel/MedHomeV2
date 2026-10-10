@@ -19,6 +19,11 @@
     <string name="nav_home">Home</string>
     <string name="nav_bookings">Bookings</string>
     <string name="nav_records">Records</string>
+    <string name="nav_medicines">Medicines</string>
+    <string name="medicines_today">Today</string>
+    <string name="medicines_history">History</string>
+    <string name="medicines_history_empty">No doses in the last 30 days</string>
+    <string name="medicines_history_empty_body">Doses from the past 30 days, taken or missed, will show up here.</string>
 
     <!-- Fields -->
     <string name="field_name">Full name</string>
@@ -517,18 +522,10 @@
     <string name="medicine_period_from">From %1$s</string>
     <string name="medicine_period_range">%1$s – %2$s</string>
 
-    <string name="today_reminders_title">Today\'s reminders</string>
-    <string name="today_missed">Missed</string>
-    <string name="today_upcoming">Still to come</string>
-    <string name="today_appointments">Appointments today</string>
-    <string name="today_appointment_no_doctor">Your appointment</string>
-    <string name="today_nothing_left">All done for today</string>
-    <string name="today_nothing_left_body">No doses or appointments left today.</string>
     <plurals name="today_taken_count">
         <item quantity="one">%1$s dose taken today</item>
         <item quantity="other">%1$s doses taken today</item>
     </plurals>
-    <string name="today_manage_medicines">Manage medicines</string>
 
     <string name="reminders_notifications_off">Notifications are off for MedHome, so reminders can\'t show.</string>
     <string name="reminders_exact_off">Reminders may come a few minutes late. Allow \"Alarms &amp; reminders\" so they ring on time.</string>

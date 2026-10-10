@@ -84,6 +84,41 @@ fun DoseRow(dose: TodayDose, onToggle: (TodayDose) -> Unit) {
     }
 }
 
+/** Test tag on every history row. */
+const val DOSE_HISTORY_ROW_TAG = "dose_history_row"
+
+/** A past dose in the history: time, medicine and dose, and whether it was taken. Read-only. */
+@Composable
+fun DoseHistoryRow(dose: TodayDose) {
+    val colors = GlassTheme.colors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = GlassDimens.MinTouchTarget)
+            .semantics(mergeDescendants = true) {}
+            .testTag(DOSE_HISTORY_ROW_TAG)
+            .padding(horizontal = GlassDimens.CardPadding, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = LocaleFormat.timeOfDay(dose.dose.time, currentLocale()),
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.textPrimary,
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = stringResource(R.string.medicine_name_dose, dose.medicine.name, dose.medicine.dose),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.textPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(8.dp))
+        StatusChip(text = dose.state.label, emphasized = dose.state == DoseState.TAKEN)
+    }
+}
+
 /**
  * Home's "Today's medicines": the dose that needs doing first (missed, then upcoming, then the
  * last taken) and how many more there are today; the bell opens them all. Kept to about the

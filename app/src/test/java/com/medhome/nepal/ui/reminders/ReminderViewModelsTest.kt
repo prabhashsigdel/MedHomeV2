@@ -1,5 +1,7 @@
 package com.medhome.nepal.ui.reminders
 
+import com.medhome.nepal.domain.Dose
+import com.medhome.nepal.domain.DoseRecord
 import com.medhome.nepal.reminders.ReminderSetupItem
 import com.medhome.nepal.data.ReminderPrefs
 import com.medhome.nepal.domain.AppointmentReminder
@@ -214,5 +216,29 @@ class ReminderViewModelsTest {
         assertNull(vm.uiState.value.result)
         vm.save()
         assertTrue(vm.uiState.value.result is FormResult.Saved)
+    }
+
+    // History
+
+    @Test
+    fun `the history shows the 30 days before today, taken and missed`() = runTest(dispatcher) {
+        val today = NepalTime.dateOf(now)
+        val yesterday = today.plusDays(-1)
+        repo.medicineState.value = listOf(medicine(times = listOf(TimeOfDay(8 * 60)), startDate = today.plusDays(-40)))
+        repo.records.value = listOf(DoseRecord(Dose(1, yesterday, TimeOfDay(8 * 60)), takenAtMillis = 1L, snoozedUntilMillis = null))
+        val history = collecting(DoseHistoryViewModel(repo) { now }.state)
+        assertFalse(history.value.loading)
+        assertEquals(DoseHistoryViewModel.HISTORY_DAYS, history.value.days.size)
+        assertEquals(yesterday, history.value.days.first().first)
+        assertEquals(today.plusDays(-DoseHistoryViewModel.HISTORY_DAYS), history.value.days.last().first)
+        assertEquals(DoseState.TAKEN, history.value.days.first().second.single().state)
+        assertEquals(DoseState.MISSED, history.value.days[1].second.single().state)
+    }
+
+    @Test
+    fun `the history is empty without medicines`() = runTest(dispatcher) {
+        val history = collecting(DoseHistoryViewModel(repo) { now }.state)
+        assertTrue(history.value.days.isEmpty())
+        assertFalse(history.value.loading)
     }
 }

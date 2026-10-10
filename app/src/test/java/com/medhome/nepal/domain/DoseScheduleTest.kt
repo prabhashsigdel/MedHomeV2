@@ -178,4 +178,30 @@ class DoseScheduleTest {
             assertEquals(times.distinct().sorted(), times)
         }
     }
+
+    // History
+
+    @Test
+    fun `history groups past days latest first, each in time order, taken or missed`() {
+        val med = medicine(times = listOf(eight, twenty), startDate = thursday.plusDays(-2))
+        val tuesday = thursday.plusDays(-2)
+        val wednesday = thursday.plusDays(-1)
+        val records = listOf(
+            DoseRecord(Dose(1, wednesday, eight), takenAtMillis = 1L, snoozedUntilMillis = null),
+            DoseRecord(Dose(1, tuesday, twenty), takenAtMillis = 1L, snoozedUntilMillis = null),
+        )
+        val history = DoseSchedule.history(listOf(med), records, thursday.plusDays(-30), wednesday, at(thursday, eight))
+        assertEquals(listOf(wednesday, tuesday), history.map { it.first })
+        assertEquals(listOf(DoseState.TAKEN, DoseState.MISSED), history[0].second.map { it.state })
+        assertEquals(listOf(DoseState.MISSED, DoseState.TAKEN), history[1].second.map { it.state })
+        assertEquals(listOf(eight, twenty), history[0].second.map { it.dose.time })
+    }
+
+    @Test
+    fun `history leaves out days with no doses and an empty range`() {
+        val mondays = medicine(times = listOf(eight), days = MedicineDays.Chosen(setOf(Weekday.MONDAY)), startDate = CalendarDate(2026, 9, 1))
+        val history = DoseSchedule.history(listOf(mondays), emptyList(), thursday.plusDays(-14), thursday.plusDays(-1), at(thursday, eight))
+        assertEquals(listOf(CalendarDate(2026, 10, 5), CalendarDate(2026, 9, 28)), history.map { it.first })
+        assertEquals(emptyList<Any>(), DoseSchedule.history(listOf(mondays), emptyList(), thursday, thursday.plusDays(-1), at(thursday, eight)))
+    }
 }

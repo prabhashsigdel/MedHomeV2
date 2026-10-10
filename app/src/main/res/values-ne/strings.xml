@@ -22,6 +22,11 @@
     <string name="nav_home">होम</string>
     <string name="nav_bookings">बुकिङ</string> <!-- review -->
     <string name="nav_records">रेकर्ड</string>
+    <string name="nav_medicines">औषधि</string> <!-- review -->
+    <string name="medicines_today">आज</string> <!-- review -->
+    <string name="medicines_history">इतिहास</string> <!-- review -->
+    <string name="medicines_history_empty">पछिल्ला ३० दिनमा कुनै डोज छैन</string> <!-- review -->
+    <string name="medicines_history_empty_body">पछिल्ला ३० दिनका डोज, खाएका वा छुटेका, यहाँ देखिनेछन्।</string> <!-- review -->
 
     <!-- Fields -->
     <string name="field_name">पूरा नाम</string>
@@ -516,18 +521,10 @@
     <string name="medicine_period_from">%1$s देखि</string> <!-- review -->
     <string name="medicine_period_range">%1$s – %2$s</string>
 
-    <string name="today_reminders_title">आजका रिमाइन्डर</string> <!-- review -->
-    <string name="today_missed">छुटेका</string> <!-- review -->
-    <string name="today_upcoming">अझै बाँकी</string> <!-- review -->
-    <string name="today_appointments">आजका अपोइन्टमेन्ट</string> <!-- review -->
-    <string name="today_appointment_no_doctor">तपाईंको अपोइन्टमेन्ट</string> <!-- review -->
-    <string name="today_nothing_left">आजको सबै सकियो</string> <!-- review -->
-    <string name="today_nothing_left_body">आज कुनै खुराक वा अपोइन्टमेन्ट बाँकी छैन।</string> <!-- review -->
     <plurals name="today_taken_count">
         <item quantity="one">आज %1$s खुराक खाइयो</item> <!-- review -->
         <item quantity="other">आज %1$s खुराक खाइयो</item> <!-- review -->
     </plurals>
-    <string name="today_manage_medicines">औषधिहरू व्यवस्थापन</string> <!-- review -->
 
     <string name="reminders_notifications_off">MedHome का सूचनाहरू बन्द छन्, त्यसैले रिमाइन्डर देखिन सक्दैनन्।</string> <!-- review -->
     <string name="reminders_exact_off">रिमाइन्डर केही मिनेट ढिलो आउन सक्छन्। समयमै बज्न \"अलार्म र रिमाइन्डर\" अनुमति दिनुहोस्।</string> <!-- review -->

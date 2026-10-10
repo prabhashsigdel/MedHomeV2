@@ -1,5 +1,6 @@
 package com.medhome.nepal.reminders
 
+import com.medhome.nepal.data.DoseRecordEntity
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -603,5 +604,16 @@ class ReminderEngineTest {
         engine.claimSetupItems(setOf(ReminderSetupItem.BACKGROUND))
         settings.clear()
         assertEquals(setOf(ReminderSetupItem.BACKGROUND), engine.claimSetupItems(setOf(ReminderSetupItem.BACKGROUND)))
+    }
+
+    @Test
+    fun `dose records are kept 30 days, then pruned when reminders are rescheduled`() = runTest {
+        val id = addTwiceDaily()
+        for (daysAgo in listOf(1, 30, 31, 45)) {
+            dao.upsertRecord(DoseRecordEntity(id, thursday.plusDays(-daysAgo).epochDay, 8 * 60, takenAtMillis = 1L, snoozedUntilMillis = null))
+        }
+        engine.rescheduleAll()
+        val kept = engine.recordsFrom(thursday.plusDays(-60)).first().map { it.dose.date }.sorted()
+        assertEquals(listOf(thursday.plusDays(-30), thursday.plusDays(-1)), kept)
     }
 }

@@ -93,6 +93,10 @@ interface ReminderDao {
     @Query("SELECT * FROM dose_records WHERE epochDay = :epochDay")
     fun observeRecordsOn(epochDay: Long): Flow<List<DoseRecordEntity>>
 
+    /** Every record from [epochDay] on (the history's 30 days, today included). */
+    @Query("SELECT * FROM dose_records WHERE epochDay >= :epochDay")
+    fun observeRecordsFrom(epochDay: Long): Flow<List<DoseRecordEntity>>
+
     @Query("SELECT * FROM dose_records WHERE medicineId = :medicineId AND epochDay = :epochDay AND minuteOfDay = :minuteOfDay")
     suspend fun record(medicineId: Long, epochDay: Long, minuteOfDay: Int): DoseRecordEntity?
 
