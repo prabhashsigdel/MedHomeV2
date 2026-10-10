@@ -71,6 +71,7 @@ import com.medhome.nepal.ui.motion.motionSpec
 import com.medhome.nepal.ui.navigation.ScreenTransitions
 import com.medhome.nepal.ui.navigation.navigateOnce
 import com.medhome.nepal.ui.navigation.navigateOnceWith
+import com.medhome.nepal.ui.navigation.navigateIfTop
 import com.medhome.nepal.ui.navigation.popIfTop
 import com.medhome.nepal.ui.profile.ProfileScreen
 import com.medhome.nepal.ui.profile.ProfileViewModel
@@ -389,8 +390,11 @@ private fun NavHostController.openShortcut(shortcut: HomeShortcut, shell: ShellN
  */
 private fun NavHostController.closeMedicineForm(entry: NavBackStackEntry, result: FormResult) {
     if (currentBackStackEntry?.id != entry.id) return
-    popBackStack()
-    if (result is FormResult.Saved && result.showBatteryGuide) navigate(SettingsRoute(SettingsPage.BATTERY_GUIDE))
+    val medicines = previousBackStackEntry
+    popIfTop(entry)
+    if (result is FormResult.Saved && result.showBatteryGuide && medicines != null) {
+        navigateIfTop(medicines, SettingsRoute(SettingsPage.BATTERY_GUIDE))
+    }
 }
 
 /**

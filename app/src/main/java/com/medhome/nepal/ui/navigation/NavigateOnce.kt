@@ -45,3 +45,12 @@ fun <T> navigateOnceWith(block: (T) -> Unit): (T) -> Unit {
 fun NavHostController.popIfTop(entry: NavBackStackEntry) {
     if (currentBackStackEntry?.id == entry.id) popBackStack()
 }
+
+/**
+ * Navigates to [route] only if [entry] is still the top of the back stack: for navigation that
+ * follows from code rather than a tap (a save finishing), so it happens once and never from a
+ * screen that has already been left.
+ */
+fun <T : Any> NavHostController.navigateIfTop(entry: NavBackStackEntry, route: T) {
+    if (currentBackStackEntry?.id == entry.id) navigate(route)
+}
