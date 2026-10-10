@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.AdminError
+import com.medhome.nepal.domain.ClinicCancel
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
 import com.medhome.nepal.ui.common.LocaleFormat
@@ -60,7 +61,7 @@ const val ADMIN_APPOINTMENT_TAG = "admin_appointment"
  * One doctor for the admin: details, shown to or hidden from patients (with a confirm dialog
  * that counts their upcoming bookings and, when hiding, can cancel them too), Edit details, and
  * the upcoming bookings (date, time and the patient's first name), each of which can be
- * cancelled for the clinic.
+ * cancelled for the clinic; those the clinic cancelled stay listed, saying by whom.
  */
 @Composable
 fun AdminDoctorScreen(viewModel: AdminDoctorViewModel, onEdit: (String) -> Unit) {
@@ -211,7 +212,10 @@ private fun Appointments(state: AppointmentsUiState, onRetry: () -> Unit, onCanc
     }
 }
 
-/** Date, time and the patient's first name (nothing else about them), and Cancel. */
+/**
+ * Date, time and the patient's first name (nothing else about them), and Cancel; or, once the
+ * clinic cancelled it, who did ("you" when it was this admin).
+ */
 @Composable
 private fun AppointmentRow(appointment: DoctorAppointment, onCancel: () -> Unit) {
     val colors = GlassTheme.colors
@@ -234,26 +238,35 @@ private fun AppointmentRow(appointment: DoctorAppointment, onCancel: () -> Unit)
                 color = colors.textSecondary,
             )
             Text(
-                text = appointment.patientFirstName ?: stringResource(R.string.admin_patient_unknown),
+                text = patientLabel(appointment),
                 style = MaterialTheme.typography.titleMedium,
                 color = colors.textPrimary,
             )
         }
         Spacer(Modifier.width(12.dp))
-        val description = stringResource(
-            R.string.admin_cancel_booking_of,
-            dateTimeText(appointment.date, appointment.start),
-            appointment.patientFirstName ?: stringResource(R.string.admin_patient_unknown),
-        )
-        GlassButton(
-            text = R.string.admin_cancel_booking,
-            onClick = onCancel,
-            style = GlassButtonStyle.Secondary,
-            compact = true,
-            // Every row's button says "Cancel": TalkBack hears which booking.
-            modifier = Modifier.semantics { contentDescription = description },
-        )
+        when (appointment.clinicCancel) {
+            ClinicCancel.BY_YOU -> StatusChip(text = R.string.admin_cancelled_by_you, emphasized = false)
+            ClinicCancel.BY_CLINIC -> StatusChip(text = R.string.admin_cancelled_by_clinic, emphasized = false)
+            null -> CancelButton(appointment, onCancel)
+        }
     }
+}
+
+@Composable
+private fun CancelButton(appointment: DoctorAppointment, onCancel: () -> Unit) {
+    val description = stringResource(
+        R.string.admin_cancel_booking_of,
+        dateTimeText(appointment.date, appointment.start),
+        patientLabel(appointment),
+    )
+    GlassButton(
+        text = R.string.admin_cancel_booking,
+        onClick = onCancel,
+        style = GlassButtonStyle.Secondary,
+        compact = true,
+        // Every row's button says "Cancel": TalkBack hears which booking.
+        modifier = Modifier.semantics { contentDescription = description },
+    )
 }
 
 @Composable
@@ -384,7 +397,7 @@ private fun CancelBookingDialog(state: CancelBookingDialogState, onConfirm: () -
             text = stringResource(
                 R.string.admin_cancel_booking_body,
                 dateTimeText(appointment.date, appointment.start),
-                appointment.patientFirstName ?: stringResource(R.string.admin_patient_unknown),
+                patientLabel(appointment),
             ),
             style = MaterialTheme.typography.bodyMedium,
             color = GlassTheme.colors.textSecondary,
@@ -406,6 +419,13 @@ private fun CancelBookingDialog(state: CancelBookingDialogState, onConfirm: () -
             )
         }
     }
+}
+
+/** The first name the booking was made under, "Deleted patient" once the account is gone, or "Patient". */
+@Composable
+private fun patientLabel(appointment: DoctorAppointment): String = when {
+    appointment.patientDeleted -> stringResource(R.string.admin_patient_deleted)
+    else -> appointment.patientFirstName ?: stringResource(R.string.admin_patient_unknown)
 }
 
 @Composable

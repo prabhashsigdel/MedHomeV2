@@ -21,6 +21,8 @@ import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
@@ -56,7 +58,10 @@ interface AdminRepository {
     /** One doctor, active or not. Live. */
     fun doctor(id: String): Flow<ManagedDoctorLookup>
 
-    /** [doctorId]'s booked appointments from now on, soonest first. Live. */
+    /**
+     * [doctorId]'s appointments from now on that are booked or were cancelled by the clinic,
+     * soonest first. Live.
+     */
     fun upcomingAppointments(doctorId: String): Flow<List<DoctorAppointment>>
 
     /** How many booked appointments [doctorId] has from now on. Needs the server. */
@@ -79,8 +84,8 @@ interface AdminRepository {
     suspend fun upcomingBookingPage(doctorId: String, afterMillis: Long?): UpcomingPage
 
     /**
-     * Cancels one booking for the clinic (`cancelledBy` "clinic"), freeing its slot lock and the
-     * patient's quota place in the same write. Returns false when it was already cancelled
+     * Cancels one booking for the clinic (`cancelledBy` "clinic", `cancelledByUid` the signed-in
+     * admin), freeing its slot lock and the patient's quota place in the same write. Returns false when it was already cancelled
      * (nothing to do). Started: BOOKING_STARTED. Needs the server.
      */
     suspend fun cancelBooking(bookingId: String): Boolean
@@ -129,9 +134,18 @@ class FirestoreAdminRepository(
         // Never a path: an invalid ID fails like a missing doctor's list would.
         if (!Doctor.isValidId(doctorId)) return flow { throw AuthException(AuthError.UNKNOWN) }
         // The first name comes from the booking's own patientName: no patient profile is read
-        // (or cached on this phone).
-        return listen({ upcomingQuery(doctorId).limit(MAX_APPOINTMENTS_READ) }) { snapshot ->
-            snapshot.documents.mapNotNull { BookingMapper.parseForDoctor(it.id, it.data, doctorId) }
+        // (or cached on this phone). Booked and cancelled are two queries on the same index, so
+        // cancelled ones never crowd booked ones out of the limit.
+        fun appointments(status: BookingStatus, adminUid: String?) =
+            listen({ upcomingQuery(doctorId, status = status).limit(MAX_APPOINTMENTS_READ) }) { snapshot ->
+                snapshot.documents.mapNotNull { BookingMapper.parseForDoctor(it.id, it.data, doctorId, adminUid) }
+            }
+        return flow {
+            // Who "you" is, read when collected (like the queries), never stored in the list.
+            val adminUid = mapErrors { currentUid() }
+            val booked = appointments(BookingStatus.BOOKED, adminUid)
+            val cancelled = appointments(BookingStatus.CANCELLED, adminUid)
+            emitAll(combine(booked, cancelled) { b, c -> (b + c).sortedBy(DoctorAppointment::startAtMillis) })
         }
     }
 
@@ -148,7 +162,7 @@ class FirestoreAdminRepository(
     }
 
     override suspend fun cancelBooking(bookingId: String): Boolean = write {
-        signedInUid()
+        val uid = signedInUid()
         if (!BookingMapper.isValidId(bookingId)) throw AdminException(AdminError.NOT_FOUND)
         val db = firestore()
         val bookingRef = db.collection(COLLECTION_BOOKINGS).document(bookingId)
@@ -170,6 +184,8 @@ class FirestoreAdminRepository(
                     BookingMapper.FIELD_STATUS to BookingStatus.CANCELLED.key,
                     BookingMapper.FIELD_CANCELLED_AT to FieldValue.serverTimestamp(),
                     BookingMapper.FIELD_CANCELLED_BY to CancelledBy.CLINIC.key,
+                    // Which admin: the rules require their own uid.
+                    BookingMapper.FIELD_CANCELLED_BY_UID to uid,
                 ),
             )
             if (lockExists) transaction.delete(lockRef)
@@ -230,13 +246,13 @@ class FirestoreAdminRepository(
     }
 
     /**
-     * Booked appointments of [doctorId] starting after now (or after [afterMillis], if later),
-     * soonest first (needs the composite index).
+     * Appointments of [doctorId] in [status] (booked unless said) starting after now (or after
+     * [afterMillis], if later), soonest first (needs the composite index).
      */
-    private fun upcomingQuery(doctorId: String, afterMillis: Long? = null): Query =
+    private fun upcomingQuery(doctorId: String, afterMillis: Long? = null, status: BookingStatus = BookingStatus.BOOKED): Query =
         firestore().collection(COLLECTION_BOOKINGS)
             .whereEqualTo(BookingMapper.FIELD_DOCTOR_ID, doctorId)
-            .whereEqualTo(BookingMapper.FIELD_STATUS, BookingStatus.BOOKED.key)
+            .whereEqualTo(BookingMapper.FIELD_STATUS, status.key)
             .whereGreaterThan(BookingMapper.FIELD_START_AT, Timestamp(Date(maxOf(clock(), afterMillis ?: Long.MIN_VALUE))))
             .orderBy(BookingMapper.FIELD_START_AT, Query.Direction.ASCENDING)
 

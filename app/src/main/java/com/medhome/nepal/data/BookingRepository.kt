@@ -2,6 +2,8 @@ package com.medhome.nepal.data
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -48,6 +50,13 @@ interface BookingRepository {
 
     /** Cancels every upcoming booking of the signed-in patient (before deleting the account). */
     suspend fun cancelAllUpcoming()
+
+    /**
+     * Blanks the patient's name ([BookingMapper.DELETED_PATIENT_NAME]) on every booking of the
+     * signed-in patient, past, upcoming or cancelled (deleting the account). Throws
+     * [BookingException] unless every one is done. Needs the server.
+     */
+    suspend fun erasePatientName()
 }
 
 /**
@@ -243,6 +252,44 @@ class FirestoreBookingRepository(
         }
     }
 
+    override suspend fun erasePatientName() {
+        try {
+            val uid = currentUid() ?: throw BookingException(BookingError.UNKNOWN)
+            val db = firestore()
+            // From the server, every booking (not only those the mapper accepts: a malformed one
+            // still carries the name), page by page in document ID order (no extra index).
+            var after: DocumentSnapshot? = null
+            repeat(MAX_ERASE_PAGES) {
+                val first = db.collection(COLLECTION_BOOKINGS)
+                    .whereEqualTo(BookingMapper.FIELD_PATIENT_UID, uid)
+                    .orderBy(FieldPath.documentId())
+                    .limit(ERASE_PAGE_SIZE)
+                val page = after?.let { first.startAfter(it) } ?: first
+                val documents = page.get(Source.SERVER).await().documents
+                // Bookings from before the name was stored have none to erase.
+                val named = documents.filter { it.contains(BookingMapper.FIELD_PATIENT_NAME) && !isErased(it) }
+                if (named.isNotEmpty()) {
+                    // A transaction rather than a batch: offline it fails at once instead of queueing.
+                    db.runTransaction { transaction ->
+                        named.forEach { transaction.update(it.reference, BookingMapper.FIELD_PATIENT_NAME, BookingMapper.DELETED_PATIENT_NAME) }
+                        null
+                    }.await()
+                }
+                if (documents.size < ERASE_PAGE_SIZE) return
+                after = documents.last()
+            }
+            // Still more after the last page: never report done when names may be left.
+            throw BookingException(BookingError.UNKNOWN)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw e.bookingException() ?: BookingException(firestoreError(e), e)
+        }
+    }
+
+    private fun isErased(booking: DocumentSnapshot): Boolean =
+        booking.get(BookingMapper.FIELD_PATIENT_NAME) == BookingMapper.DELETED_PATIENT_NAME
+
     /**
      * Why a booking transaction failed. A refused write usually means someone took the slot
      * between our read and the commit (their lock makes ours an update, which is denied), so
@@ -311,5 +358,11 @@ class FirestoreBookingRepository(
         const val FIELD_USER_NAME = "name"
         const val MAX_BOOKINGS_READ = 100L
         const val MAX_CAUSE_DEPTH = 5
+
+        /** Bookings renamed per transaction (Firestore allows 500 writes in one). */
+        const val ERASE_PAGE_SIZE = 200L
+
+        /** 10,000 bookings: far more than one patient has; a guard, never a real limit. */
+        const val MAX_ERASE_PAGES = 50
     }
 }

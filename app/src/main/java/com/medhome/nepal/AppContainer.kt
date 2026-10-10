@@ -61,15 +61,19 @@ class AppContainer(context: Context) {
         scope = appScope,
         listeners = listeners,
         clearReminders = { reminderEngine.wipe() },
-        cancelUpcomingBookings = {
-            try {
-                bookingRepository.cancelAllUpcoming()
-            } catch (e: BookingException) {
-                val error = if (e.error == BookingError.NETWORK) AuthError.NETWORK else AuthError.UNKNOWN
-                throw AuthException(error, e)
-            }
-        },
+        cancelUpcomingBookings = { asAuthFailure { bookingRepository.cancelAllUpcoming() } },
+        eraseBookingNames = { asAuthFailure { bookingRepository.erasePatientName() } },
     )
+
+    /** Account deletion reports [AuthException]s: a booking step's failure becomes one. */
+    private suspend fun asAuthFailure(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: BookingException) {
+            val error = if (e.error == BookingError.NETWORK) AuthError.NETWORK else AuthError.UNKNOWN
+            throw AuthException(error, e)
+        }
+    }
 
     val passwordSaveOffers = PasswordSaveOffers(SharedPrefsSavePromptHistory(context))
 

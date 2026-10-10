@@ -4,12 +4,15 @@ import com.google.firebase.Timestamp
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.CalendarDate
 import com.medhome.nepal.domain.CancelledBy
+import com.medhome.nepal.domain.ClinicCancel
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.NepalTime
 import com.medhome.nepal.domain.Specialty
 import com.medhome.nepal.domain.TimeOfDay
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BookingMapperTest {
@@ -96,25 +99,74 @@ class BookingMapperTest {
         assertNull(parse(valid() + ("cancelledBy" to "clinic"))?.cancelledBy)
     }
 
+    private fun forDoctor(
+        data: Map<String, Any?>?,
+        id: String = "abc123",
+        doctorId: String = "doc-001",
+        adminUid: String? = "admin-1",
+    ) = BookingMapper.parseForDoctor(id, data, doctorId, adminUid)
+
     @Test
     fun `an admin reads a doctor's booked bookings with the first name they were booked under`() {
         val data = valid() + ("patientName" to "  Sita   Kumari Rai ")
-        assertEquals(DoctorAppointment("abc123", startAt, "Sita"), BookingMapper.parseForDoctor("abc123", data, "doc-001"))
+        assertEquals(DoctorAppointment("abc123", startAt, "Sita"), forDoctor(data))
     }
 
     @Test
     fun `an old booking without a name, or a malformed one, shows no name`() {
-        assertEquals(DoctorAppointment("abc123", startAt, null), BookingMapper.parseForDoctor("abc123", valid(), "doc-001"))
-        assertNull(BookingMapper.parseForDoctor("abc123", valid() + ("patientName" to 42L), "doc-001")?.patientFirstName)
-        assertNull(BookingMapper.parseForDoctor("abc123", valid() + ("patientName" to "   "), "doc-001")?.patientFirstName)
+        assertEquals(DoctorAppointment("abc123", startAt, null), forDoctor(valid()))
+        assertNull(forDoctor(valid() + ("patientName" to 42L))?.patientFirstName)
+        assertNull(forDoctor(valid() + ("patientName" to "   "))?.patientFirstName)
+        // Malformed is not deleted: only the exact placeholder is.
+        assertFalse(requireNotNull(forDoctor(valid() + ("patientName" to "   "))).patientDeleted)
+        assertFalse(requireNotNull(forDoctor(valid())).patientDeleted)
     }
 
     @Test
-    fun `an admin's list skips cancelled, other doctors' and malformed bookings`() {
-        assertNull(BookingMapper.parseForDoctor("abc123", valid() + ("status" to "cancelled"), "doc-001"))
-        assertNull(BookingMapper.parseForDoctor("abc123", valid(), "doc-002"))
-        assertNull(BookingMapper.parseForDoctor("abc123", valid() - "startAt", "doc-001"))
-        assertNull(BookingMapper.parseForDoctor("a/b", valid(), "doc-001"))
+    fun `a deleted patient's booking shows as deleted, with no name`() {
+        val deleted = requireNotNull(forDoctor(valid() + ("patientName" to BookingMapper.DELETED_PATIENT_NAME)))
+        assertTrue(deleted.patientDeleted)
+        assertNull(deleted.patientFirstName)
+        // Cancelled by the clinic too.
+        val cancelled = valid() + mapOf("status" to "cancelled", "cancelledBy" to "clinic", "patientName" to "")
+        assertTrue(requireNotNull(forDoctor(cancelled)).patientDeleted)
+    }
+
+    @Test
+    fun `a clinic cancel says whether it was this admin, another or an unrecorded one`() {
+        val cancelled = valid() + mapOf("status" to "cancelled", "cancelledBy" to "clinic", "patientName" to "Sita Rai")
+        assertEquals(ClinicCancel.BY_YOU, forDoctor(cancelled + ("cancelledByUid" to "admin-1"))?.clinicCancel)
+        assertEquals(ClinicCancel.BY_CLINIC, forDoctor(cancelled + ("cancelledByUid" to "admin-2"))?.clinicCancel)
+        // Cancelled before the admin was recorded, or not a string.
+        assertEquals(ClinicCancel.BY_CLINIC, forDoctor(cancelled)?.clinicCancel)
+        assertEquals(ClinicCancel.BY_CLINIC, forDoctor(cancelled + ("cancelledByUid" to 7L))?.clinicCancel)
+        // No signed-in admin to compare with: never "you".
+        assertEquals(ClinicCancel.BY_CLINIC, forDoctor(cancelled + ("cancelledByUid" to "admin-1"), adminUid = null)?.clinicCancel)
+        assertEquals("Sita", forDoctor(cancelled)?.patientFirstName)
+        assertNull(forDoctor(valid())?.clinicCancel)
+        assertTrue(requireNotNull(forDoctor(valid())).isBooked)
+    }
+
+    @Test
+    fun `an admin's list skips patient cancels, other doctors' and malformed bookings`() {
+        val cancelled = valid() + ("status" to "cancelled")
+        // Patient cancels, also from before cancelledBy was stored, and unknown cancellers.
+        assertNull(forDoctor(cancelled))
+        assertNull(forDoctor(cancelled + ("cancelledBy" to "patient")))
+        assertNull(forDoctor(cancelled + ("cancelledBy" to "robot")))
+        assertNull(forDoctor(valid() + ("status" to "done")))
+        assertNull(forDoctor(valid(), doctorId = "doc-002"))
+        assertNull(forDoctor(valid() - "startAt"))
+        assertNull(forDoctor(valid(), id = "a/b"))
+        assertNull(forDoctor(null))
+    }
+
+    @Test
+    fun `the patient's own view never carries the admin's uid`() {
+        val cancelled = valid() + mapOf("status" to "cancelled", "cancelledBy" to "clinic", "cancelledByUid" to "admin-1")
+        val booking = requireNotNull(parse(cancelled))
+        assertEquals(CancelledBy.CLINIC, booking.cancelledBy)
+        assertFalse(booking.toString().contains("admin-1"))
     }
 
     @Test

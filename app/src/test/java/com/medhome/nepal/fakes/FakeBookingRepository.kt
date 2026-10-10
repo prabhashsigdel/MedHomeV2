@@ -60,6 +60,8 @@ class FakeBookingRepository(
     var bookFailure: BookingError? = null
     var cancelFailure: BookingError? = null
     var listFailure: AuthError? = null
+    var eraseFailure: BookingError? = null
+    var namesErased = 0
     var gate: CompletableDeferred<Unit>? = null
     val booked = mutableListOf<Slot>()
     val cancelled = mutableListOf<String>()
@@ -107,6 +109,12 @@ class FakeBookingRepository(
 
     override suspend fun cancelAllUpcoming() {
         bookings.value.orEmpty().filter { it.isUpcoming(clock()) }.forEach { cancel(it) }
+    }
+
+    /** Fails with [eraseFailure] when set; otherwise counts the call in [namesErased]. */
+    override suspend fun erasePatientName() {
+        eraseFailure?.let { throw BookingException(it) }
+        namesErased++
     }
 }
 

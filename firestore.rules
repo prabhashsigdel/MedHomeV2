@@ -196,9 +196,10 @@ service cloud.firestore {
     // are Nepal time, a fixed UTC+05:45 (no daylight saving since 1986), as in the app.
     //
     // Cancelling is the same three documents: the booking turns cancelled (cancelledBy says by
-    // whom), and its lock and quota place are deleted in the same write. The patient cancels
-    // their own; an admin may cancel anyone's for the clinic, while it is upcoming, and nothing
-    // else.
+    // whom, and for the clinic cancelledByUid says which admin), and its lock and quota place are
+    // deleted in the same write. The patient cancels their own; an admin may cancel anyone's for
+    // the clinic, while it is upcoming, and nothing else. A patient deleting their account blanks
+    // the name on their bookings.
 
     function emailVerified() {
       return request.auth.token.email_verified == true;
@@ -341,23 +342,45 @@ service cloud.firestore {
         && getAfter(lockPath(request.resource.data.slotId)).data.bookingId == bookingId
         && getAfter(quotaPath(request.auth.uid, request.resource.data.quotaPlace)).data.bookingId == bookingId;
 
-      // Cancelling, before it starts: only status, cancelledAt and cancelledBy change, and the slot
-      // lock goes in the same write so the slot frees up. The patient cancels their own
-      // ("patient"); an admin cancels for the clinic ("clinic") and must free the patient's quota
-      // place too. Nobody un-cancels.
+      // Cancelling, before it starts: only status, cancelledAt and cancelledBy change (and, for
+      // the clinic, cancelledByUid), and the slot lock goes in the same write so the slot frees
+      // up. The patient cancels their own ("patient"); an admin cancels for the clinic ("clinic"),
+      // names themselves in cancelledByUid and must free the patient's quota place too. Nobody
+      // un-cancels.
+      function isCancelling() {
+        return resource.data.status == 'booked'
+          && request.time < resource.data.startAt
+          && request.resource.data.status == 'cancelled'
+          && request.resource.data.cancelledAt == request.time
+          && !existsAfter(lockPath(resource.data.slotId));
+      }
+
+      function isPatientCancel() {
+        return resource.data.patientUid == request.auth.uid
+          && changedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy'])
+          && request.resource.data.cancelledBy == 'patient';
+      }
+
+      function isClinicCancel() {
+        return changedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancelledByUid'])
+          && request.resource.data.cancelledBy == 'clinic'
+          && request.resource.data.get('cancelledByUid', null) == request.auth.uid
+          && emailVerified()
+          && isAdmin()
+          && !holdsAfter(resource.data.patientUid, resource.data.quotaPlace, bookingId);
+      }
+
+      // Deleting an account: the patient blanks the name on their own bookings (past, upcoming
+      // or cancelled), and nothing else. Only to "" (BookingMapper.DELETED_PATIENT_NAME), which
+      // no profile name can be (hasValidName), so it never passes for a real name.
+      function isNameErasure() {
+        return resource.data.patientUid == request.auth.uid
+          && changedKeys().hasOnly(['patientName'])
+          && request.resource.data.patientName == '';
+      }
+
       allow update: if isSignedIn()
-        && resource.data.status == 'booked'
-        && request.time < resource.data.startAt
-        && changedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy'])
-        && request.resource.data.status == 'cancelled'
-        && request.resource.data.cancelledAt == request.time
-        && !existsAfter(lockPath(resource.data.slotId))
-        && ((resource.data.patientUid == request.auth.uid
-            && request.resource.data.cancelledBy == 'patient')
-          || (request.resource.data.cancelledBy == 'clinic'
-            && emailVerified()
-            && isAdmin()
-            && !holdsAfter(resource.data.patientUid, resource.data.quotaPlace, bookingId)));
+        && ((isCancelling() && (isPatientCancel() || isClinicCancel())) || isNameErasure());
 
       // History stays: no client deletes a booking.
       allow delete: if false;

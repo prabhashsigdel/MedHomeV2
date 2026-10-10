@@ -6,6 +6,7 @@ import com.medhome.nepal.domain.Booking
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.CalendarDate
 import com.medhome.nepal.domain.CancelledBy
+import com.medhome.nepal.domain.ClinicCancel
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.NepalTime
@@ -32,8 +33,18 @@ object BookingMapper {
     const val FIELD_CANCELLED_AT = "cancelledAt"
     const val FIELD_CANCELLED_BY = "cancelledBy"
 
+    /** Which admin cancelled for the clinic (their uid). Never shown to patients. */
+    const val FIELD_CANCELLED_BY_UID = "cancelledByUid"
+
     /** The patient's profile name when they booked (the rules check it), for the admin's list. */
     const val FIELD_PATIENT_NAME = "patientName"
+
+    /**
+     * What [FIELD_PATIENT_NAME] becomes when the patient deletes their account. Blank, because no
+     * profile name can be (firestore.rules `hasValidName`), so it never stands for a real name;
+     * the rules allow a patient to set exactly this on their own bookings and nothing else.
+     */
+    const val DELETED_PATIENT_NAME = ""
 
     /** Firestore auto IDs (20 characters); anything else never names a booking. */
     private val BOOKING_ID = Regex("[A-Za-z0-9]{1,40}")
@@ -71,16 +82,36 @@ object BookingMapper {
         if (value == null) CancelledBy.PATIENT else CancelledBy.fromKey(value as? String)
 
     /**
-     * One of [doctorId]'s booked (not cancelled) bookings, for the admin's list: when, and the
-     * first word of the name it was booked under (null when missing or malformed). Nothing else
-     * about the patient leaves this function.
+     * One of [doctorId]'s booked or clinic-cancelled bookings, for the admin's list: when, the
+     * first word of the name it was booked under (null when missing, malformed or deleted), and
+     * whether [adminUid] or another admin cancelled it. Nothing else about the patient, and no
+     * admin's uid, leaves this function. Bookings the patient cancelled are null.
      */
-    fun parseForDoctor(id: String, data: Map<String, Any?>?, doctorId: String): DoctorAppointment? {
+    fun parseForDoctor(id: String, data: Map<String, Any?>?, doctorId: String, adminUid: String?): DoctorAppointment? {
         if (data == null || !isValidId(id)) return null
         if (data[FIELD_DOCTOR_ID] != doctorId) return null
-        if (BookingStatus.fromKey(data[FIELD_STATUS] as? String) != BookingStatus.BOOKED) return null
+        val clinicCancel = when (BookingStatus.fromKey(data[FIELD_STATUS] as? String)) {
+            BookingStatus.BOOKED -> null
+            BookingStatus.CANCELLED -> clinicCancelOf(data, adminUid) ?: return null
+            null -> return null
+        }
         val startAt = (data[FIELD_START_AT] as? Timestamp)?.toMillis()?.takeIf { it in SupportedMillis } ?: return null
-        return DoctorAppointment(id, startAt, firstWord(data[FIELD_PATIENT_NAME]))
+        val name = data[FIELD_PATIENT_NAME]
+        val deleted = name == DELETED_PATIENT_NAME
+        return DoctorAppointment(
+            bookingId = id,
+            startAtMillis = startAt,
+            patientFirstName = if (deleted) null else firstWord(name),
+            patientDeleted = deleted,
+            clinicCancel = clinicCancel,
+        )
+    }
+
+    /** Null unless cancelled by the clinic; a cancel without the admin's uid predates the field. */
+    private fun clinicCancelOf(data: Map<String, Any?>, adminUid: String?): ClinicCancel? {
+        if (CancelledBy.fromKey(data[FIELD_CANCELLED_BY] as? String) != CancelledBy.CLINIC) return null
+        val by = data[FIELD_CANCELLED_BY_UID] as? String
+        return if (adminUid != null && by == adminUid) ClinicCancel.BY_YOU else ClinicCancel.BY_CLINIC
     }
 
     /** Any patient's booking with the patient's UID, for an admin cancelling it; null when malformed. */

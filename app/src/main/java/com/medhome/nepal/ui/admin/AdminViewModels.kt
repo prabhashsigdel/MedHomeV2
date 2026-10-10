@@ -275,9 +275,9 @@ class AdminDoctorViewModel(
         }
     }
 
-    /** Asks before cancelling [appointment] for the clinic. */
+    /** Asks before cancelling [appointment] for the clinic (only while it is booked). */
     fun requestCancel(appointment: DoctorAppointment) {
-        if (_dialog.value != null || _cancelDialog.value != null) return
+        if (!appointment.isBooked || _dialog.value != null || _cancelDialog.value != null) return
         _cancelDialog.value = CancelBookingDialogState(appointment)
     }
 
@@ -288,7 +288,7 @@ class AdminDoctorViewModel(
         viewModelScope.launch {
             try {
                 repository.cancelBooking(current.appointment.bookingId)
-                // The live list drops the booking.
+                // The live list shows it as cancelled by this admin.
                 _cancelDialog.value = null
             } catch (e: AdminException) {
                 _cancelDialog.update { it?.copy(isCancelling = false, error = e.error) }

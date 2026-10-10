@@ -42,6 +42,11 @@ class SessionManager(
      */
     private val cancelUpcomingBookings: suspend () -> Unit = {},
     /**
+     * Blanks the patient's name on all their bookings, so the clinic no longer sees it once the
+     * account is gone. Throws [AuthException] unless every booking is done; deletion then stops.
+     */
+    private val eraseBookingNames: suspend () -> Unit = {},
+    /**
      * Cancels every reminder alarm and notification and wipes the reminder database (medicine
      * names are health data). Runs after SignedOut is published, with the other local data.
      */
@@ -143,9 +148,12 @@ class SessionManager(
 
     /**
      * Re-authenticates first so the profile is never deleted while the Auth account survives,
-     * then cancels upcoming bookings (freeing their slots) before deleting anything. Retrying
-     * after a partial failure is safe: cancelled bookings are skipped and deleting a missing
-     * document succeeds.
+     * then cancels upcoming bookings (freeing their slots) before deleting anything. The profile
+     * goes before the names are erased: with no profile, no booking can be made (copying the
+     * name) on another phone in between. The Auth account goes last, only once every name is
+     * erased, so an account is never deleted with its name left on a booking. Retrying after a
+     * partial failure is safe: cancelled bookings and erased names are skipped and deleting a
+     * missing document succeeds.
      */
     suspend fun deleteAccount(reauth: Reauth) = exclusive {
         val user = auth.currentUser ?: throw AuthException(AuthError.NOT_SIGNED_IN)
@@ -158,6 +166,7 @@ class SessionManager(
         }
         cancelUpcomingBookings()
         profiles.deleteProfile(user.uid)
+        eraseBookingNames()
         auth.deleteUser()
         endSession(error = null)
         clearCredentials()

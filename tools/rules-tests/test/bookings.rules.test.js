@@ -13,8 +13,11 @@ import {
   deleteDoc,
   deleteField,
   doc,
+  documentId,
   getDoc,
   getDocs,
+  limit,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -505,6 +508,19 @@ describe('bookings', () => {
       await assertSucceeds(cancel(verified('alice'), 'alice', id, s));
     });
 
+    it('a patient cannot name an admin as the canceller, while cancelling or after', async () => {
+      const s = slot(1, 10);
+      const id = await seedBooking('alice', s);
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelledByUid: 'alice' } }));
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelledByUid: 'admin' } }));
+      await assertFails(cancel(verified('alice'), 'alice', id, s, {
+        changes: { cancelledBy: 'clinic', cancelledByUid: 'alice' },
+      }));
+      await assertSucceeds(cancel(verified('alice'), 'alice', id, s));
+      await assertFails(updateDoc(doc(verified('alice'), `bookings/${id}`), { cancelledByUid: 'alice' }));
+      await assertFails(updateDoc(doc(verified('alice'), `bookings/${id}`), { cancelledBy: 'clinic', cancelledByUid: 'admin' }));
+    });
+
     it('bookings are never otherwise edited, deleted or un-cancelled', async () => {
       const s = slot(1, 10);
       const id = await seedBooking('alice', s);
@@ -522,6 +538,100 @@ describe('bookings', () => {
       await assertFails(deleteDoc(doc(verified('alice'), `slotLocks/${s.slotId}`)));
       await assertFails(deleteDoc(doc(verified('bob'), `slotLocks/${s.slotId}`)));
       await assertFails(updateDoc(doc(verified('alice'), `slotLocks/${s.slotId}`), { bookingId: 'other' }));
+    });
+  });
+
+  // Deleting an account blanks the name on every booking of the patient (BookingMapper's
+  // DELETED_PATIENT_NAME, ""), and the rules allow nothing more.
+  describe('erasing the name when the account is deleted', () => {
+    const erase = (db, id, name = '') => updateDoc(doc(db, `bookings/${id}`), { patientName: name });
+
+    async function stored(id) {
+      let data;
+      await env.withSecurityRulesDisabled(async (context) => {
+        data = (await getDoc(doc(context.firestore(), `bookings/${id}`))).data();
+      });
+      return data;
+    }
+
+    it('a patient can page through all their bookings by ID (how the app finds them), nobody else can', async () => {
+      await seedBooking('alice', slot(1, 10));
+      const pageOf = (db, uid) => query(collection(db, 'bookings'), where('patientUid', '==', uid), orderBy(documentId()), limit(200));
+      await assertSucceeds(getDocs(pageOf(verified('alice'), 'alice')));
+      await assertFails(getDocs(pageOf(verified('bob'), 'alice')));
+      await assertFails(getDocs(query(collection(verified('bob'), 'bookings'), orderBy(documentId()), limit(200))));
+    });
+
+    it('a patient can blank the name on their own bookings: upcoming, cancelled and past', async () => {
+      const upcoming = await seedBooking('alice', slot(1, 10));
+      const cancelled = await seedBooking('alice', slot(2, 10), { status: 'cancelled' });
+      const past = await seedBooking('alice', slot(-3, 10), { place: 2 });
+      for (const id of [upcoming, cancelled, past]) {
+        await assertSucceeds(erase(verified('alice'), id));
+        const after = await stored(id);
+        if (after.patientName !== '') throw new Error('name left behind');
+        if (after.patientUid !== 'alice') throw new Error('changed more than the name');
+      }
+    });
+
+    it('works without a verified email, without a profile, and on bookings made before the name was stored', async () => {
+      const id = await seedBooking('alice', slot(1, 10));
+      await assertSucceeds(erase(unverified('alice'), id));
+
+      const legacy = await seedBooking('alice', slot(2, 11), { place: 2 });
+      await env.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await updateDoc(doc(db, `bookings/${legacy}`), { patientName: deleteField() });
+        // The delete flow removes the profile before it erases the names.
+        await deleteDoc(doc(db, 'users/alice'));
+      });
+      await assertSucceeds(erase(verified('alice'), legacy));
+      // Already blank: erasing again is harmless (a retried deletion).
+      await assertSucceeds(erase(verified('alice'), legacy));
+    });
+
+    it('the name can only become the blank placeholder, nothing else', async () => {
+      const id = await seedBooking('alice', slot(1, 10));
+      for (const name of ['Renamed', ' ', 'Deleted patient', '​', null, 0, false]) {
+        await assertFails(erase(verified('alice'), id, name));
+      }
+      await assertFails(updateDoc(doc(verified('alice'), `bookings/${id}`), { patientName: deleteField() }));
+      // Not back to a real name once blank.
+      await assertSucceeds(erase(verified('alice'), id));
+      await assertFails(erase(verified('alice'), id, 'Alice Gurung'));
+    });
+
+    it('nothing else changes in the same write', async () => {
+      const s = slot(1, 10);
+      const id = await seedBooking('alice', s);
+      const update = (changes) => updateDoc(doc(verified('alice'), `bookings/${id}`), { patientName: '', ...changes });
+      await assertFails(update({ status: 'cancelled' }));
+      await assertFails(update({ cancelledByUid: 'alice' }));
+      await assertFails(update({ cancelledBy: 'patient' }));
+      await assertFails(update({ patientUid: 'bob' }));
+      await assertFails(update({ startAt: slot(2, 10).startAt }));
+      await assertFails(update({ doctor: { ...SNAPSHOT, feeNpr: 1 } }));
+      await assertFails(update({ deletedAt: serverTimestamp() }));
+      // Nor can it ride along with a cancel.
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { patientName: '' } }));
+    });
+
+    it("other patients and signed-out users cannot touch someone else's name", async () => {
+      const id = await seedBooking('alice', slot(1, 10));
+      await assertFails(erase(verified('bob'), id));
+      await assertFails(erase(verified('bob'), id, 'Bob Thapa'));
+      await assertFails(erase(signedOut(), id));
+      const after = await stored(id);
+      if (after.patientName !== 'Alice Gurung') throw new Error('name changed');
+    });
+
+    it('a booking can never be made under the blank name', async () => {
+      await assertFails(book(verified('alice'), 'alice', slot(1, 10), { overrides: { patientName: '' } }).commit);
+      // Bookings copy the profile name, and no profile can take the blank one.
+      await assertFails(updateDoc(doc(verified('bob'), 'users/bob'), { name: '' }));
+      await assertFails(setDoc(doc(verified('carol'), 'users/carol'), {
+        name: '', email: 'carol@example.com', role: 'patient', createdAt: serverTimestamp(),
+      }));
     });
   });
 });

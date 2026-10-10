@@ -95,6 +95,11 @@ class TerminatedFirestoreTest {
     }
 
     @Test
+    fun `erasing the name with a terminated instance fails as UNKNOWN, never as done`() = runTest {
+        expectBooking(BookingError.UNKNOWN) { bookings.erasePatientName() }
+    }
+
+    @Test
     fun `a failing auth lookup fails a booking or a cancel as UNKNOWN`() = runTest {
         val broken = FirestoreBookingRepository(
             firestore = terminated,
@@ -105,6 +110,7 @@ class TerminatedFirestoreTest {
         expectBooking(BookingError.UNKNOWN) { broken.book(slot) }
         expectBooking(BookingError.UNKNOWN) { broken.cancel(booking(id = "b1", startAtMillis = slot.startAtMillis)) }
         expectBooking(BookingError.UNKNOWN) { broken.cancelAllUpcoming() }
+        expectBooking(BookingError.UNKNOWN) { broken.erasePatientName() }
     }
 
     @Test
@@ -144,6 +150,24 @@ class TerminatedFirestoreTest {
     }
 
     @Test
+    fun `the admin's list reads the uid only when collected, and a failing lookup fails the flow`() = runTest {
+        var uidCalls = 0
+        val broken = FirestoreAdminRepository(
+            terminated,
+            currentUid = {
+                uidCalls++
+                throw IllegalStateException("No Firebase app")
+            },
+            listeners = ListenerRegistry(),
+        )
+        val upcoming = broken.upcomingAppointments("doc-001")
+        assertEquals(0, uidCalls)
+        expectFlowFailure(upcoming)
+        assertEquals(1, uidCalls)
+        assertEquals(0, firestoreCalls)
+    }
+
+    @Test
     fun `admin flows touch Firestore only when collected, and then fail as an AuthException`() = runTest {
         val all = admin.allDoctors()
         val one = admin.doctor("doc-001")
@@ -152,7 +176,8 @@ class TerminatedFirestoreTest {
         expectFlowFailure(all)
         expectFlowFailure(one)
         expectFlowFailure(upcoming)
-        assertEquals(3, firestoreCalls)
+        // The upcoming list is two queries (booked, and cancelled by the clinic).
+        assertEquals(4, firestoreCalls)
     }
 
     // A listener that can't be added
@@ -202,6 +227,8 @@ class TerminatedFirestoreTest {
         expectCancellation { cancelledUid.book(slot) }
         expectCancellation { cancelledUid.cancel(booked) }
         expectCancellation { cancelledUid.cancelAllUpcoming() }
+        expectCancellation { cancelledUid.erasePatientName() }
+        expectCancellation { cancelledFirestore.erasePatientName() }
 
         val adminCancelled = FirestoreAdminRepository({ throw cancelled }, currentUid = { "admin" }, listeners = ListenerRegistry())
         val adminUidCancelled = FirestoreAdminRepository(terminated, currentUid = { throw cancelled }, listeners = ListenerRegistry())

@@ -5,6 +5,7 @@ import com.medhome.nepal.data.AdminRepository
 import com.medhome.nepal.data.UpcomingPage
 import com.medhome.nepal.domain.AdminError
 import com.medhome.nepal.domain.AuthError
+import com.medhome.nepal.domain.ClinicCancel
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
 import com.medhome.nepal.domain.Specialty
@@ -202,7 +203,8 @@ class AdminViewModelsTest {
         appointments.value = mapOf("doc-001" to ids.mapIndexed { i, id -> appointment(id, 60L + i * 15, "P$i") })
     }
 
-    private fun FakeAdminRepository.upcomingIds() = appointments.value["doc-001"].orEmpty().map { it.bookingId }
+    /** The bookings still booked (cancelled ones stay listed, as cancelled). */
+    private fun FakeAdminRepository.upcomingIds() = booked("doc-001").map { it.bookingId }
 
     @Test
     fun `cancelling one booking asks first, then cancels it`() = runTest(dispatcher) {
@@ -222,7 +224,44 @@ class AdminViewModelsTest {
         viewModel.confirmCancel()
         assertEquals(listOf("b1"), repository.cancelledBookings)
         assertNull(viewModel.cancelDialog.value)
-        assertEquals(listOf("b2"), (appointments.value as AppointmentsUiState.Ready).appointments.map { it.bookingId })
+        // Still listed, now as cancelled by this admin; the other stays booked.
+        val after = (appointments.value as AppointmentsUiState.Ready).appointments
+        assertEquals(listOf("b1" to ClinicCancel.BY_YOU, "b2" to null), after.map { it.bookingId to it.clinicCancel })
+    }
+
+    @Test
+    fun `a booking the clinic already cancelled can't be cancelled again`() = runTest(dispatcher) {
+        val repository = FakeAdminRepository(listOf(asha)).apply {
+            appointments.value = mapOf(
+                "doc-001" to listOf(
+                    appointment("b1", 60, "Sita").copy(clinicCancel = ClinicCancel.BY_YOU),
+                    appointment("b2", 90, "Ram").copy(clinicCancel = ClinicCancel.BY_CLINIC),
+                ),
+            )
+        }
+        val viewModel = AdminDoctorViewModel("doc-001", repository) { now }
+        collecting(viewModel.uiState)
+        val listed = (collecting(viewModel.appointments).value as AppointmentsUiState.Ready).appointments
+        assertEquals(listOf(ClinicCancel.BY_YOU, ClinicCancel.BY_CLINIC), listed.map { it.clinicCancel })
+        listed.forEach(viewModel::requestCancel)
+        assertNull(viewModel.cancelDialog.value)
+        // Nor are they counted or offered for cancelling when the doctor is hidden.
+        viewModel.requestToggle()
+        assertEquals(0, viewModel.dialog.value?.upcomingCount)
+        assertFalse(requireNotNull(viewModel.dialog.value).canCancelBookings)
+    }
+
+    @Test
+    fun `a deleted patient's booking is listed without a name`() = runTest(dispatcher) {
+        val repository = FakeAdminRepository(listOf(asha)).apply {
+            appointments.value = mapOf("doc-001" to listOf(appointment("b1", 60, null).copy(patientDeleted = true)))
+        }
+        val viewModel = AdminDoctorViewModel("doc-001", repository) { now }
+        val listed = (collecting(viewModel.appointments).value as AppointmentsUiState.Ready).appointments.single()
+        assertTrue(listed.patientDeleted)
+        assertNull(listed.patientFirstName)
+        viewModel.requestCancel(listed)
+        assertEquals(CancelBookingDialogState(listed), viewModel.cancelDialog.value)
     }
 
     @Test

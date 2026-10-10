@@ -346,6 +346,9 @@
     <string name="admin_upcoming_none">No upcoming bookings.</string>
     <string name="admin_upcoming_failed">Couldn\'t load bookings. Try again.</string>
     <string name="admin_patient_unknown">Patient</string>
+    <string name="admin_patient_deleted">Deleted patient</string>
+    <string name="admin_cancelled_by_you">Cancelled by you</string>
+    <string name="admin_cancelled_by_clinic">Cancelled by clinic</string>
     <string name="admin_hide_title">Hide this doctor?</string>
     <string name="admin_show_title">Show this doctor?</string>
     <string name="admin_hide_body">Patients won\'t be able to find or book %1$s. You can keep the bookings already made, or cancel them.</string>

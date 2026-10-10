@@ -345,6 +345,9 @@
     <string name="admin_upcoming_none">कुनै आगामी बुकिङ छैन।</string> <!-- review -->
     <string name="admin_upcoming_failed">बुकिङहरू लोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
     <string name="admin_patient_unknown">बिरामी</string> <!-- review -->
+    <string name="admin_patient_deleted">हटाइएको बिरामी</string> <!-- review -->
+    <string name="admin_cancelled_by_you">तपाईंले रद्द गर्नुभयो</string> <!-- review -->
+    <string name="admin_cancelled_by_clinic">क्लिनिकले रद्द गर्‍यो</string> <!-- review -->
     <string name="admin_hide_title">यो डाक्टरलाई लुकाउने?</string> <!-- review -->
     <string name="admin_show_title">यो डाक्टरलाई देखाउने?</string> <!-- review -->
     <string name="admin_hide_body">बिरामीहरूले %1$s लाई खोज्न वा बुक गर्न सक्ने छैनन्। भइसकेका बुकिङहरू कायम राख्न वा रद्द गर्न सकिन्छ।</string> <!-- review -->

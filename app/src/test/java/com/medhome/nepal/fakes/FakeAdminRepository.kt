@@ -8,6 +8,7 @@ import com.medhome.nepal.domain.AdminError
 import com.medhome.nepal.domain.AdminException
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
+import com.medhome.nepal.domain.ClinicCancel
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
@@ -21,7 +22,8 @@ import kotlinx.coroutines.flow.map
 
 /**
  * The catalogue in memory, as an admin sees it. [doctors] null means "no answer yet". Writes
- * change [doctors] (and cancels [appointments]) as Firestore's listeners would show;
+ * change [doctors] (and cancels [appointments], which stay listed as cancelled by you) as
+ * Firestore's listeners would show;
  * [writeFailure] makes them fail, and [gate], when set, holds them until completed (to see the
  * saving state). [cancelFailures] fails cancelling those bookings only, [idsFailure] fails
  * listing the bookings to cancel, and [idsPageSize] pages that list.
@@ -67,7 +69,7 @@ class FakeAdminRepository(initial: List<ManagedDoctor> = emptyList()) : AdminRep
 
     override suspend fun upcomingCount(doctorId: String): Int {
         countFailure?.let { throw AdminException(it) }
-        return appointments.value[doctorId].orEmpty().size
+        return booked(doctorId).size
     }
 
     override suspend fun createDoctor(doctor: Doctor) {
@@ -93,7 +95,7 @@ class FakeAdminRepository(initial: List<ManagedDoctor> = emptyList()) : AdminRep
 
     override suspend fun upcomingBookingPage(doctorId: String, afterMillis: Long?): UpcomingPage {
         idsFailure?.let { throw AdminException(it) }
-        val page = appointments.value[doctorId].orEmpty()
+        val page = booked(doctorId)
             .filter { afterMillis == null || it.startAtMillis > afterMillis }
             .sortedBy { it.startAtMillis }
             .take(idsPageSize)
@@ -107,9 +109,15 @@ class FakeAdminRepository(initial: List<ManagedDoctor> = emptyList()) : AdminRep
         cancelFailures[bookingId]?.let { throw AdminException(it) }
         if (alreadyCancelled.remove(bookingId)) return false
         cancelledBookings += bookingId
-        appointments.value = appointments.value.mapValues { (_, list) -> list.filterNot { it.bookingId == bookingId } }
+        // Like the live list: still there, cancelled by this admin.
+        appointments.value = appointments.value.mapValues { (_, list) ->
+            list.map { if (it.bookingId == bookingId) it.copy(clinicCancel = ClinicCancel.BY_YOU) else it }
+        }
         return true
     }
+
+    /** [doctorId]'s appointments still booked. */
+    fun booked(doctorId: String): List<DoctorAppointment> = appointments.value[doctorId].orEmpty().filter { it.isBooked }
 
     private suspend fun write() {
         gate?.await()

@@ -300,10 +300,10 @@ describe('admin', () => {
   });
 
   describe("reading a doctor's bookings", () => {
-    const upcoming = (db, doctorId) => query(
+    const upcoming = (db, doctorId, status = 'booked') => query(
       collection(db, 'bookings'),
       where('doctorId', '==', doctorId),
-      where('status', '==', 'booked'),
+      where('status', '==', status),
       where('startAt', '>', Timestamp.now()),
       orderBy('startAt'),
     );
@@ -312,6 +312,9 @@ describe('admin', () => {
       await assertSucceeds(getDocs(upcoming(as('admin'), 'doc-001')));
       await assertSucceeds(getCountFromServer(upcoming(as('admin'), 'doc-002')));
       await assertSucceeds(getDoc(doc(as('admin'), 'bookings/b1')));
+      // The cancelled ones too: the list shows who cancelled them.
+      await assertSucceeds(getDocs(upcoming(as('admin'), 'doc-001', 'cancelled')));
+      await assertFails(getDocs(upcoming(as('alice'), 'doc-001', 'cancelled')));
     });
 
     it("an admin whose email is not verified cannot list, count or read anyone's bookings", async () => {
@@ -370,11 +373,14 @@ describe('admin', () => {
       return { id, uid, place, slotId };
     }
 
-    /** Cancels the way the app's admin screen does: one write for booking, lock and quota place. */
-    function clinicCancel(db, booking, { changes = {}, deleteLock = true, deleteQuota = true, also = () => {} } = {}) {
+    /**
+     * Cancels the way the app's admin screen does: one write for booking, lock and quota place,
+     * naming the admin ([by], the signed-in uid) in cancelledByUid.
+     */
+    function clinicCancel(db, booking, { by = 'admin', changes = {}, deleteLock = true, deleteQuota = true, also = () => {} } = {}) {
       const batch = writeBatch(db);
       batch.update(doc(db, `bookings/${booking.id}`), {
-        status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'clinic', ...changes,
+        status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'clinic', cancelledByUid: by, ...changes,
       });
       if (deleteLock) batch.delete(doc(db, `slotLocks/${booking.slotId}`));
       if (deleteQuota) batch.delete(doc(db, `users/${booking.uid}/bookingQuota/${booking.place}`));
@@ -395,6 +401,7 @@ describe('admin', () => {
       await assertSucceeds(clinicCancel(as('admin'), booking));
       const after = await stored('bookings/c1');
       if (after.status !== 'cancelled' || after.cancelledBy !== 'clinic') throw new Error('not cancelled by the clinic');
+      if (after.cancelledByUid !== 'admin') throw new Error('admin not recorded');
       if (await stored(`slotLocks/${booking.slotId}`)) throw new Error('lock left behind');
       if (await stored('users/alice/bookingQuota/1')) throw new Error('quota place left behind');
     });
@@ -422,6 +429,41 @@ describe('admin', () => {
       await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelledBy: 'admin' } }));
     });
 
+    it('an admin cancel must name the admin cancelling, and only them', async () => {
+      await env.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), 'users/admin2'), {
+          name: 'Admin Two', email: 'admin2@example.com', role: 'admin', createdAt: Timestamp.now(),
+        });
+      });
+      const booking = await seed('c1');
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelledByUid: deleteField() } }));
+      // Another admin, the patient, an empty or non-text uid: all refused.
+      await assertFails(clinicCancel(as('admin2'), booking, { by: 'admin' }));
+      await assertFails(clinicCancel(as('admin'), booking, { by: 'admin2' }));
+      await assertFails(clinicCancel(as('admin'), booking, { by: 'alice' }));
+      await assertFails(clinicCancel(as('admin'), booking, { by: '' }));
+      await assertFails(clinicCancel(as('admin'), booking, { by: null }));
+      await assertFails(clinicCancel(as('admin'), booking, { by: ['admin'] }));
+      await assertSucceeds(clinicCancel(as('admin2'), booking, { by: 'admin2' }));
+      if ((await stored('bookings/c1')).cancelledByUid !== 'admin2') throw new Error('wrong admin recorded');
+    });
+
+    it('cancelledByUid only goes with a clinic cancel, and is never changed afterwards', async () => {
+      const booking = await seed('c1');
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelledBy: 'patient' } }));
+      await assertSucceeds(clinicCancel(as('admin'), booking));
+      await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { cancelledByUid: 'someone' }));
+      await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { cancelledByUid: deleteField() }));
+      await assertFails(updateDoc(doc(as('alice'), 'bookings/c1'), { cancelledByUid: deleteField() }));
+      await assertFails(updateDoc(doc(as('alice'), 'bookings/c1'), { cancelledByUid: 'alice' }));
+    });
+
+    it("an admin cannot blank or change a patient's name on a booking", async () => {
+      await seed('c1');
+      await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { patientName: '' }));
+      await assertFails(updateDoc(doc(as('drx'), 'bookings/c1'), { patientName: '' }));
+    });
+
     it('an admin cannot change anything else while cancelling', async () => {
       const booking = await seed('c1');
       const past = Timestamp.fromMillis(Date.now() - DAY_MS);
@@ -438,7 +480,7 @@ describe('admin', () => {
       await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { status: 'booked', cancelledAt: deleteField() }));
       await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { status: 'booked' }));
       await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), {
-        status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'clinic',
+        status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'clinic', cancelledByUid: 'admin',
       }));
     });
 
@@ -477,11 +519,11 @@ describe('admin', () => {
 
     it("patients and doctors cannot cancel someone else's booking for the clinic", async () => {
       const booking = await seed('c1');
-      await assertFails(clinicCancel(as('bob'), booking));
-      await assertFails(clinicCancel(as('drx'), booking));
+      await assertFails(clinicCancel(as('bob'), booking, { by: 'bob' }));
+      await assertFails(clinicCancel(as('drx'), booking, { by: 'drx' }));
       await assertFails(clinicCancel(signedOut(), booking));
       // Not even the booking's own patient.
-      await assertFails(clinicCancel(as('alice'), booking));
+      await assertFails(clinicCancel(as('alice'), booking, { by: 'alice' }));
     });
 
     it('an admin whose email is not verified cannot cancel', async () => {

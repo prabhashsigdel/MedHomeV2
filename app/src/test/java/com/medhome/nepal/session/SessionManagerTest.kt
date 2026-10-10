@@ -353,6 +353,58 @@ class SessionManagerTest {
     }
 
     @Test
+    fun `deleting an account erases the booking names after the profile, and never deletes the user before that`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser())
+        val scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        var eraseFailure: AuthError? = AuthError.NETWORK
+        val steps = mutableListOf<String>()
+        try {
+            val session = SessionManager(
+                auth, profiles, google, scope,
+                cancelUpcomingBookings = { steps += "cancelUpcoming" },
+                eraseBookingNames = {
+                    // The profile is gone first, so no booking can copy the name meanwhile.
+                    steps += if ("deleteProfile" in profiles.calls) "eraseNames" else "eraseNames before deleteProfile"
+                    eraseFailure?.let { throw AuthException(it) }
+                },
+            )
+            session.start()
+            expectError(AuthError.NETWORK) { session.deleteAccount(Reauth.Password("password123")) }
+            // Stopped before the Auth account: never deleted with names left on bookings.
+            assertFalse("deleteUser" in auth.calls)
+            assertTrue(session.state.value is SessionState.SignedIn)
+
+            eraseFailure = null
+            session.deleteAccount(Reauth.Password("password123"))
+            assertEquals(listOf("cancelUpcoming", "eraseNames", "cancelUpcoming", "eraseNames"), steps)
+            assertTrue("deleteUser" in auth.calls)
+            assertEquals(SessionState.SignedOut(), session.state.value)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `names are not erased when cancelling the upcoming bookings fails`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser())
+        val scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        var erased = 0
+        try {
+            val session = SessionManager(
+                auth, profiles, google, scope,
+                cancelUpcomingBookings = { throw AuthException(AuthError.NETWORK) },
+                eraseBookingNames = { erased++ },
+            )
+            session.start()
+            expectError(AuthError.NETWORK) { session.deleteAccount(Reauth.Password("password123")) }
+            assertEquals(0, erased)
+            assertFalse("deleteProfile" in profiles.calls)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `a listener started after sign-out is stopped at once, and the next sign-in accepts listeners again`() = runTest {
         val auth = FakeAuthDataSource(passwordUser())
         val listeners = ListenerRegistry()
