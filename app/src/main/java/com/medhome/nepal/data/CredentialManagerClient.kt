@@ -65,7 +65,7 @@ class CredentialManagerClient(
             return null
         } catch (e: GetCredentialException) {
             // An automatic convenience prompt: failing quietly is right, but keep a trace.
-            Log.w(TAG, "Saved credential lookup failed", e)
+            Log.w(TAG, "Saved credential lookup failed: ${e.javaClass.simpleName}")
             return null
         }
         return when (credential) {
@@ -73,7 +73,7 @@ class CredentialManagerClient(
             else -> try {
                 googleIdToken(credential)?.let { SavedCredential.Google(it) }
             } catch (e: AuthException) {
-                Log.w(TAG, "Saved Google credential was unreadable", e)
+                Log.w(TAG, "Saved Google credential was unreadable: ${e.javaClass.simpleName}")
                 null
             }
         }
@@ -87,7 +87,7 @@ class CredentialManagerClient(
         } catch (_: CreateCredentialCancellationException) {
             SaveOutcome.DECLINED
         } catch (e: CreateCredentialException) {
-            Log.w(TAG, "Saving the password was not possible", e)
+            Log.w(TAG, "Saving the password was not possible: ${e.javaClass.simpleName}")
             SaveOutcome.UNAVAILABLE
         }
 

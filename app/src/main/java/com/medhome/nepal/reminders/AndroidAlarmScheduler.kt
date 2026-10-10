@@ -25,7 +25,7 @@ class AndroidAlarmScheduler(context: Context) : AlarmScheduler {
                 return
             } catch (e: SecurityException) {
                 // Revoked between the check and the call: fall through to an inexact alarm.
-                Log.w(TAG, "Exact alarm refused", e)
+                Log.w(TAG, "Exact alarm refused: ${e.javaClass.simpleName}")
             }
         }
         alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, operation)

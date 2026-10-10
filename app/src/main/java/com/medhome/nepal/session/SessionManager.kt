@@ -59,7 +59,7 @@ class SessionManager(
             }
         }
         scope.launch {
-            runCatchingAuth { restoreSession() }.onFailure { Log.e(TAG, "restoreSession failed", it) }
+            runCatchingAuth { restoreSession() }.onFailure { Log.e(TAG, "restoreSession failed: ${failureName(it)}") }
         }
     }
 
@@ -309,8 +309,18 @@ class SessionManager(
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        Log.w(TAG, "$step failed", e)
+        Log.w(TAG, "$step failed: ${failureName(e)}")
         false
+    }
+
+    /**
+     * What is logged about a failure: its type only. Messages and stack traces can carry
+     * personal data (emails, uids, document paths).
+     */
+    private fun failureName(e: Throwable): String {
+        val auth = e as? AuthException ?: return e.javaClass.simpleName
+        val cause = auth.cause?.javaClass?.simpleName ?: return "${e.javaClass.simpleName} ${auth.error}"
+        return "${e.javaClass.simpleName} ${auth.error} ($cause)"
     }
 
     private suspend fun <T> runCatchingAuth(block: suspend () -> T): Result<T> = try {
