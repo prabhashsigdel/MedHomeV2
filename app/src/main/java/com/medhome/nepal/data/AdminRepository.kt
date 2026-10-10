@@ -20,9 +20,7 @@ import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
@@ -102,7 +100,7 @@ class FirestoreAdminRepository(
 ) : AdminRepository {
 
     override fun allDoctors(): Flow<ManagedDoctorsSnapshot> =
-        listen(doctors(firestore())) { snapshot ->
+        listen({ doctors(firestore()) }) { snapshot ->
             ManagedDoctorsSnapshot(
                 doctors = snapshot.documents.mapNotNull { DoctorMapper.parseManaged(it.id, it.data) }.sortedWith(byName),
                 fromCache = snapshot.metadata.isFromCache,
@@ -112,26 +110,18 @@ class FirestoreAdminRepository(
     override fun doctor(id: String): Flow<ManagedDoctorLookup> {
         // Only our own document IDs are valid; anything else (a path, say) never reaches Firestore.
         if (!Doctor.isValidId(id)) return flowOf(ManagedDoctorLookup.Missing(fromCache = false))
-        return callbackFlow {
-            val registration = doctors(firestore()).document(id)
-                .addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
-                    if (error != null) {
-                        close(AuthErrorMapper.toException(error))
-                        return@addSnapshotListener
-                    }
-                    if (snapshot == null) return@addSnapshotListener
-                    val fromCache = snapshot.metadata.isFromCache
-                    val doctor = if (snapshot.exists()) DoctorMapper.parseManaged(snapshot.id, snapshot.data) else null
-                    trySend(if (doctor != null) ManagedDoctorLookup.Found(doctor, fromCache) else ManagedDoctorLookup.Missing(fromCache))
-                }
-            val stop = listeners.register {
-                registration.remove()
-                channel.close()
+        return snapshotFlow<DocumentSnapshot, ManagedDoctorLookup>(
+            listeners = listeners,
+            attach = { listener -> doctors(firestore()).document(id).addSnapshotListener(MetadataChanges.INCLUDE, listener) },
+        ) { snapshot, error ->
+            if (error != null) {
+                close(AuthErrorMapper.toException(error))
+                return@snapshotFlow
             }
-            awaitClose {
-                stop.release()
-                registration.remove()
-            }
+            if (snapshot == null) return@snapshotFlow
+            val fromCache = snapshot.metadata.isFromCache
+            val doctor = if (snapshot.exists()) DoctorMapper.parseManaged(snapshot.id, snapshot.data) else null
+            trySend(if (doctor != null) ManagedDoctorLookup.Found(doctor, fromCache) else ManagedDoctorLookup.Missing(fromCache))
         }
     }
 
@@ -140,7 +130,7 @@ class FirestoreAdminRepository(
         if (!Doctor.isValidId(doctorId)) return flow { throw AuthException(AuthError.UNKNOWN) }
         // The first name comes from the booking's own patientName: no patient profile is read
         // (or cached on this phone).
-        return listen(upcomingQuery(doctorId).limit(MAX_APPOINTMENTS_READ)) { snapshot ->
+        return listen({ upcomingQuery(doctorId).limit(MAX_APPOINTMENTS_READ) }) { snapshot ->
             snapshot.documents.mapNotNull { BookingMapper.parseForDoctor(it.id, it.data, doctorId) }
         }
     }
@@ -157,37 +147,35 @@ class FirestoreAdminRepository(
         }
     }
 
-    override suspend fun cancelBooking(bookingId: String): Boolean {
+    override suspend fun cancelBooking(bookingId: String): Boolean = write {
         signedInUid()
         if (!BookingMapper.isValidId(bookingId)) throw AdminException(AdminError.NOT_FOUND)
         val db = firestore()
         val bookingRef = db.collection(COLLECTION_BOOKINGS).document(bookingId)
-        return write {
-            db.runTransaction { transaction ->
-                // Re-read: the list may be stale (cancelled by the patient meanwhile).
-                val (patientUid, booking) = BookingMapper.parseAnyPatient(bookingId, transaction.get(bookingRef).data)
-                    ?: throw AdminException(AdminError.NOT_FOUND)
-                if (booking.status == BookingStatus.CANCELLED) return@runTransaction false
-                if (booking.startAtMillis <= clock()) throw AdminException(AdminError.BOOKING_STARTED)
-                val lockRef = db.collection(COLLECTION_LOCKS).document(booking.slotId)
-                val placeRef = db.collection(COLLECTION_USERS).document(patientUid)
-                    .collection(COLLECTION_QUOTA).document(booking.quotaPlace.toString())
-                // As a patient cancel: delete only what exists, and only the place holding this booking.
-                val lockExists = transaction.get(lockRef).exists()
-                val placeHeld = transaction.get(placeRef).getString(FIELD_QUOTA_BOOKING_ID) == bookingId
-                transaction.update(
-                    bookingRef,
-                    mapOf(
-                        BookingMapper.FIELD_STATUS to BookingStatus.CANCELLED.key,
-                        BookingMapper.FIELD_CANCELLED_AT to FieldValue.serverTimestamp(),
-                        BookingMapper.FIELD_CANCELLED_BY to CancelledBy.CLINIC.key,
-                    ),
-                )
-                if (lockExists) transaction.delete(lockRef)
-                if (placeHeld) transaction.delete(placeRef)
-                true
-            }.await()
-        }
+        db.runTransaction { transaction ->
+            // Re-read: the list may be stale (cancelled by the patient meanwhile).
+            val (patientUid, booking) = BookingMapper.parseAnyPatient(bookingId, transaction.get(bookingRef).data)
+                ?: throw AdminException(AdminError.NOT_FOUND)
+            if (booking.status == BookingStatus.CANCELLED) return@runTransaction false
+            if (booking.startAtMillis <= clock()) throw AdminException(AdminError.BOOKING_STARTED)
+            val lockRef = db.collection(COLLECTION_LOCKS).document(booking.slotId)
+            val placeRef = db.collection(COLLECTION_USERS).document(patientUid)
+                .collection(COLLECTION_QUOTA).document(booking.quotaPlace.toString())
+            // As a patient cancel: delete only what exists, and only the place holding this booking.
+            val lockExists = transaction.get(lockRef).exists()
+            val placeHeld = transaction.get(placeRef).getString(FIELD_QUOTA_BOOKING_ID) == bookingId
+            transaction.update(
+                bookingRef,
+                mapOf(
+                    BookingMapper.FIELD_STATUS to BookingStatus.CANCELLED.key,
+                    BookingMapper.FIELD_CANCELLED_AT to FieldValue.serverTimestamp(),
+                    BookingMapper.FIELD_CANCELLED_BY to CancelledBy.CLINIC.key,
+                ),
+            )
+            if (lockExists) transaction.delete(lockRef)
+            if (placeHeld) transaction.delete(placeRef)
+            true
+        }.await()
     }
 
     override suspend fun upcomingCount(doctorId: String): Int {
@@ -198,10 +186,11 @@ class FirestoreAdminRepository(
     }
 
     override suspend fun createDoctor(doctor: Doctor) {
-        val uid = signedInUid()
-        val db = firestore()
-        val ref = doctors(db).document(checkedId(doctor.id))
         write {
+            val uid = signedInUid()
+            val id = checkedId(doctor.id)
+            val db = firestore()
+            val ref = doctors(db).document(id)
             db.runTransaction { transaction ->
                 // Never overwrite: an existing doctor is edited with updateDoctor.
                 if (transaction.get(ref).exists()) throw AdminException(AdminError.ALREADY_EXISTS)
@@ -212,10 +201,11 @@ class FirestoreAdminRepository(
     }
 
     override suspend fun updateDoctor(doctor: Doctor) {
-        val uid = signedInUid()
-        val db = firestore()
-        val ref = doctors(db).document(checkedId(doctor.id))
         write {
+            val uid = signedInUid()
+            val id = checkedId(doctor.id)
+            val db = firestore()
+            val ref = doctors(db).document(id)
             db.runTransaction { transaction ->
                 requireExists(transaction.get(ref))
                 // update() replaces each field whole (the schedule map too), and leaves `active` alone.
@@ -226,10 +216,11 @@ class FirestoreAdminRepository(
     }
 
     override suspend fun setActive(doctorId: String, active: Boolean) {
-        val uid = signedInUid()
-        val db = firestore()
-        val ref = doctors(db).document(checkedId(doctorId))
         write {
+            val uid = signedInUid()
+            val id = checkedId(doctorId)
+            val db = firestore()
+            val ref = doctors(db).document(id)
             db.runTransaction { transaction ->
                 requireExists(transaction.get(ref))
                 transaction.update(ref, mapOf(DoctorMapper.FIELD_ACTIVE to active) + stamp(uid))
@@ -263,7 +254,11 @@ class FirestoreAdminRepository(
         DoctorMapper.FIELD_UPDATED_BY to uid,
     )
 
-    /** Runs a write or server read, turning every failure into an [AdminException]. */
+    /**
+     * Runs a write or server read, turning every failure into an [AdminException]. Getting the
+     * Firestore instance and building references happen inside it too: after sign-out the
+     * instance is terminated and they throw IllegalStateException, which must not escape.
+     */
     private suspend fun <T> write(block: suspend () -> T): T = try {
         block()
     } catch (e: CancellationException) {
@@ -282,23 +277,7 @@ class FirestoreAdminRepository(
     private fun Throwable.adminException(): AdminException? =
         generateSequence(this) { it.cause }.take(MAX_CAUSE_DEPTH).filterIsInstance<AdminException>().firstOrNull()
 
-    private fun <T> listen(query: Query, map: (QuerySnapshot) -> T): Flow<T> = callbackFlow {
-        val registration = query.addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
-            if (error != null) {
-                close(AuthErrorMapper.toException(error))
-                return@addSnapshotListener
-            }
-            if (snapshot != null) trySend(map(snapshot))
-        }
-        val stop = listeners.register {
-            registration.remove()
-            channel.close()
-        }
-        awaitClose {
-            stop.release()
-            registration.remove()
-        }
-    }
+    private fun <T> listen(query: () -> Query, map: (QuerySnapshot) -> T): Flow<T> = queryFlow(listeners, query, map)
 
     private fun doctors(db: FirebaseFirestore): CollectionReference = db.collection(COLLECTION_DOCTORS)
 

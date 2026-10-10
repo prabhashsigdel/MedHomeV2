@@ -4,7 +4,6 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.Source
@@ -19,7 +18,6 @@ import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.Slot
 import com.medhome.nepal.domain.Slots
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
@@ -72,22 +70,28 @@ class FirestoreBookingRepository(
 
     override fun takenSlotIds(doctorId: String, window: LongRange): Flow<Set<String>> {
         require(Doctor.isValidId(doctorId)) { "Not a doctor ID" }
-        val query = firestore().collection(COLLECTION_LOCKS)
-            .whereEqualTo(FIELD_LOCK_DOCTOR_ID, doctorId)
-            .whereGreaterThanOrEqualTo(FIELD_LOCK_START_AT, timestampOf(window.first))
-            .whereLessThanOrEqualTo(FIELD_LOCK_START_AT, timestampOf(window.last))
-        return listen(query) { snapshot -> snapshot.documents.mapTo(mutableSetOf()) { it.id } }
+        return listen(
+            query = {
+                firestore().collection(COLLECTION_LOCKS)
+                    .whereEqualTo(FIELD_LOCK_DOCTOR_ID, doctorId)
+                    .whereGreaterThanOrEqualTo(FIELD_LOCK_START_AT, timestampOf(window.first))
+                    .whereLessThanOrEqualTo(FIELD_LOCK_START_AT, timestampOf(window.last))
+            },
+        ) { snapshot -> snapshot.documents.mapTo(mutableSetOf()) { it.id } }
     }
 
     override fun myBookings(): Flow<BookingsSnapshot> {
         val uid = currentUid() ?: return callbackFlow { close(AuthException(AuthError.NOT_SIGNED_IN)) }
         // The rules only allow listing with patientUid == uid. At most 3 are upcoming, so a
         // newest-first page always holds every upcoming booking.
-        val query = firestore().collection(COLLECTION_BOOKINGS)
-            .whereEqualTo(BookingMapper.FIELD_PATIENT_UID, uid)
-            .orderBy(BookingMapper.FIELD_START_AT, Query.Direction.DESCENDING)
-            .limit(MAX_BOOKINGS_READ)
-        return listen(query) { snapshot ->
+        return listen(
+            query = {
+                firestore().collection(COLLECTION_BOOKINGS)
+                    .whereEqualTo(BookingMapper.FIELD_PATIENT_UID, uid)
+                    .orderBy(BookingMapper.FIELD_START_AT, Query.Direction.DESCENDING)
+                    .limit(MAX_BOOKINGS_READ)
+            },
+        ) { snapshot ->
             BookingsSnapshot(
                 bookings = snapshot.documents.mapNotNull { BookingMapper.parse(it.id, it.data, uid) },
                 fromCache = snapshot.metadata.isFromCache,
@@ -101,16 +105,16 @@ class FirestoreBookingRepository(
     }
 
     override suspend fun book(slot: Slot): String {
-        val uid = currentUid() ?: throw BookingException(BookingError.UNKNOWN)
+        val uid = setUp { currentUid() } ?: throw BookingException(BookingError.UNKNOWN)
         val verified = try {
             hasVerifiedEmail()
         } catch (e: AuthException) {
             throw BookingException(if (e.error == AuthError.NETWORK) BookingError.NETWORK else BookingError.UNKNOWN, e)
         }
         if (!verified) throw BookingException(BookingError.EMAIL_NOT_VERIFIED)
-        val db = firestore()
-        val bookingRef = db.collection(COLLECTION_BOOKINGS).document()
-        val lockRef = db.collection(COLLECTION_LOCKS).document(slot.id)
+        val db = setUp { firestore() }
+        val bookingRef = setUp { db.collection(COLLECTION_BOOKINGS).document() }
+        val lockRef = setUp { db.collection(COLLECTION_LOCKS).document(slot.id) }
         return try {
             db.runTransaction { transaction ->
                 val doctorSnapshot = transaction.get(db.collection(COLLECTION_DOCTORS).document(slot.doctorId))
@@ -174,11 +178,13 @@ class FirestoreBookingRepository(
     }
 
     override suspend fun cancel(booking: Booking) {
-        val uid = currentUid() ?: throw BookingException(BookingError.UNKNOWN)
-        if (!BookingMapper.isValidId(booking.id)) throw BookingException(BookingError.NOT_FOUND)
-        val db = firestore()
-        val bookingRef = db.collection(COLLECTION_BOOKINGS).document(booking.id)
+        // Everything inside the try: after sign-out the Firestore instance is terminated, and
+        // even building a reference throws (IllegalStateException), which must not escape.
         try {
+            val uid = currentUid() ?: throw BookingException(BookingError.UNKNOWN)
+            if (!BookingMapper.isValidId(booking.id)) throw BookingException(BookingError.NOT_FOUND)
+            val db = firestore()
+            val bookingRef = db.collection(COLLECTION_BOOKINGS).document(booking.id)
             db.runTransaction { transaction ->
                 // Re-read: the copy on screen may be stale (cancelled on another phone).
                 val current = BookingMapper.parse(booking.id, transaction.get(bookingRef).data, uid)
@@ -211,7 +217,7 @@ class FirestoreBookingRepository(
     }
 
     override suspend fun cancelAllUpcoming() {
-        val uid = currentUid() ?: throw BookingException(BookingError.UNKNOWN)
+        val uid = setUp { currentUid() } ?: throw BookingException(BookingError.UNKNOWN)
         val upcoming = try {
             // From the server: a stale cache could miss a booking made on another phone.
             firestore().collection(COLLECTION_BOOKINGS)
@@ -271,23 +277,20 @@ class FirestoreBookingRepository(
     private fun Throwable.bookingException(): BookingException? =
         generateSequence(this) { it.cause }.take(MAX_CAUSE_DEPTH).filterIsInstance<BookingException>().firstOrNull()
 
-    private fun <T> listen(query: Query, map: (QuerySnapshot) -> T): Flow<T> = callbackFlow {
-        val registration = query.addSnapshotListener(MetadataChanges.INCLUDE) { snapshot, error ->
-            if (error != null) {
-                close(AuthErrorMapper.toException(error))
-                return@addSnapshotListener
-            }
-            if (snapshot != null) trySend(map(snapshot))
-        }
-        val stop = listeners.register {
-            registration.remove()
-            channel.close()
-        }
-        awaitClose {
-            stop.release()
-            registration.remove()
-        }
+    /**
+     * Steps before a booking's transaction (the signed-in user, the Firestore instance, document
+     * references). After sign-out the instance is terminated and these throw
+     * IllegalStateException: report it as [BookingError.UNKNOWN] instead of letting it escape.
+     */
+    private inline fun <T> setUp(block: () -> T): T = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        throw e.bookingException() ?: BookingException(BookingError.UNKNOWN, e)
     }
+
+    private fun <T> listen(query: () -> Query, map: (QuerySnapshot) -> T): Flow<T> = queryFlow(listeners, query, map)
 
     private fun quotaRef(db: FirebaseFirestore, uid: String, place: Int) =
         db.collection(COLLECTION_USERS).document(uid).collection(COLLECTION_QUOTA).document(place.toString())

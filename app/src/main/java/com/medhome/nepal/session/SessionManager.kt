@@ -100,6 +100,7 @@ class SessionManager(
             profiles.ensureProfile(user.uid, name, profileEmail(user.email ?: email))
         }
         val sent = logFailure("sendEmailVerification") { auth.sendEmailVerification() }
+        listeners.reopen()
         _state.value = SessionState.NeedsVerification(profile, verificationEmailFailed = !sent)
     }
 
@@ -231,6 +232,8 @@ class SessionManager(
             _state.value = SessionState.SignedOut()
             return
         }
+        // A session starts: listeners are accepted again (sign-out closed the registry).
+        listeners.reopen()
         _state.value = if (user.isVerified) {
             SessionState.SignedIn(profile, user.usesPassword)
         } else {

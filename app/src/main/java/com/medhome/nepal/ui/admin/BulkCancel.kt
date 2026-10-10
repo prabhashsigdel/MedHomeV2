@@ -3,6 +3,7 @@ package com.medhome.nepal.ui.admin
 import com.medhome.nepal.data.AdminRepository
 import com.medhome.nepal.domain.AdminError
 import com.medhome.nepal.domain.AdminException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -38,8 +39,10 @@ object BulkCancel {
         repeat(MAX_PAGES) {
             val page = try {
                 repository.upcomingBookingPage(doctorId, after)
-            } catch (e: AdminException) {
-                return BulkCancelResult(cancelled, failed, error ?: e.error)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return BulkCancelResult(cancelled, failed, error ?: e.adminError())
             }
             page.bookingIds.chunked(CHUNK_SIZE).forEach { chunk ->
                 cancelEach(repository, chunk).forEach { outcome ->
@@ -72,10 +75,18 @@ object BulkCancel {
                 async {
                     try {
                         if (repository.cancelBooking(id)) Outcome.Cancelled else Outcome.AlreadyCancelled
-                    } catch (e: AdminException) {
-                        Outcome.Failed(e.error)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Outcome.Failed(e.adminError())
                     }
                 }
             }.awaitAll()
         }
+
+    /**
+     * The repository reports failures as [AdminException]; anything else (a Firestore instance
+     * shut down by sign-out, say) counts as UNKNOWN rather than crashing the whole run.
+     */
+    private fun Exception.adminError(): AdminError = (this as? AdminException)?.error ?: AdminError.UNKNOWN
 }

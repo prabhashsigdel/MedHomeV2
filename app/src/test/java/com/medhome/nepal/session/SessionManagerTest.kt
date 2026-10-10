@@ -353,6 +353,48 @@ class SessionManagerTest {
     }
 
     @Test
+    fun `a listener started after sign-out is stopped at once, and the next sign-in accepts listeners again`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser())
+        val listeners = ListenerRegistry()
+        val scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        try {
+            val session = SessionManager(auth, profiles, google, scope, listeners)
+            session.start()
+            session.signOut()
+            var lateStopped = 0
+            listeners.register { lateStopped++ }
+            assertEquals(1, lateStopped)
+            assertEquals(0, listeners.openCount)
+
+            session.signInWithEmail("uid-1@example.com", "password123")
+            assertTrue(session.state.value is SessionState.SignedIn)
+            var stopped = 0
+            listeners.register { stopped++ }
+            assertEquals(0, stopped)
+            assertEquals(1, listeners.openCount)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `an external sign-out also closes the listener registry`() = runTest {
+        val auth = FakeAuthDataSource(passwordUser())
+        val listeners = ListenerRegistry()
+        val scope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        try {
+            val session = SessionManager(auth, profiles, google, scope, listeners)
+            session.start()
+            assertFalse(listeners.isClosed)
+            auth.signOutExternally()
+            assertEquals(SessionState.SignedOut(), session.state.value)
+            assertTrue(listeners.isClosed)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `a listener that ended on its own is not stopped again`() {
         val listeners = ListenerRegistry()
         var stopped = 0

@@ -441,6 +441,22 @@ class AdminViewModelsTest {
     }
 
     @Test
+    fun `a bulk cancel reports unexpected exceptions as UNKNOWN instead of crashing`() = runTest(dispatcher) {
+        val fake = withBookings("b1", "b2")
+        val brokenCancel = object : AdminRepository by fake {
+            override suspend fun cancelBooking(bookingId: String): Boolean =
+                if (bookingId == "b1") throw IllegalStateException("terminated") else fake.cancelBooking(bookingId)
+        }
+        assertEquals(BulkCancelResult(cancelled = 1, failed = 1, error = AdminError.UNKNOWN), BulkCancel.cancelUpcoming(brokenCancel, "doc-001"))
+
+        val brokenPage = object : AdminRepository by fake {
+            override suspend fun upcomingBookingPage(doctorId: String, afterMillis: Long?): UpcomingPage =
+                throw IllegalStateException("terminated")
+        }
+        assertEquals(BulkCancelResult(cancelled = 0, failed = 0, error = AdminError.UNKNOWN), BulkCancel.cancelUpcoming(brokenPage, "doc-001"))
+    }
+
+    @Test
     fun `a bulk cancel with only started bookings left is complete`() = runTest(dispatcher) {
         val repository = withBookings("b1").apply { cancelFailures["b1"] = AdminError.BOOKING_STARTED }
         assertTrue(BulkCancel.cancelUpcoming(repository, "doc-001").isComplete)
