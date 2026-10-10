@@ -17,7 +17,9 @@ import kotlin.reflect.KClass
 /**
  * Steps inside one flow (a nested graph in [flows]) push and pop: forward slides in from the
  * right with a fade, back reverses it. Moving between flows (a session change, or switching
- * tabs) is not a push, so it crossfades.
+ * tabs) is not a push, so it crossfades. A [sharedFlows] graph (the booking flow) is opened on top
+ * of whichever tab the user is in: going into it and backing out of it are push and pop, but
+ * leaving it forward (to another tab, when a booking is done) is a tab switch.
  *
  * The back gesture has its own pair ([predictivePopEnter], [predictivePopExit]): the same
  * motion, but linear. NavHost seeks the gesture's transition with the finger's progress and, on
@@ -28,6 +30,7 @@ import kotlin.reflect.KClass
 class ScreenTransitions(
     private val reducedMotion: Boolean,
     private val flows: List<KClass<*>>,
+    private val sharedFlows: List<KClass<*>> = emptyList(),
 ) {
     private fun <T> slideSpec() = tween<T>(MotionTokens.SCREEN_MS, easing = MotionTokens.EaseOut)
     private fun <T> fadeSpec() = tween<T>(MotionTokens.CROSSFADE_MS, easing = MotionTokens.EaseOut)
@@ -37,50 +40,60 @@ class ScreenTransitions(
 
     fun enter(scope: AnimatedContentTransitionScope<NavBackStackEntry>): EnterTransition = when {
         reducedMotion -> EnterTransition.None
-        scope.isFlowStep() -> scope.slideIntoContainer(SlideDirection.Start, slideSpec()) + fadeIn(slideSpec())
+        scope.isPush() -> scope.slideIntoContainer(SlideDirection.Start, slideSpec()) + fadeIn(slideSpec())
         else -> fadeIn(fadeSpec())
     }
 
     fun exit(scope: AnimatedContentTransitionScope<NavBackStackEntry>): ExitTransition = when {
         reducedMotion -> ExitTransition.None
-        scope.isFlowStep() ->
+        scope.isPush() ->
             scope.slideOutOfContainer(SlideDirection.Start, slideSpec(), targetOffset = { it / PARALLAX }) + fadeOut(slideSpec())
         else -> fadeOut(fadeSpec())
     }
 
     fun popEnter(scope: AnimatedContentTransitionScope<NavBackStackEntry>): EnterTransition = when {
         reducedMotion -> EnterTransition.None
-        scope.isFlowStep() ->
+        scope.isPop() ->
             scope.slideIntoContainer(SlideDirection.End, slideSpec(), initialOffset = { it / PARALLAX }) + fadeIn(slideSpec())
         else -> fadeIn(fadeSpec())
     }
 
     fun popExit(scope: AnimatedContentTransitionScope<NavBackStackEntry>): ExitTransition = when {
         reducedMotion -> ExitTransition.None
-        scope.isFlowStep() -> scope.slideOutOfContainer(SlideDirection.End, slideSpec()) + fadeOut(slideSpec())
+        scope.isPop() -> scope.slideOutOfContainer(SlideDirection.End, slideSpec()) + fadeOut(slideSpec())
         else -> fadeOut(fadeSpec())
     }
 
     fun predictivePopEnter(scope: AnimatedContentTransitionScope<NavBackStackEntry>): EnterTransition = when {
         reducedMotion -> EnterTransition.None
-        scope.isFlowStep() ->
+        scope.isPop() ->
             scope.slideIntoContainer(SlideDirection.End, gestureSpec(), initialOffset = { it / PARALLAX }) + fadeIn(gestureSpec())
         else -> fadeIn(gestureSpec())
     }
 
     fun predictivePopExit(scope: AnimatedContentTransitionScope<NavBackStackEntry>): ExitTransition = when {
         reducedMotion -> ExitTransition.None
-        scope.isFlowStep() -> scope.slideOutOfContainer(SlideDirection.End, gestureSpec()) + fadeOut(gestureSpec())
+        scope.isPop() -> scope.slideOutOfContainer(SlideDirection.End, gestureSpec()) + fadeOut(gestureSpec())
         else -> fadeOut(gestureSpec())
     }
 
-    private fun AnimatedContentTransitionScope<NavBackStackEntry>.isFlowStep(): Boolean {
-        val flow = initialState.flow()
-        return flow != null && flow == targetState.flow()
+    /** Forward: a step inside a flow, or from a tab into a shared flow. */
+    private fun AnimatedContentTransitionScope<NavBackStackEntry>.isPush(): Boolean {
+        val from = initialState.flow()
+        val to = targetState.flow()
+        return from != null && (from == to || (to in sharedFlows && from !in sharedFlows))
     }
 
+    /** Back: a step inside a flow, or out of a shared flow to the tab under it. */
+    private fun AnimatedContentTransitionScope<NavBackStackEntry>.isPop(): Boolean {
+        val from = initialState.flow()
+        val to = targetState.flow()
+        return to != null && (from == to || (from in sharedFlows && to !in sharedFlows))
+    }
+
+    /** The innermost flow: a shared flow wins over a tab that happens to contain it. */
     private fun NavBackStackEntry.flow(): KClass<*>? =
-        flows.firstOrNull { graph -> destination.hierarchy.any { it.hasRoute(graph) } }
+        (sharedFlows + flows).firstOrNull { graph -> destination.hierarchy.any { it.hasRoute(graph) } }
 
     private companion object {
         /** The screen underneath moves a quarter as far, for depth. */

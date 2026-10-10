@@ -96,6 +96,8 @@ fun MainShell(
 // The property name is ReminderViewModels.ARG_MEDICINE_ID; 0 adds a new medicine.
 @Serializable internal data class MedicineFormRoute(val medicineId: Long)
 @Serializable internal data object TodayRemindersRoute
+// The booking flow: its own graph, not a tab's, so it opens over any tab.
+@Serializable internal data object BookingFlow
 @Serializable internal data object FindDoctorRoute
 // The property name is DoctorViewModels.ARG_DOCTOR_ID: the detail ViewModel reads it from there.
 @Serializable internal data class DoctorDetailRoute(val doctorId: String)
@@ -161,6 +163,7 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
     val transitions = ScreenTransitions(
         reducedMotion = LocalReducedMotion.current,
         flows = PatientTab.entries.map { it.graphClass },
+        sharedFlows = listOf(BookingFlow::class),
     )
 
     FloatingTabShell(
@@ -199,27 +202,6 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
                                 onOpenReminders = navigateOnce { navController.navigate(TodayRemindersRoute) { launchSingleTop = true } },
                             )
                         }
-                    }
-                    composable<FindDoctorRoute> {
-                        FindDoctorScreen(
-                            onOpenDoctor = navigateOnceWith { id: String -> navController.navigate(DoctorDetailRoute(id)) },
-                            viewModel = viewModel(factory = doctorViewModelFactory),
-                        )
-                    }
-                    composable<DoctorDetailRoute> {
-                        DoctorDetailScreen(
-                            viewModel = viewModel(factory = doctorViewModelFactory),
-                            onBook = navigateOnceWith { id: String -> navController.navigate(BookAppointmentRoute(id)) },
-                        )
-                    }
-                    composable<BookAppointmentRoute> { entry ->
-                        BookAppointmentScreen(
-                            viewModel = viewModel(factory = bookingViewModelFactory),
-                            onBooked = {
-                                if (navController.currentBackStackEntry?.id == entry.id) askNotifications()
-                                navController.finishBooking(entry)
-                            },
-                        )
                     }
                     composable<MedicinesRoute> {
                         MedicinesScreen(
@@ -274,6 +256,31 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
                 navigation<RecordsTab>(startDestination = RecordsRoute) {
                     composable<RecordsRoute> { TabRoot { ComingSoonScreen(title = R.string.nav_records, showBack = false) } }
                 }
+                // Opened on top of whichever tab asked (Home's shortcut, Bookings' Book appointment),
+                // so Back returns there; finishBooking always ends on the Bookings tab.
+                navigation<BookingFlow>(startDestination = FindDoctorRoute) {
+                    composable<FindDoctorRoute> {
+                        FindDoctorScreen(
+                            onOpenDoctor = navigateOnceWith { id: String -> navController.navigate(DoctorDetailRoute(id)) },
+                            viewModel = viewModel(factory = doctorViewModelFactory),
+                        )
+                    }
+                    composable<DoctorDetailRoute> {
+                        DoctorDetailScreen(
+                            viewModel = viewModel(factory = doctorViewModelFactory),
+                            onBook = navigateOnceWith { id: String -> navController.navigate(BookAppointmentRoute(id)) },
+                        )
+                    }
+                    composable<BookAppointmentRoute> { entry ->
+                        BookAppointmentScreen(
+                            viewModel = viewModel(factory = bookingViewModelFactory),
+                            onBooked = {
+                                if (navController.currentBackStackEntry?.id == entry.id) askNotifications()
+                                navController.finishBooking(entry)
+                            },
+                        )
+                    }
+                }
             }
         }
     }
@@ -289,13 +296,10 @@ private fun NavHostController.openShortcut(shortcut: HomeShortcut, shell: ShellN
 }
 
 /**
- * Book appointment on the Bookings tab: the booking flow lives on Home's stack, so switch to
- * Home, back to its root, and open Find a doctor there. Back then returns to Home, and
- * [finishBooking] brings the user back to Bookings with the new booking.
+ * Book appointment on the Bookings tab: the booking flow opens on top of the Bookings tab, so
+ * Back (button or gesture) returns there. [finishBooking] still ends on a fresh Bookings tab.
  */
 private fun NavHostController.startBooking() {
-    selectTab(PatientTab.HOME)
-    popBackStack(HomeRoute, inclusive = false)
     navigate(FindDoctorRoute)
 }
 

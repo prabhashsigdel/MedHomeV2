@@ -459,11 +459,34 @@ class PatientShellNavigationTest {
     }
 
     @Test
-    fun `Book appointment on the Bookings tab opens Find a doctor, and Back goes Home`() {
+    fun `Find a doctor opened from the Bookings tab goes Back to the Bookings tab`() {
         bookFromBookingsTab()
         assertOnFindDoctor()
         compose.onNodeWithText(asha.name).assertIsDisplayed()
 
+        pressBack()
+        assertOnBookingsTab()
+    }
+
+    @Test
+    fun `the back arrow also returns to the Bookings tab, through the doctor`() {
+        bookFromBookingsTab()
+        compose.onNodeWithText(asha.name).performClick()
+        settle()
+        compose.onNodeWithContentDescription(text(R.string.action_back)).performClick()
+        settle()
+        assertOnFindDoctor()
+        compose.onNodeWithContentDescription(text(R.string.action_back)).performClick()
+        settle()
+        assertOnBookingsTab()
+    }
+
+    @Test
+    fun `Find a doctor opened from Home still goes Back Home`() {
+        openFindDoctor()
+        compose.onNodeWithText(asha.name).performClick()
+        settle()
+        pressBack()
         pressBack()
         assertOnHome()
     }
@@ -484,7 +507,7 @@ class PatientShellNavigationTest {
         compose.onAllNodesWithTag(BOOK_APPOINTMENT_BUTTON_TAG)[0].doubleTap()
         assertOnFindDoctor()
         pressBack()
-        assertOnHome()
+        assertOnBookingsTab()
     }
 
     @Test
