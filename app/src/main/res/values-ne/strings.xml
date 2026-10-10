@@ -291,7 +291,7 @@
     <string name="bookings_title">मेरा बुकिङ</string> <!-- review -->
     <string name="bookings_upcoming">आउँदै गरेका</string> <!-- review -->
     <string name="bookings_past">विगतका</string> <!-- review -->
-    <string name="bookings_none_upcoming_body">परामर्श बुक गर्न होमबाट डाक्टर खोज्नुहोस्।</string> <!-- review -->
+    <string name="bookings_none_upcoming_body">हाम्रा कुनै डाक्टरसँग परामर्श बुक गर्नुहोस्।</string> <!-- review -->
     <string name="bookings_none_past_title">विगतका कुनै अपोइन्टमेन्ट छैनन्</string> <!-- review -->
     <string name="bookings_none_past_body">तपाईंले गरेका वा रद्द गरेका अपोइन्टमेन्ट यहाँ देखिनेछन्।</string> <!-- review -->
     <string name="bookings_load_failed">तपाईंका बुकिङ लोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
@@ -321,7 +321,6 @@
 
     <!-- Admin: managing doctors (admins only). -->
     <string name="admin_doctors_title">डाक्टरहरू व्यवस्थापन</string> <!-- review -->
-    <string name="admin_open_settings">सेटिङ</string> <!-- review -->
     <string name="admin_search">नाम वा अस्पतालबाट खोज्नुहोस्</string> <!-- review -->
     <string name="admin_add_doctor">डाक्टर थप्नुहोस्</string> <!-- review -->
     <string name="admin_status_active">सक्रिय</string> <!-- review -->
@@ -391,7 +390,6 @@
     <string name="admin_error_fee">० देखि १,००,००० सम्मको शुल्क लेख्नुहोस्</string> <!-- review -->
     <string name="admin_error_experience">० देखि ७० वर्ष लेख्नुहोस्</string> <!-- review -->
     <string name="admin_error_slot_minutes">५ देखि २४० मिनेट लेख्नुहोस्</string> <!-- review -->
-    <string name="admin_settings_title">सेटिङ</string> <!-- review -->
     <plurals name="admin_upcoming_count">
         <item quantity="one">%1$s आगामी बुकिङ</item> <!-- review -->
         <item quantity="other">%1$s आगामी बुकिङ</item> <!-- review -->
@@ -404,6 +402,28 @@
     <string name="admin_keep_booking">बुकिङ राख्नुहोस्</string> <!-- review -->
     <string name="admin_cancel_error_started">यो अपोइन्टमेन्ट सुरु भइसकेको छ, त्यसैले रद्द गर्न सकिँदैन।</string> <!-- review -->
     <string name="admin_cancel_error_not_found">यो बुकिङ फेला पार्न वा पढ्न सकिएन।</string> <!-- review -->
+    <string name="bookings_book_action">अपोइन्टमेन्ट बुक गर्नुहोस्</string> <!-- review -->
+    <string name="nav_doctors">डाक्टरहरू</string> <!-- review -->
+    <string name="admin_bookings_title">बुकिङहरू</string> <!-- review -->
+    <string name="admin_bookings_cancelled">रद्द गरिएका</string> <!-- review -->
+    <string name="admin_bookings_failed">बुकिङहरू लोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="admin_bookings_none_upcoming">कुनै आगामी बुकिङ छैन</string> <!-- review -->
+    <string name="admin_bookings_none_past">विगतका कुनै बुकिङ छैनन्</string> <!-- review -->
+    <string name="admin_bookings_none_cancelled">रद्द गरिएका कुनै बुकिङ छैनन्</string> <!-- review -->
+    <string name="admin_bookings_none_body">सबै डाक्टरका बुकिङ यहाँ देखिनेछन्।</string> <!-- review -->
+    <string name="admin_bookings_show_more">थप देखाउनुहोस्</string> <!-- review -->
+    <string name="admin_booking_booked">बुक गरिएको</string> <!-- review -->
+    <string name="admin_booking_past">विगतको</string> <!-- review -->
+    <string name="admin_cancelled_by_patient">बिरामीले रद्द गर्नुभयो</string> <!-- review -->
+    <string name="admin_cancelled_by_other_admin">अर्को एडमिनले रद्द गर्नुभयो</string> <!-- review -->
+    <string name="admin_cancelled_when">%1$s · %2$s</string> <!-- review -->
+    <string name="admin_booking_title">बुकिङ</string> <!-- review -->
+    <string name="admin_booking_load_failed">यो बुकिङ लोड गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
+    <string name="admin_booking_missing_title">बुकिङ फेला परेन</string> <!-- review -->
+    <string name="label_patient">बिरामी</string> <!-- review -->
+    <string name="label_specialty">विशेषज्ञता</string> <!-- review -->
+    <string name="label_status">स्थिति</string> <!-- review -->
+    <string name="label_cancelled_at">रद्द गरिएको समय</string> <!-- review -->
     <string name="admin_hide_only">लुकाउने मात्र</string> <!-- review -->
     <string name="admin_hidden_title">डाक्टर लुकाइयो</string> <!-- review -->
     <string name="admin_bulk_check_failed">रद्द गर्न बाँकी आगामी बुकिङहरू जाँच गर्न सकिएन।</string> <!-- review -->

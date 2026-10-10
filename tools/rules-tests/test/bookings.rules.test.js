@@ -499,6 +499,34 @@ describe('bookings', () => {
       await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { patientName: 'Renamed' } }));
     });
 
+    it('a patient cancel must stamp cancelledAt with the server time', async () => {
+      const s = slot(1, 10);
+      const id = await seedBooking('alice', s);
+      const future = Timestamp.fromMillis(Date.now() + DAY_MS);
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelledAt: deleteField() } }));
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelledAt: future } }));
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelledAt: 'now' } }));
+      await assertSucceeds(cancel(verified('alice'), 'alice', id, s));
+      let stored;
+      await env.withSecurityRulesDisabled(async (context) => {
+        stored = (await getDoc(doc(context.firestore(), `bookings/${id}`))).data();
+      });
+      if (!(stored.cancelledAt instanceof Timestamp)) throw new Error('cancelledAt not stored as a timestamp');
+    });
+
+    it('cancelledAt never changes after a patient cancel', async () => {
+      const s = slot(1, 10);
+      const id = await seedBooking('alice', s);
+      await assertSucceeds(cancel(verified('alice'), 'alice', id, s));
+      const ref = (db) => doc(db, `bookings/${id}`);
+      await assertFails(updateDoc(ref(verified('alice')), { cancelledAt: serverTimestamp() }));
+      await assertFails(updateDoc(ref(verified('alice')), { cancelledAt: Timestamp.fromMillis(Date.now() - DAY_MS) }));
+      await assertFails(updateDoc(ref(verified('alice')), { cancelledAt: deleteField() }));
+      // Not even alongside the one change allowed later (blanking the name).
+      await assertFails(updateDoc(ref(verified('alice')), { patientName: '', cancelledAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(ref(verified('alice')), { patientName: '' }));
+    });
+
     it('a patient cancel says it was the patient, never the clinic', async () => {
       const s = slot(1, 10);
       const id = await seedBooking('alice', s);

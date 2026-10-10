@@ -1,13 +1,18 @@
 package com.medhome.nepal.fakes
 
+import com.medhome.nepal.data.AdminBookingsPage
 import com.medhome.nepal.data.AdminRepository
 import com.medhome.nepal.data.ManagedDoctorLookup
 import com.medhome.nepal.data.ManagedDoctorsSnapshot
 import com.medhome.nepal.data.UpcomingPage
+import com.medhome.nepal.domain.AdminBooking
+import com.medhome.nepal.domain.AdminBookingFilter
+import com.medhome.nepal.domain.AdminCancelledBy
 import com.medhome.nepal.domain.AdminError
 import com.medhome.nepal.domain.AdminException
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
+import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.ClinicCancel
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.DoctorAppointment
@@ -47,6 +52,16 @@ class FakeAdminRepository(initial: List<ManagedDoctor> = emptyList()) : AdminRep
     /** Bookings the patient cancelled after the list was read: cancelling them does nothing. */
     val alreadyCancelled = mutableSetOf<String>()
 
+    /** Every doctor's bookings, for the Bookings tab ([allBookings]); [bookingsFailure] fails reading them. */
+    val allBookings = MutableStateFlow<List<AdminBooking>>(emptyList())
+    var bookingsFailure: AuthError? = null
+
+    /** The limits the Bookings tab asked for, in order. */
+    val bookingLimits = mutableListOf<Int>()
+
+    /** "Now", for the Bookings tab's filters. */
+    var now: () -> Long = System::currentTimeMillis
+
     override fun allDoctors(): Flow<ManagedDoctorsSnapshot> = flow {
         listFailure?.let { throw AuthException(it) }
         doctors.filterNotNull().map { ManagedDoctorsSnapshot(it, fromCache) }.collect { emit(it) }
@@ -65,6 +80,26 @@ class FakeAdminRepository(initial: List<ManagedDoctor> = emptyList()) : AdminRep
     override fun upcomingAppointments(doctorId: String): Flow<List<DoctorAppointment>> = flow {
         listFailure?.let { throw AuthException(it) }
         appointments.map { it[doctorId].orEmpty() }.collect { emit(it) }
+    }
+
+    override fun bookings(filter: AdminBookingFilter, limit: Int): Flow<AdminBookingsPage> = flow {
+        bookingLimits += limit
+        bookingsFailure?.let { throw AuthException(it) }
+        allBookings.map { all ->
+            val at = now()
+            val matching = when (filter) {
+                AdminBookingFilter.UPCOMING -> all.filter { it.isUpcoming(at) }.sortedBy { it.startAtMillis }
+                AdminBookingFilter.PAST -> all.filter { it.status == BookingStatus.BOOKED && it.startAtMillis <= at }
+                    .sortedByDescending { it.startAtMillis }
+                AdminBookingFilter.CANCELLED -> all.filter { it.status == BookingStatus.CANCELLED }.sortedByDescending { it.startAtMillis }
+            }
+            AdminBookingsPage(matching.take(limit), hasMore = matching.size >= limit, fromCache = fromCache)
+        }.collect { emit(it) }
+    }
+
+    override fun booking(id: String): Flow<AdminBooking?> = flow {
+        bookingsFailure?.let { throw AuthException(it) }
+        allBookings.map { all -> all.firstOrNull { it.bookingId == id } }.collect { emit(it) }
     }
 
     override suspend fun upcomingCount(doctorId: String): Int {
@@ -112,6 +147,13 @@ class FakeAdminRepository(initial: List<ManagedDoctor> = emptyList()) : AdminRep
         // Like the live list: still there, cancelled by this admin.
         appointments.value = appointments.value.mapValues { (_, list) ->
             list.map { if (it.bookingId == bookingId) it.copy(clinicCancel = ClinicCancel.BY_YOU) else it }
+        }
+        allBookings.value = allBookings.value.map {
+            if (it.bookingId == bookingId) {
+                it.copy(status = BookingStatus.CANCELLED, cancelledBy = AdminCancelledBy.YOU, cancelledAtMillis = now())
+            } else {
+                it
+            }
         }
         return true
     }

@@ -26,13 +26,16 @@ cover users (sign-up as patient only, no role/email/createdAt changes by anyone,
 included, no cross-user access, owner delete), doctors (signed-in read of active ones, no deletes),
 bookings (`bookings.rules.test.js`: booking a slot, double booking, unverified email, past and
 off-schedule slots, booking for someone else, the 3-upcoming limit, the `patientName` copy of
-the profile name, reading and cancelling with `cancelledBy: "patient"`, and a deleted account
-blanking `patientName` on its own bookings, to `""` only) and admins
+the profile name, reading and cancelling with `cancelledBy: "patient"` and `cancelledAt` at the
+server time, never changed afterwards, and a deleted account blanking `patientName` on its own
+bookings, to `""` only) and admins
 (`admin.rules.test.js`: adding and editing doctors with every field validated, show / hide, the
 `updatedAt` / `updatedBy` stamp, no deletes; patients, doctors and signed-out users can't write
-doctors or make themselves admins; admins can't read patient profiles, and the only booking
-write they may make is cancelling an upcoming one for the clinic, naming themselves in
-`cancelledByUid` and freeing exactly its slot lock and quota place).
+doctors or make themselves admins; only admins with a verified email may list every doctor's
+bookings by status (the Bookings tab), and patients still list only their own; admins can't
+read patient profiles, and the only booking write they may make is cancelling an upcoming one
+for the clinic, naming themselves in `cancelledByUid`, stamping `cancelledAt` at the server
+time and freeing exactly its slot lock and quota place).
 
 ## Seeding doctors
 
@@ -94,8 +97,9 @@ npx firebase deploy --config ../../firebase.json --only firestore:rules --projec
 ```
 
 Deploy the indexes first: the Bookings tab (`bookings` by `patientUid`, newest first), taken
-slots (`slotLocks` by `doctorId` and `startAt`) and the admin's upcoming bookings of a doctor
-(`bookings` by `doctorId`, `status` and `startAt`) need the composite indexes in
+slots (`slotLocks` by `doctorId` and `startAt`), the admin's upcoming bookings of a doctor
+(`bookings` by `doctorId`, `status` and `startAt`) and the admin's Bookings tab (`bookings` by
+`status` and `startAt`, one index each way) need the composite indexes in
 `firestore.indexes.json`, and their queries fail until those finish building (a few minutes;
 see Firestore > Indexes in the console).
 

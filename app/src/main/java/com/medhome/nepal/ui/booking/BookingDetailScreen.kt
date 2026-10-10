@@ -23,6 +23,7 @@ import com.medhome.nepal.ui.common.DateStyle
 import com.medhome.nepal.ui.common.LocaleFormat
 import com.medhome.nepal.ui.common.currentLocale
 import com.medhome.nepal.ui.common.feeText
+import com.medhome.nepal.ui.components.FactRow
 import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassButtonStyle
 import com.medhome.nepal.ui.components.GlassCard
@@ -32,7 +33,6 @@ import com.medhome.nepal.ui.components.InitialsAvatar
 import com.medhome.nepal.ui.components.MessageKind
 import com.medhome.nepal.ui.components.SettingsDivider
 import com.medhome.nepal.ui.components.StatusMessage
-import com.medhome.nepal.ui.doctors.FactRow
 import com.medhome.nepal.ui.doctors.LoadingCard
 import com.medhome.nepal.ui.doctors.MessageCard
 import com.medhome.nepal.ui.doctors.label

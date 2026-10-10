@@ -16,6 +16,7 @@ import {
   getCountFromServer,
   getDoc,
   getDocs,
+  limit,
   orderBy,
   query,
   serverTimestamp,
@@ -349,6 +350,60 @@ describe('admin', () => {
     });
   });
 
+  // The Bookings tab: every doctor's bookings at once, by status, a page at a time.
+  describe("listing every doctor's bookings", () => {
+    const lists = (db) => ({
+      upcoming: query(collection(db, 'bookings'), where('status', '==', 'booked'), where('startAt', '>', Timestamp.now()),
+        orderBy('startAt'), limit(25)),
+      past: query(collection(db, 'bookings'), where('status', '==', 'booked'), where('startAt', '<=', Timestamp.now()),
+        orderBy('startAt', 'desc'), limit(25)),
+      cancelled: query(collection(db, 'bookings'), where('status', '==', 'cancelled'), orderBy('startAt', 'desc'), limit(25)),
+    });
+
+    beforeEach(async () => {
+      await env.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, 'bookings/b3'), {
+          patientUid: 'bob', doctorId: 'doc-001', status: 'booked', startAt: Timestamp.fromMillis(Date.now() - DAY_MS),
+          slotId: 'z', quotaPlace: 2,
+        });
+        await setDoc(doc(db, 'bookings/b4'), {
+          patientUid: 'alice', doctorId: 'doc-002', status: 'cancelled', startAt: Timestamp.fromMillis(Date.now() + DAY_MS),
+          slotId: 'w', quotaPlace: 2, cancelledBy: 'patient', cancelledAt: Timestamp.now(),
+        });
+      });
+    });
+
+    it('an admin can list upcoming, past and cancelled bookings across all doctors, and read any one', async () => {
+      const sizes = [];
+      for (const q of Object.values(lists(as('admin')))) sizes.push((await assertSucceeds(getDocs(q))).size);
+      // b1 and b2 (two doctors) upcoming, b3 past, b4 cancelled.
+      if (sizes.join() !== '2,1,1') throw new Error(`unexpected list sizes ${sizes.join()}`);
+      await assertSucceeds(getDoc(doc(as('admin'), 'bookings/b4')));
+    });
+
+    it('an admin whose email is not verified cannot list them', async () => {
+      const noClaim = env.authenticatedContext('admin', { email: 'admin@example.com' }).firestore();
+      for (const db of [unverified('admin'), noClaim]) {
+        for (const q of Object.values(lists(db))) await assertFails(getDocs(q));
+      }
+    });
+
+    for (const [who, db] of [['a patient', () => as('alice')], ['a doctor', () => as('drx')], ['a signed-out user', signedOut]]) {
+      it(`${who} cannot list everyone's bookings`, async () => {
+        for (const q of Object.values(lists(db()))) await assertFails(getDocs(q));
+      });
+    }
+
+    it("a patient still lists only their own bookings, never another patient's", async () => {
+      const alice = as('alice');
+      await assertSucceeds(getDocs(query(collection(alice, 'bookings'), where('patientUid', '==', 'alice'), where('status', '==', 'booked'))));
+      await assertFails(getDocs(query(collection(alice, 'bookings'), where('patientUid', '==', 'bob'), where('status', '==', 'booked'))));
+      await assertFails(getDocs(query(collection(alice, 'bookings'), where('status', '==', 'cancelled'))));
+      await assertFails(getDoc(doc(alice, 'bookings/b3')));
+    });
+  });
+
   describe('cancelling a booking for the clinic', () => {
     const SNAPSHOT = { name: 'Asha Rai', specialty: 'cardiology', hospital: 'Valley Care Hospital', feeNpr: 800 };
 
@@ -456,6 +511,26 @@ describe('admin', () => {
       await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { cancelledByUid: deleteField() }));
       await assertFails(updateDoc(doc(as('alice'), 'bookings/c1'), { cancelledByUid: deleteField() }));
       await assertFails(updateDoc(doc(as('alice'), 'bookings/c1'), { cancelledByUid: 'alice' }));
+    });
+
+    it('an admin cancel must stamp cancelledAt with the server time', async () => {
+      const booking = await seed('c1');
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelledAt: deleteField() } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelledAt: Timestamp.fromMillis(Date.now() + DAY_MS) } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelledAt: Timestamp.fromMillis(Date.now() - DAY_MS) } }));
+      await assertSucceeds(clinicCancel(as('admin'), booking));
+      if (!((await stored('bookings/c1')).cancelledAt instanceof Timestamp)) throw new Error('cancelledAt not stored as a timestamp');
+    });
+
+    it('cancelledAt never changes after a clinic cancel, by the admin or the patient', async () => {
+      const booking = await seed('c1');
+      await assertSucceeds(clinicCancel(as('admin'), booking));
+      for (const db of [as('admin'), as('alice')]) {
+        await assertFails(updateDoc(doc(db, 'bookings/c1'), { cancelledAt: serverTimestamp() }));
+        await assertFails(updateDoc(doc(db, 'bookings/c1'), { cancelledAt: Timestamp.fromMillis(Date.now() - DAY_MS) }));
+        await assertFails(updateDoc(doc(db, 'bookings/c1'), { cancelledAt: deleteField() }));
+      }
+      await assertFails(updateDoc(doc(as('alice'), 'bookings/c1'), { patientName: '', cancelledAt: deleteField() }));
     });
 
     it("an admin cannot blank or change a patient's name on a booking", async () => {

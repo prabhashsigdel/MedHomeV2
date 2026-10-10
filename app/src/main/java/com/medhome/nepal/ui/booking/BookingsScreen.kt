@@ -23,6 +23,8 @@ import com.medhome.nepal.domain.Booking
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.ui.common.dateTimeText
 import com.medhome.nepal.ui.components.ChoiceOption
+import com.medhome.nepal.ui.components.GlassButton
+import com.medhome.nepal.ui.components.GlassButtonStyle
 import com.medhome.nepal.ui.components.GlassCard
 import com.medhome.nepal.ui.components.GlassScreen
 import com.medhome.nepal.ui.components.InitialsAvatar
@@ -36,16 +38,26 @@ import com.medhome.nepal.ui.doctors.label
 import com.medhome.nepal.ui.motion.entrance
 import com.medhome.nepal.ui.theme.GlassTheme
 
-/** Test tag on each booking card, for navigation tests. */
+/** Test tags, for navigation tests. */
 const val BOOKING_CARD_TAG = "booking_card"
+const val BOOK_APPOINTMENT_BUTTON_TAG = "book_appointment_button"
 
-/** The Bookings tab: Upcoming (soonest first) and Past (latest first), each a list of cards. */
+/**
+ * The Bookings tab: Book appointment (opens Find a doctor), then Upcoming (soonest first) and
+ * Past (latest first), each a list of cards. With nothing upcoming, the empty card offers
+ * booking too. A button, not a floating action button: that would clash with the floating tab bar.
+ */
 @Composable
-fun BookingsScreen(viewModel: BookingsViewModel, onOpenBooking: (String) -> Unit) {
+fun BookingsScreen(viewModel: BookingsViewModel, onOpenBooking: (String) -> Unit, onBookAppointment: () -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val segment by viewModel.segment.collectAsStateWithLifecycle()
     GlassScreen(drawBackground = false) {
         ScreenTitle(title = R.string.bookings_title, modifier = Modifier.entrance(0))
+        GlassButton(
+            text = R.string.bookings_book_action,
+            onClick = onBookAppointment,
+            modifier = Modifier.entrance(1).testTag(BOOK_APPOINTMENT_BUTTON_TAG),
+        )
         SegmentedChoice(
             options = listOf(
                 ChoiceOption(BookingsSegment.UPCOMING, stringResource(R.string.bookings_upcoming)),
@@ -53,7 +65,7 @@ fun BookingsScreen(viewModel: BookingsViewModel, onOpenBooking: (String) -> Unit
             ),
             selected = segment,
             onSelect = viewModel::selectSegment,
-            modifier = Modifier.entrance(1),
+            modifier = Modifier.entrance(2),
         )
         when (val current = state) {
             BookingsUiState.Loading -> LoadingCard()
@@ -70,7 +82,14 @@ fun BookingsScreen(viewModel: BookingsViewModel, onOpenBooking: (String) -> Unit
                         key(booking.id) { BookingCard(booking = booking, onClick = { onOpenBooking(booking.id) }) }
                     }
                     segment == BookingsSegment.UPCOMING ->
-                        MessageCard(R.string.home_no_appointments, R.string.bookings_none_upcoming_body)
+                        MessageCard(R.string.home_no_appointments, R.string.bookings_none_upcoming_body) {
+                            GlassButton(
+                                text = R.string.bookings_book_action,
+                                onClick = onBookAppointment,
+                                style = GlassButtonStyle.Secondary,
+                                modifier = Modifier.testTag(BOOK_APPOINTMENT_BUTTON_TAG),
+                            )
+                        }
                     else -> MessageCard(R.string.bookings_none_past_title, R.string.bookings_none_past_body)
                 }
             }

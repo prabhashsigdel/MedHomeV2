@@ -10,6 +10,8 @@ import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.Source
+import com.medhome.nepal.domain.AdminBooking
+import com.medhome.nepal.domain.AdminBookingFilter
 import com.medhome.nepal.domain.AdminError
 import com.medhome.nepal.domain.AdminException
 import com.medhome.nepal.domain.AuthError
@@ -34,6 +36,12 @@ import java.util.Date
  * start time is a safe cursor, and a booking left booked (a failed cancel) doesn't hide the rest.
  */
 data class UpcomingPage(val bookingIds: List<String>, val nextAfterMillis: Long?)
+
+/**
+ * One filter's bookings across all doctors, the first [limit][AdminRepository.bookings] of them.
+ * [hasMore]: the query was full, so there may be more. [fromCache]: from the on-device cache.
+ */
+data class AdminBookingsPage(val bookings: List<AdminBooking>, val hasMore: Boolean, val fromCache: Boolean)
 
 /** Every well-formed doctor, active or not, and whether the list came from the cache. */
 data class ManagedDoctorsSnapshot(val doctors: List<ManagedDoctor>, val fromCache: Boolean)
@@ -63,6 +71,15 @@ interface AdminRepository {
      * soonest first. Live.
      */
     fun upcomingAppointments(doctorId: String): Flow<List<DoctorAppointment>>
+
+    /**
+     * The first [limit] bookings of every doctor in [filter] (upcoming soonest first, past and
+     * cancelled latest first). Live; ask again with a larger limit for more.
+     */
+    fun bookings(filter: AdminBookingFilter, limit: Int): Flow<AdminBookingsPage>
+
+    /** One booking of any doctor; null when it is missing or malformed. Live. */
+    fun booking(id: String): Flow<AdminBooking?>
 
     /** How many booked appointments [doctorId] has from now on. Needs the server. */
     suspend fun upcomingCount(doctorId: String): Int
@@ -146,6 +163,69 @@ class FirestoreAdminRepository(
             val booked = appointments(BookingStatus.BOOKED, adminUid)
             val cancelled = appointments(BookingStatus.CANCELLED, adminUid)
             emitAll(combine(booked, cancelled) { b, c -> (b + c).sortedBy(DoctorAppointment::startAtMillis) })
+        }
+    }
+
+    override fun bookings(filter: AdminBookingFilter, limit: Int): Flow<AdminBookingsPage> {
+        require(limit in 1..MAX_BOOKINGS_READ) { "Bookings limit out of range" }
+        return flow {
+            // "Now" and who "you" is, read when collected (like the query itself).
+            val adminUid = mapErrors { currentUid() }
+            val now = clock()
+            val raw = listen({ bookingsQuery(filter, now).limit(limit.toLong()) }) { snapshot ->
+                AdminBookingsPage(
+                    bookings = snapshot.documents.mapNotNull { BookingMapper.parseForAdmin(it.id, it.data, adminUid) },
+                    // Counted before dropping malformed ones: a full page may have more after it.
+                    hasMore = snapshot.size() >= limit,
+                    fromCache = snapshot.metadata.isFromCache,
+                )
+            }
+            emitAll(raw)
+        }
+    }
+
+    override fun booking(id: String): Flow<AdminBooking?> {
+        // Only our own document IDs are valid; anything else (a path, say) never reaches Firestore.
+        if (!BookingMapper.isValidId(id)) return flowOf(null)
+        return flow {
+            val adminUid = mapErrors { currentUid() }
+            emitAll(
+                snapshotFlow<DocumentSnapshot, AdminBooking?>(
+                    listeners = listeners,
+                    attach = { listener -> firestore().collection(COLLECTION_BOOKINGS).document(id).addSnapshotListener(listener) },
+                ) { snapshot, error ->
+                    if (error != null) {
+                        close(AuthErrorMapper.toException(error))
+                        return@snapshotFlow
+                    }
+                    if (snapshot == null) return@snapshotFlow
+                    trySend(if (snapshot.exists()) BookingMapper.parseForAdmin(snapshot.id, snapshot.data, adminUid) else null)
+                },
+            )
+        }
+    }
+
+    /**
+     * Every doctor's bookings in [filter] around [now] (each needs a composite index on status
+     * and startAt, in that direction; see firestore.indexes.json). Cancelled ones are ordered by
+     * appointment, not by cancel time: cancels from before `cancelledAt` was stored have none,
+     * and an order on it would leave them out.
+     */
+    private fun bookingsQuery(filter: AdminBookingFilter, now: Long): Query {
+        val bookings = firestore().collection(COLLECTION_BOOKINGS)
+        val nowAt = Timestamp(Date(now))
+        return when (filter) {
+            AdminBookingFilter.UPCOMING -> bookings
+                .whereEqualTo(BookingMapper.FIELD_STATUS, BookingStatus.BOOKED.key)
+                .whereGreaterThan(BookingMapper.FIELD_START_AT, nowAt)
+                .orderBy(BookingMapper.FIELD_START_AT, Query.Direction.ASCENDING)
+            AdminBookingFilter.PAST -> bookings
+                .whereEqualTo(BookingMapper.FIELD_STATUS, BookingStatus.BOOKED.key)
+                .whereLessThanOrEqualTo(BookingMapper.FIELD_START_AT, nowAt)
+                .orderBy(BookingMapper.FIELD_START_AT, Query.Direction.DESCENDING)
+            AdminBookingFilter.CANCELLED -> bookings
+                .whereEqualTo(BookingMapper.FIELD_STATUS, BookingStatus.CANCELLED.key)
+                .orderBy(BookingMapper.FIELD_START_AT, Query.Direction.DESCENDING)
         }
     }
 
@@ -305,6 +385,9 @@ class FirestoreAdminRepository(
         const val COLLECTION_QUOTA = "bookingQuota"
         const val FIELD_QUOTA_BOOKING_ID = "bookingId"
         const val MAX_APPOINTMENTS_READ = 100L
+
+        /** The most bookings one list reads (its pages added up). */
+        const val MAX_BOOKINGS_READ = 500
         /** One page of bookings to cancel. */
         const val MAX_PAGE_READ = 200L
         const val MAX_CAUSE_DEPTH = 5

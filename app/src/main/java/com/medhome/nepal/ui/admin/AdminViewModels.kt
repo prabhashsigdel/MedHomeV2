@@ -178,13 +178,6 @@ data class ActiveDialogState(
         get() = !activate && (upcomingCount ?: 0) > 0 && cancelResult == null
 }
 
-/** The confirm dialog for cancelling one booking for the clinic. */
-data class CancelBookingDialogState(
-    val appointment: DoctorAppointment,
-    val isCancelling: Boolean = false,
-    val error: AdminError? = null,
-)
-
 class AdminDoctorViewModel(
     private val doctorId: String,
     private val repository: AdminRepository,
@@ -194,7 +187,7 @@ class AdminDoctorViewModel(
     private val doctorAttempts = MutableStateFlow(0)
     private val appointmentAttempts = MutableStateFlow(0)
     private val _dialog = MutableStateFlow<ActiveDialogState?>(null)
-    private val _cancelDialog = MutableStateFlow<CancelBookingDialogState?>(null)
+    private val cancel = ClinicCancelFlow(viewModelScope, repository)
     private var countJob: Job? = null
 
     val uiState: StateFlow<AdminDoctorUiState> =
@@ -209,7 +202,7 @@ class AdminDoctorViewModel(
 
     val dialog: StateFlow<ActiveDialogState?> = _dialog.asStateFlow()
 
-    val cancelDialog: StateFlow<CancelBookingDialogState?> = _cancelDialog.asStateFlow()
+    val cancelDialog: StateFlow<CancelBookingDialogState?> = cancel.dialog
 
     fun retry() = doctorAttempts.update { it + 1 }
 
@@ -218,7 +211,7 @@ class AdminDoctorViewModel(
     /** Opens the confirm dialog for the opposite of the doctor's current state, and counts their bookings. */
     fun requestToggle() {
         val ready = uiState.value as? AdminDoctorUiState.Ready ?: return
-        if (_dialog.value != null || _cancelDialog.value != null) return
+        if (_dialog.value != null || cancel.isOpen) return
         _dialog.value = ActiveDialogState(activate = !ready.doctor.active)
         countJob = viewModelScope.launch {
             val count = try {
@@ -277,30 +270,15 @@ class AdminDoctorViewModel(
 
     /** Asks before cancelling [appointment] for the clinic (only while it is booked). */
     fun requestCancel(appointment: DoctorAppointment) {
-        if (!appointment.isBooked || _dialog.value != null || _cancelDialog.value != null) return
-        _cancelDialog.value = CancelBookingDialogState(appointment)
+        if (!appointment.isBooked || _dialog.value != null) return
+        cancel.request(appointment)
     }
 
-    fun confirmCancel() {
-        val current = _cancelDialog.value ?: return
-        if (current.isCancelling) return
-        _cancelDialog.value = current.copy(isCancelling = true, error = null)
-        viewModelScope.launch {
-            try {
-                repository.cancelBooking(current.appointment.bookingId)
-                // The live list shows it as cancelled by this admin.
-                _cancelDialog.value = null
-            } catch (e: AdminException) {
-                _cancelDialog.update { it?.copy(isCancelling = false, error = e.error) }
-            }
-        }
-    }
+    /** The live list then shows it as cancelled by this admin. */
+    fun confirmCancel() = cancel.confirm()
 
     /** Closes the cancel dialog, unless the booking is being cancelled. */
-    fun dismissCancel() {
-        if (_cancelDialog.value?.isCancelling == true) return
-        _cancelDialog.value = null
-    }
+    fun dismissCancel() = cancel.dismiss()
 
     private fun doctorStateOf(load: Load<ManagedDoctorLookup>): AdminDoctorUiState = when (load) {
         Load.Loading -> AdminDoctorUiState.Loading
@@ -455,10 +433,12 @@ private val ManagedDoctorLookup.fromCache: Boolean
 
 /**
  * Builds the admin ViewModels. A doctor's screens read the doctor's ID from their navigation
- * arguments ([ARG_DOCTOR_ID]; absent on the add form). Tests pass fakes; the app uses [Factory].
+ * arguments ([ARG_DOCTOR_ID]; absent on the add form), a booking's screen its ID
+ * ([ARG_BOOKING_ID]). Tests pass fakes; the app uses [Factory].
  */
 object AdminViewModels {
     const val ARG_DOCTOR_ID = "doctorId"
+    const val ARG_BOOKING_ID = "bookingId"
 
     class Dependencies(
         val repository: AdminRepository,
@@ -475,6 +455,15 @@ object AdminViewModels {
         initializer {
             val deps = dependencies(this)
             DoctorFormViewModel(createSavedStateHandle().get<String>(ARG_DOCTOR_ID), deps.repository, deps.newId)
+        }
+        initializer {
+            val deps = dependencies(this)
+            AdminBookingsViewModel(deps.repository, deps.clock)
+        }
+        initializer {
+            val deps = dependencies(this)
+            val bookingId = requireNotNull(createSavedStateHandle().get<String>(ARG_BOOKING_ID)) { "Booking screen opened without a booking" }
+            AdminBookingViewModel(bookingId, deps.repository, deps.clock)
         }
     }
 

@@ -1,6 +1,7 @@
 package com.medhome.nepal.data
 
 import com.google.firebase.Timestamp
+import com.medhome.nepal.domain.AdminCancelledBy
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.CalendarDate
 import com.medhome.nepal.domain.CancelledBy
@@ -176,5 +177,78 @@ class BookingMapperTest {
         assertNull(BookingMapper.parseAnyPatient("abc123", valid() + ("patientUid" to "../users/x")))
         assertNull(BookingMapper.parseAnyPatient("abc123", valid() + ("patientUid" to 42L)))
         assertNull(BookingMapper.parseAnyPatient("abc123", null))
+    }
+
+    // The admin's Bookings tab
+
+    private fun parseForAdmin(data: Map<String, Any?>?, id: String = "abc123", adminUid: String? = "admin1") =
+        BookingMapper.parseForAdmin(id, data, adminUid)
+
+    private val cancelledAt = Timestamp(startAt / 1000 - 3_600, 0)
+
+    @Test
+    fun `any patient's booking parses for an admin, with the first name only`() {
+        val booking = requireNotNull(parseForAdmin(valid() + ("patientName" to "Sita Kumari Rai")))
+        assertEquals("abc123", booking.bookingId)
+        assertEquals("doc-001", booking.doctorId)
+        assertEquals("Asha Rai", booking.doctor.name)
+        assertEquals(startAt, booking.startAtMillis)
+        assertEquals("Sita", booking.patientFirstName)
+        assertFalse(booking.patientDeleted)
+        assertEquals(BookingStatus.BOOKED, booking.status)
+        assertNull(booking.cancelledBy)
+        assertNull(booking.cancelledAtMillis)
+        // Whoever the patient is.
+        assertEquals("abc123", parseForAdmin(valid() + ("patientUid" to "bob"))?.bookingId)
+    }
+
+    @Test
+    fun `a deleted patient and a booking without a name are told apart`() {
+        val deleted = requireNotNull(parseForAdmin(valid() + ("patientName" to BookingMapper.DELETED_PATIENT_NAME)))
+        assertTrue(deleted.patientDeleted)
+        assertNull(deleted.patientFirstName)
+        val unnamed = requireNotNull(parseForAdmin(valid()))
+        assertFalse(unnamed.patientDeleted)
+        assertNull(unnamed.patientFirstName)
+    }
+
+    @Test
+    fun `who cancelled, as the admin looking sees it`() {
+        fun by(vararg fields: Pair<String, Any?>) =
+            parseForAdmin(valid() + ("status" to "cancelled") + fields.toMap())?.cancelledBy
+        assertEquals(AdminCancelledBy.PATIENT, by("cancelledBy" to "patient"))
+        // Before cancelledBy was stored, only patients could cancel.
+        assertEquals(AdminCancelledBy.PATIENT, by())
+        assertEquals(AdminCancelledBy.YOU, by("cancelledBy" to "clinic", "cancelledByUid" to "admin1"))
+        assertEquals(AdminCancelledBy.ANOTHER_ADMIN, by("cancelledBy" to "clinic", "cancelledByUid" to "admin2"))
+        // A clinic cancel from before the admin was recorded.
+        assertEquals(AdminCancelledBy.CLINIC, by("cancelledBy" to "clinic"))
+        assertNull(by("cancelledBy" to "robot"))
+    }
+
+    @Test
+    fun `a signed-out admin never reads as you`() {
+        val data = valid() + mapOf("status" to "cancelled", "cancelledBy" to "clinic", "cancelledByUid" to "admin1")
+        assertEquals(AdminCancelledBy.ANOTHER_ADMIN, parseForAdmin(data, adminUid = null)?.cancelledBy)
+    }
+
+    @Test
+    fun `the cancel time is kept for cancelled bookings, and old cancels have none`() {
+        val cancelled = valid() + mapOf("status" to "cancelled", "cancelledBy" to "patient")
+        assertEquals(startAt - 3_600_000, parseForAdmin(cancelled + ("cancelledAt" to cancelledAt))?.cancelledAtMillis)
+        assertNull(parseForAdmin(cancelled)?.cancelledAtMillis)
+        assertNull(parseForAdmin(cancelled + ("cancelledAt" to "yesterday"))?.cancelledAtMillis)
+        // Only cancelled bookings have one.
+        assertNull(parseForAdmin(valid() + ("cancelledAt" to cancelledAt))?.cancelledAtMillis)
+    }
+
+    @Test
+    fun `malformed bookings never reach the admin's list`() {
+        assertNull(parseForAdmin(null))
+        assertNull(parseForAdmin(valid(), id = "a/b"))
+        assertNull(parseForAdmin(valid() + ("doctorId" to "doc_1")))
+        assertNull(parseForAdmin(valid() + ("startAt" to "2026-10-12")))
+        assertNull(parseForAdmin(valid() + ("status" to "done")))
+        assertNull(parseForAdmin(valid() + ("doctor" to "Asha")))
     }
 }

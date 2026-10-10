@@ -41,6 +41,7 @@ import com.medhome.nepal.domain.TimeOfDay
 import com.medhome.nepal.domain.TimeRange
 import com.medhome.nepal.domain.Weekday
 import com.medhome.nepal.ui.booking.BOOKING_CARD_TAG
+import com.medhome.nepal.ui.booking.BOOK_APPOINTMENT_BUTTON_TAG
 import com.medhome.nepal.ui.booking.SLOT_CHIP_TAG
 import com.medhome.nepal.fakes.doctor
 import com.medhome.nepal.fakes.FakeProfileStore
@@ -446,6 +447,63 @@ class PatientShellNavigationTest {
         bookFirstFreeSlot()
         pressBack()
         assertOnBookingsTab()
+    }
+
+    private fun bookFromBookingsTab() {
+        compose.onNode(isTab and hasText(text(R.string.nav_bookings))).performClick()
+        settle()
+        // Nothing upcoming: the top button and the empty card's.
+        compose.onAllNodesWithTag(BOOK_APPOINTMENT_BUTTON_TAG).assertCountEquals(2)
+        compose.onAllNodesWithTag(BOOK_APPOINTMENT_BUTTON_TAG)[0].performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+    }
+
+    @Test
+    fun `Book appointment on the Bookings tab opens Find a doctor, and Back goes Home`() {
+        bookFromBookingsTab()
+        assertOnFindDoctor()
+        compose.onNodeWithText(asha.name).assertIsDisplayed()
+
+        pressBack()
+        assertOnHome()
+    }
+
+    @Test
+    fun `the empty card's Book appointment opens Find a doctor too`() {
+        compose.onNode(isTab and hasText(text(R.string.nav_bookings))).performClick()
+        settle()
+        compose.onAllNodesWithTag(BOOK_APPOINTMENT_BUTTON_TAG)[1].performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        assertOnFindDoctor()
+    }
+
+    @Test
+    fun `a double tap on Book appointment opens Find a doctor once`() {
+        compose.onNode(isTab and hasText(text(R.string.nav_bookings))).performClick()
+        settle()
+        compose.onAllNodesWithTag(BOOK_APPOINTMENT_BUTTON_TAG)[0].doubleTap()
+        assertOnFindDoctor()
+        pressBack()
+        assertOnHome()
+    }
+
+    @Test
+    fun `booking started from the Bookings tab ends back on it`() {
+        bookFromBookingsTab()
+        compose.onNodeWithText(asha.name).performClick()
+        settle()
+        compose.onNodeWithText(text(R.string.doctor_book)).clickRow()
+        settle()
+        bookFirstFreeSlot()
+        compose.onNodeWithText(text(R.string.book_success_action)).performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+
+        assertOnBookingsTab()
+        compose.onAllNodesWithTag(BOOKING_CARD_TAG).assertCountEquals(1)
+        // Something upcoming now: only the top button.
+        compose.onAllNodesWithTag(BOOK_APPOINTMENT_BUTTON_TAG).assertCountEquals(1)
+        pressBack()
+        assertOnHome()
     }
 
     @Test

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -52,6 +53,7 @@ import com.medhome.nepal.ui.common.LocaleFormat
 import com.medhome.nepal.ui.common.currentLocale
 import com.medhome.nepal.ui.common.feeText
 import com.medhome.nepal.ui.components.GlassBottomSheet
+import com.medhome.nepal.ui.components.FactRow
 import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassButtonStyle
 import com.medhome.nepal.ui.components.GlassCard
@@ -63,7 +65,6 @@ import com.medhome.nepal.ui.components.SettingsDivider
 import com.medhome.nepal.ui.components.StatusMessage
 import com.medhome.nepal.ui.components.controlBorder
 import com.medhome.nepal.ui.components.glassControl
-import com.medhome.nepal.ui.doctors.FactRow
 import com.medhome.nepal.ui.doctors.LoadingCard
 import com.medhome.nepal.ui.doctors.MessageCard
 import com.medhome.nepal.ui.doctors.label
@@ -321,8 +322,11 @@ private fun BookingSheet(
         sheetState = sheetState,
         title = if (booked) R.string.book_success_title else R.string.book_confirm_title,
     ) {
+        // Scrolls when taller than the space below the status bar (large text, long names).
         Column(
-            modifier = Modifier.padding(horizontal = GlassDimens.CardPadding),
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = GlassDimens.CardPadding),
             verticalArrangement = Arrangement.spacedBy(GlassDimens.ItemSpacing),
         ) {
             if (booked) {

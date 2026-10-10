@@ -1,6 +1,8 @@
 package com.medhome.nepal.data
 
 import com.google.firebase.Timestamp
+import com.medhome.nepal.domain.AdminBooking
+import com.medhome.nepal.domain.AdminCancelledBy
 import com.medhome.nepal.domain.BookedDoctor
 import com.medhome.nepal.domain.Booking
 import com.medhome.nepal.domain.BookingStatus
@@ -113,6 +115,46 @@ object BookingMapper {
         val by = data[FIELD_CANCELLED_BY_UID] as? String
         return if (adminUid != null && by == adminUid) ClinicCancel.BY_YOU else ClinicCancel.BY_CLINIC
     }
+
+    /**
+     * Any doctor's booking for the admin's bookings tab, or null when malformed: when, the doctor
+     * as booked, the first word of the patient's name (as [parseForDoctor]), and for cancelled
+     * ones who cancelled ([adminUid] tells "you" from another admin) and when. The patient's UID
+     * and the cancelling admin's uid never leave this function.
+     */
+    fun parseForAdmin(id: String, data: Map<String, Any?>?, adminUid: String?): AdminBooking? {
+        if (data == null || !isValidId(id)) return null
+        val doctorId = (data[FIELD_DOCTOR_ID] as? String)?.takeIf(Doctor::isValidId) ?: return null
+        val startAt = (data[FIELD_START_AT] as? Timestamp)?.toMillis()?.takeIf { it in SupportedMillis } ?: return null
+        val status = BookingStatus.fromKey(data[FIELD_STATUS] as? String) ?: return null
+        val doctor = parseDoctor(data[FIELD_DOCTOR]) ?: return null
+        val name = data[FIELD_PATIENT_NAME]
+        val deleted = name == DELETED_PATIENT_NAME
+        val cancelled = status == BookingStatus.CANCELLED
+        return AdminBooking(
+            bookingId = id,
+            doctorId = doctorId,
+            doctor = doctor,
+            startAtMillis = startAt,
+            patientFirstName = if (deleted) null else firstWord(name),
+            patientDeleted = deleted,
+            status = status,
+            cancelledBy = if (cancelled) adminCancelledByOf(data, adminUid) else null,
+            cancelledAtMillis = if (cancelled) (data[FIELD_CANCELLED_AT] as? Timestamp)?.toMillis() else null,
+        )
+    }
+
+    /** As [cancelledByOf]; a clinic cancel names its admin, except those from before the field. */
+    private fun adminCancelledByOf(data: Map<String, Any?>, adminUid: String?): AdminCancelledBy? =
+        when (cancelledByOf(data[FIELD_CANCELLED_BY])) {
+            CancelledBy.PATIENT -> AdminCancelledBy.PATIENT
+            CancelledBy.CLINIC -> when (val by = data[FIELD_CANCELLED_BY_UID] as? String) {
+                null -> AdminCancelledBy.CLINIC
+                adminUid -> AdminCancelledBy.YOU
+                else -> AdminCancelledBy.ANOTHER_ADMIN
+            }
+            null -> null
+        }
 
     /** Any patient's booking with the patient's UID, for an admin cancelling it; null when malformed. */
     fun parseAnyPatient(id: String, data: Map<String, Any?>?): PatientBooking? {

@@ -35,6 +35,7 @@ import com.medhome.nepal.ui.common.LocaleFormat
 import com.medhome.nepal.ui.common.currentLocale
 import com.medhome.nepal.ui.common.dateTimeText
 import com.medhome.nepal.ui.common.feeText
+import com.medhome.nepal.ui.components.FactRow
 import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassButtonStyle
 import com.medhome.nepal.ui.components.GlassCard
@@ -46,7 +47,6 @@ import com.medhome.nepal.ui.components.SectionTitle
 import com.medhome.nepal.ui.components.SettingsDivider
 import com.medhome.nepal.ui.components.StatusChip
 import com.medhome.nepal.ui.components.StatusMessage
-import com.medhome.nepal.ui.doctors.FactRow
 import com.medhome.nepal.ui.doctors.LoadingCard
 import com.medhome.nepal.ui.doctors.MessageCard
 import com.medhome.nepal.ui.doctors.WeeklyHours
@@ -389,7 +389,7 @@ private fun ColumnScope.BulkCancelReport(
 
 /** "Cancel this booking?" with when and whose. Back and tapping outside keep it, except while cancelling. */
 @Composable
-private fun CancelBookingDialog(state: CancelBookingDialogState, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun CancelBookingDialog(state: CancelBookingDialogState, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val appointment = state.appointment
     GlassDialog(onDismissRequest = onDismiss) {
         DialogTitle(R.string.admin_cancel_booking_title)
@@ -423,13 +423,13 @@ private fun CancelBookingDialog(state: CancelBookingDialogState, onConfirm: () -
 
 /** The first name the booking was made under, "Deleted patient" once the account is gone, or "Patient". */
 @Composable
-private fun patientLabel(appointment: DoctorAppointment): String = when {
+internal fun patientLabel(appointment: DoctorAppointment): String = when {
     appointment.patientDeleted -> stringResource(R.string.admin_patient_deleted)
     else -> appointment.patientFirstName ?: stringResource(R.string.admin_patient_unknown)
 }
 
 @Composable
-private fun DialogTitle(@StringRes text: Int) {
+internal fun DialogTitle(@StringRes text: Int) {
     Text(
         text = stringResource(text),
         style = MaterialTheme.typography.headlineSmall,

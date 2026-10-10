@@ -6,8 +6,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,6 +55,13 @@ const val GLASS_SHEET_TAG = "glass_sheet"
  * Material places the sheet with an offset inside its surface, so a border on the sheet's
  * modifier would be drawn where the sheet starts, not where it is (it would float at the top of
  * the screen and not follow drags).
+ *
+ * Insets stay fixed while the sheet moves. Material consumes top insets equal to the sheet's
+ * live offset, so a body padded by the top inset grows a little on every frame once the sheet
+ * nears the status bar: the sheet resizes, its open anchor moves mid-animation and the mesh is
+ * rebuilt each frame (the stutter partway through opening a tall sheet). Instead the sheet
+ * itself stops below the status bar (a fixed top inset on the sheet's modifier) and the body
+ * pads only the bottom. Content taller than the space left must scroll on its own.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +75,8 @@ fun GlassBottomSheet(
     val colors = GlassTheme.colors
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
+        // Before Material's own modifiers: its anchors then measure the space below the status bar.
+        modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
         sheetState = sheetState,
         // Disabling gestures (not refusing them in confirmValueChange) means a drag never
         // starts, so there is no rubber band.
@@ -82,7 +94,7 @@ fun GlassBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .glassPanel(SheetShape)
-                .windowInsetsPadding(BottomSheetDefaults.windowInsets)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
                 .padding(bottom = 16.dp)
                 .testTag(GLASS_SHEET_TAG),
         ) {

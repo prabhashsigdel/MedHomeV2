@@ -1,13 +1,10 @@
 package com.medhome.nepal.ui.doctors
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,7 +16,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.medhome.nepal.R
@@ -29,6 +25,7 @@ import com.medhome.nepal.domain.Weekday
 import com.medhome.nepal.ui.common.LocaleFormat
 import com.medhome.nepal.ui.common.currentLocale
 import com.medhome.nepal.ui.common.feeText
+import com.medhome.nepal.ui.components.FactRow
 import com.medhome.nepal.ui.components.GlassButton
 import com.medhome.nepal.ui.components.GlassCard
 import com.medhome.nepal.ui.components.GlassScreen
@@ -111,33 +108,6 @@ private fun DoctorDetails(doctor: Doctor, showingSaved: Boolean, onBook: () -> U
     WeeklyHours(schedule = doctor.weeklySchedule, modifier = Modifier.entrance(3))
 
     GlassButton(text = R.string.doctor_book, onClick = onBook, modifier = Modifier.entrance(4))
-}
-
-/** A label on the left and its value on the right; TalkBack reads them together. */
-@Composable
-internal fun FactRow(@StringRes label: Int, value: String) {
-    FactRow(label = stringResource(label), value = value)
-}
-
-/** [FactRow] with its label already resolved (a date, say). */
-@Composable
-internal fun FactRow(label: String, value: String) {
-    val colors = GlassTheme.colors
-    Row(
-        modifier = Modifier
-            .semantics(mergeDescendants = true) {}
-            .padding(horizontal = 22.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.textSecondary,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(text = value, style = MaterialTheme.typography.titleMedium, color = colors.textPrimary, textAlign = TextAlign.End)
-    }
 }
 
 /** Sunday to Saturday, each day's hours or "Closed", and a note that times are Nepal time. */

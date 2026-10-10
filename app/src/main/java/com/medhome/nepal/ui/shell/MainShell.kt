@@ -2,39 +2,15 @@ package com.medhome.nepal.ui.shell
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -45,12 +21,6 @@ import androidx.navigation.toRoute
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.Role
 import com.medhome.nepal.session.SessionState
-import com.medhome.nepal.ui.components.FloatingBarClearance
-import com.medhome.nepal.ui.components.FloatingBarGap
-import com.medhome.nepal.ui.components.FloatingNavBar
-import com.medhome.nepal.ui.components.MeshBackground
-import com.medhome.nepal.ui.components.LocalBottomBarClearance
-import com.medhome.nepal.ui.components.LocalHazeState
 import com.medhome.nepal.ui.components.NavBarItem
 import com.medhome.nepal.ui.admin.AdminShell
 import com.medhome.nepal.ui.admin.AdminViewModels
@@ -66,8 +36,6 @@ import com.medhome.nepal.ui.home.ComingSoonScreen
 import com.medhome.nepal.ui.home.HomeShortcut
 import com.medhome.nepal.ui.home.PatientHomeScreen
 import com.medhome.nepal.ui.motion.LocalReducedMotion
-import com.medhome.nepal.ui.motion.MotionTokens
-import com.medhome.nepal.ui.motion.motionSpec
 import com.medhome.nepal.ui.navigation.ScreenTransitions
 import com.medhome.nepal.ui.navigation.navigateOnce
 import com.medhome.nepal.ui.navigation.navigateOnceWith
@@ -85,7 +53,6 @@ import com.medhome.nepal.ui.reminders.TodayRemindersViewModel
 import com.medhome.nepal.ui.reminders.rememberNotificationPermissionRequest
 import com.medhome.nepal.ui.settings.SettingsPage
 import com.medhome.nepal.ui.settings.SettingsPageScreen
-import dev.chrisbanes.haze.hazeSource
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KClass
 
@@ -196,22 +163,17 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
         flows = PatientTab.entries.map { it.graphClass },
     )
 
-    // The real bar height (its 16dp margins included; the navigation-bar inset is added by each
-    // screen's own safe-drawing padding), measured so content clears it at any font size.
-    var measuredBarHeight by remember { mutableStateOf(0.dp) }
-    val density = LocalDensity.current
-    val tabRootClearance = if (measuredBarHeight > 0.dp) measuredBarHeight + FloatingBarGap else FloatingBarClearance
-
-    MeshBackground {
-        val hazeState = LocalHazeState.current
-        CompositionLocalProvider(LocalTabRootClearance provides tabRootClearance, LocalShellNavigator provides shellNavigator) {
+    FloatingTabShell(
+        items = NavItems,
+        selectedIndex = currentTab.ordinal,
+        onTabRoot = onTabRoot,
+        onSelect = { navController.selectTab(PatientTab.entries[it]) },
+    ) { navHostModifier ->
+        CompositionLocalProvider(LocalShellNavigator provides shellNavigator) {
             NavHost(
                 navController = navController,
                 startDestination = HomeTab,
-                // Content is a blur source above the background, so the bar blurs what scrolls under it.
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(if (hazeState != null) Modifier.hazeSource(hazeState, zIndex = 1f) else Modifier),
+                modifier = navHostModifier,
                 enterTransition = { transitions.enter(this) },
                 exitTransition = { transitions.exit(this) },
                 popEnterTransition = { transitions.popEnter(this) },
@@ -301,6 +263,7 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
                             BookingsScreen(
                                 viewModel = viewModel(factory = bookingViewModelFactory),
                                 onOpenBooking = navigateOnceWith { id: String -> navController.navigate(BookingDetailRoute(id)) },
+                                onBookAppointment = navigateOnce { navController.startBooking() },
                             )
                         }
                     }
@@ -313,67 +276,8 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
                 }
             }
         }
-
-        // Always composed, so its blur (Haze) is never rebuilt: coming back to a tab root, often
-        // as a back swipe is released, is then only a fade. Hidden, it is not placed at all, so it
-        // draws nothing and takes no touches.
-        val barShown by animateFloatAsState(
-            targetValue = if (onTabRoot) 1f else 0f,
-            animationSpec = motionSpec(tween(if (onTabRoot) MotionTokens.CROSSFADE_MS else MotionTokens.FEEDBACK_MS, easing = MotionTokens.EaseOut)),
-            label = "tabBar",
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-                .placedOnlyIf(onTabRoot || barShown > 0f)
-                .graphicsLayer {
-                    alpha = barShown
-                    val scale = MotionTokens.MATERIALIZE_SCALE + (1f - MotionTokens.MATERIALIZE_SCALE) * barShown
-                    scaleX = scale
-                    scaleY = scale
-                }
-                .then(if (onTabRoot) Modifier.testTag(FLOATING_NAV_BAR_TAG) else Modifier.clearAndSetSemantics {})
-                .onSizeChanged { size ->
-                    if (size.height > 0) measuredBarHeight = with(density) { size.height.toDp() }
-                },
-        ) {
-            FloatingNavBar(
-                items = NavItems,
-                selectedIndex = currentTab.ordinal,
-                onSelect = { navController.selectTab(PatientTab.entries[it]) },
-                animateIn = false,
-            )
-        }
     }
 }
-
-/** Measured and composed as usual, but placed (drawn, touchable) only while [placed]. */
-private fun Modifier.placedOnlyIf(placed: Boolean): Modifier = layout { measurable, constraints ->
-    val placeable = measurable.measure(constraints)
-    layout(placeable.width, placeable.height) {
-        if (placed) placeable.place(0, 0)
-    }
-}
-
-/** Test tag on the floating tab bar, for layout tests. */
-const val FLOATING_NAV_BAR_TAG = "floating_nav_bar"
-
-/** The measured clearance for tab roots: bar height + [FloatingBarGap]. */
-private val LocalTabRootClearance = compositionLocalOf { FloatingBarClearance }
-
-/**
- * Tab roots keep space for the floating bar so their last item can scroll fully above it. Set
- * per screen (not shell-wide) so a screen sliding out keeps its own padding instead of jumping
- * when the bar's visibility changes.
- */
-@Composable
-private fun TabRoot(content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalBottomBarClearance provides LocalTabRootClearance.current, content = content)
-}
-
-private fun NavDestination?.isIn(graph: KClass<*>): Boolean =
-    this?.hierarchy?.any { it.hasRoute(graph) } == true
 
 /** Find a doctor and Medicine reminders are pushed on Home; Health records is a tab of its own. */
 private fun NavHostController.openShortcut(shortcut: HomeShortcut, shell: ShellNavigator) {
@@ -382,6 +286,17 @@ private fun NavHostController.openShortcut(shortcut: HomeShortcut, shell: ShellN
         HomeShortcut.MEDICINE_REMINDERS -> navigate(MedicinesRoute)
         HomeShortcut.HEALTH_RECORDS -> shell.selectTab(ShellTab.RECORDS)
     }
+}
+
+/**
+ * Book appointment on the Bookings tab: the booking flow lives on Home's stack, so switch to
+ * Home, back to its root, and open Find a doctor there. Back then returns to Home, and
+ * [finishBooking] brings the user back to Bookings with the new booking.
+ */
+private fun NavHostController.startBooking() {
+    selectTab(PatientTab.HOME)
+    popBackStack(HomeRoute, inclusive = false)
+    navigate(FindDoctorRoute)
 }
 
 /**
@@ -410,19 +325,8 @@ private fun NavHostController.finishBooking(entry: NavBackStackEntry) {
     selectTab(PatientTab.BOOKINGS)
 }
 
-/**
- * Standard multiple-back-stack switch: save the current tab's stack, restore the target's.
- * Re-selecting the current tab returns it to its root.
- */
+/** Switches to [tab]; re-selecting the current tab returns it to its root. */
 private fun NavHostController.selectTab(tab: PatientTab) {
     val currentTab = PatientTab.entries.firstOrNull { currentDestination.isIn(it.graphClass) }
-    if (tab == currentTab) {
-        popBackStack(tab.root, inclusive = false)
-        return
-    }
-    navigate(tab.graph) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
+    switchTab(tab.graph, tab.root, isCurrent = tab == currentTab)
 }
