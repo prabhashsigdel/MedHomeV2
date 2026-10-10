@@ -541,16 +541,8 @@
     <string name="settings_appointment_reminders_hint">अघिल्लो साँझ र १ घण्टा अघि</string> <!-- review -->
     <string name="settings_notifications_off">सूचनाहरू बन्द छन्</string> <!-- review -->
     <string name="settings_notifications_off_hint">फोनको सेटिङमा खोल्नुहोस्</string> <!-- review -->
-    <string name="settings_battery_guide">ब्याट्री गाइड</string> <!-- review -->
-    <string name="settings_battery_guide_hint">रिमाइन्डर समयमै आउन</string> <!-- review -->
     <string name="settings_reminders_failed">रिमाइन्डर परिवर्तन गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string> <!-- review -->
 
-    <string name="battery_title">रिमाइन्डर समयमै राख्नुहोस्</string> <!-- review -->
-    <string name="battery_intro">ब्याट्री बचाउन केही फोनले पृष्ठभूमिमा एपहरू रोक्छन्, र तिनका रिमाइन्डर ढिलो आउँछन् वा आउँदैनन्। यी सेटिङले MedHome का लागि त्यसो हुन दिँदैनन्।</string> <!-- review -->
-    <string name="battery_status_title">यो फोनमा</string> <!-- review -->
-    <string name="battery_status_notifications">सूचनाहरू</string> <!-- review -->
-    <string name="battery_status_exact">अलार्म र रिमाइन्डर</string> <!-- review -->
-    <string name="battery_status_battery">ब्याट्री अप्टिमाइज नगरिएको</string> <!-- review -->
     <string name="battery_status_ok">खुला</string> <!-- review -->
     <string name="battery_status_off">बन्द</string> <!-- review -->
     <string name="battery_samsung_title">Samsung</string>
@@ -562,6 +554,17 @@
     <string name="battery_open_app_info">App info खोल्नुहोस्</string> <!-- review -->
     <string name="battery_open_autostart">Autostart खोल्नुहोस्</string> <!-- review -->
     <string name="battery_open_battery">ब्याट्री सेटिङ खोल्नुहोस्</string> <!-- review -->
+    <string name="settings_reminder_setup">रिमाइन्डर सेटअप</string> <!-- review -->
+    <string name="settings_reminder_setup_hint">रिमाइन्डर समयमै आइपुगून् भनी निश्चित गर्नुहोस्</string> <!-- review -->
+    <string name="reminder_setup_title">रिमाइन्डर आइपुग्ने निश्चित गर्नुहोस्</string> <!-- review -->
+    <string name="reminder_setup_intro">केही फोनले ब्याट्री बचाउन रिमाइन्डर रोक्छन्। MedHome ले समयमै सम्झाउन सकोस् भनेर यी सक्रिय गर्नुहोस्।</string> <!-- review -->
+    <string name="setup_notifications">सूचनाहरू</string> <!-- review -->
+    <string name="setup_notifications_body">रिमाइन्डर देखिन सकून्।</string> <!-- review -->
+    <string name="setup_alarms">अलार्म र रिमाइन्डर</string> <!-- review -->
+    <string name="setup_alarms_body">रिमाइन्डर ठ्याक्कै समयमा बजून्।</string> <!-- review -->
+    <string name="setup_background">ब्याकग्राउन्डमा चल्न दिनुहोस्</string> <!-- review -->
+    <string name="setup_background_body">ब्याट्री बचाउन फोनले रिमाइन्डर नरोकोस्।</string> <!-- review -->
+    <string name="setup_still_late">केही फोनमा अझै ढिलो आउँछ?</string> <!-- review -->
 
     <string name="channel_medicine">औषधि रिमाइन्डर</string> <!-- review -->
     <string name="channel_medicine_description">तपाईंका औषधिको हरेक खुराकमा रिमाइन्डर</string> <!-- review -->

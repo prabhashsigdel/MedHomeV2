@@ -10,6 +10,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Reminder setup's "Run in background" opens the system's one-tap "let it always run in
+         the background" dialog (ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS), which needs this.
+         PLAY POLICY: Google Play restricts REQUEST_IGNORE_BATTERY_OPTIMIZATIONS to apps whose core
+         function is broken by battery optimization, and reviews its use. Revisit before any Play
+         release: justify it in the Play Console, or remove it and open the battery
+         optimization list instead (ReminderAccess.batteryOptimizationSettings). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- allowBackup="false" covers Android 11 and lower (no fullBackupContent needed);
          data_extraction_rules covers device transfer on Android 12+.

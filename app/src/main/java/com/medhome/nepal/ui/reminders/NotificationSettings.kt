@@ -17,14 +17,14 @@ import com.medhome.nepal.ui.components.StatusMessage
 /**
  * Profile's Notifications section: medicine and appointment reminders on or off (on sets every
  * reminder of that kind, off cancels them and removes their notifications), the phone's
- * notification switch when it is off, and the battery guide. Turning a kind on asks for the
+ * notification switch when it is off, and Reminder setup. Turning a kind on asks for the
  * notification permission in context.
  */
 @Composable
 fun NotificationSettingsSection(
     viewModel: ReminderSettingsViewModel,
     enabled: Boolean,
-    onOpenBatteryGuide: () -> Unit,
+    onOpenReminderSetup: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -66,10 +66,10 @@ fun NotificationSettingsSection(
         }
         SettingsDivider()
         SettingsRow(
-            title = R.string.settings_battery_guide,
-            subtitle = R.string.settings_battery_guide_hint,
+            title = R.string.settings_reminder_setup,
+            subtitle = R.string.settings_reminder_setup_hint,
             enabled = enabled,
-            onClick = onOpenBatteryGuide,
+            onClick = onOpenReminderSetup,
         )
     }
     if (failed) StatusMessage(message = R.string.settings_reminders_failed, kind = MessageKind.Error, onDismiss = viewModel::dismissError)

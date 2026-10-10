@@ -359,7 +359,7 @@ class ReminderEngineTest {
         engine.syncAppointments("uid", listOf(booking(id = "b1", startAtMillis = at(thursday.plusDays(2), eight))), fromCache = false)
         engine.setAppointmentReminders(false)
         engine.setAppointmentReminders(true)
-        settings.setBatteryGuideShown()
+        settings.addSetupItemsShown(setOf(ReminderSetupItem.BACKGROUND.key))
 
         uid = null
         engine.wipe()
@@ -589,8 +589,19 @@ class ReminderEngineTest {
     }
 
     @Test
-    fun `the battery guide is claimed once`() = runTest {
-        assertTrue(engine.claimBatteryGuide())
-        assertFalse(engine.claimBatteryGuide())
+    fun `each setup item is offered once, and only while missing`() = runTest {
+        val all = ReminderSetupItem.entries.toSet()
+        assertEquals(emptySet<ReminderSetupItem>(), engine.claimSetupItems(emptySet()))
+        assertEquals(setOf(ReminderSetupItem.NOTIFICATIONS), engine.claimSetupItems(setOf(ReminderSetupItem.NOTIFICATIONS)))
+        // Notifications were offered already: only the newly missing ones now.
+        assertEquals(all - ReminderSetupItem.NOTIFICATIONS, engine.claimSetupItems(all))
+        assertEquals(emptySet<ReminderSetupItem>(), engine.claimSetupItems(all))
+    }
+
+    @Test
+    fun `signing out forgets which setup items were offered`() = runTest {
+        engine.claimSetupItems(setOf(ReminderSetupItem.BACKGROUND))
+        settings.clear()
+        assertEquals(setOf(ReminderSetupItem.BACKGROUND), engine.claimSetupItems(setOf(ReminderSetupItem.BACKGROUND)))
     }
 }

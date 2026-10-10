@@ -2,7 +2,7 @@ package com.medhome.nepal.ui.settings
 
 import androidx.compose.runtime.Composable
 import com.medhome.nepal.domain.UserProfile
-import com.medhome.nepal.ui.reminders.BatteryGuideScreen
+import com.medhome.nepal.ui.reminders.ReminderSetupScreen
 
 /** Shows the screen for one [SettingsPage]. [onDone] returns to Profile. */
 @Composable
@@ -18,6 +18,6 @@ fun SettingsPageScreen(
         SettingsPage.PRIVACY_POLICY -> PrivacyPolicyScreen()
         SettingsPage.TERMS_OF_SERVICE -> TermsOfServiceScreen()
         SettingsPage.ABOUT -> AboutScreen()
-        SettingsPage.BATTERY_GUIDE -> BatteryGuideScreen()
+        SettingsPage.REMINDER_SETUP -> ReminderSetupScreen()
     }
 }

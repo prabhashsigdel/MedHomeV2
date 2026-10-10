@@ -1,6 +1,7 @@
 package com.medhome.nepal.reminders
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
@@ -26,12 +27,16 @@ object ReminderAccess {
     /** Android 13+ asks before an app may post notifications. */
     val notificationPermissionNeeded: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
 
+    /** The notification permission is granted (always, below Android 13). */
+    fun notificationPermissionGranted(context: Context): Boolean = !notificationPermissionNeeded ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
     /** Notifications can show: permission granted (13+) and not blocked in the app's settings. */
-    fun notificationsAllowed(context: Context): Boolean {
-        val granted = !notificationPermissionNeeded ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        return granted && NotificationManagerCompat.from(context).areNotificationsEnabled()
-    }
+    fun notificationsAllowed(context: Context): Boolean =
+        notificationPermissionGranted(context) && NotificationManagerCompat.from(context).areNotificationsEnabled()
+
+    /** Below Android 12 there is no "Alarms & reminders" setting: exact alarms always work. */
+    val exactAlarmsAlwaysAllowed: Boolean get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
 
     /** Whether one of the app's channels was turned off by the user. */
     fun channelBlocked(context: Context, channelId: String): Boolean {
@@ -75,12 +80,23 @@ object ReminderAccess {
         add(appDetails(context))
     }
 
-    /**
-     * The list of apps and their battery optimization. The direct "allow" dialog needs
-     * REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, which Play restricts, so the guide explains the steps.
-     */
+    /** The list of apps and their battery optimization, where the user finds this app themselves. */
     fun batteryOptimizationSettings(context: Context): List<Intent> =
         listOf(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS), appDetails(context))
+
+    /**
+     * The system dialog that lets this app always run in the background (one tap), then the list
+     * above if the phone has no such dialog.
+     *
+     * PLAY POLICY: this dialog needs the REQUEST_IGNORE_BATTERY_OPTIMIZATIONS permission, which
+     * Google Play restricts to apps whose core function needs it and reviews. Revisit before any
+     * Play release: justify it in the Play Console, or drop the permission and the first intent
+     * (the list alone needs no permission). See AndroidManifest.xml.
+     */
+    @SuppressLint("BatteryLife")
+    fun runInBackgroundRequest(context: Context): List<Intent> =
+        listOf(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri(context))) +
+            batteryOptimizationSettings(context)
 
     /** Samsung: App info, where Battery > Unrestricted takes the app out of sleeping apps. */
     fun samsungBatterySettings(context: Context): List<Intent> = listOf(appDetails(context))

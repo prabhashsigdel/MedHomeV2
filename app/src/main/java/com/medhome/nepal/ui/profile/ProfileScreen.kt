@@ -79,7 +79,7 @@ fun ProfileScreen(
         NotificationSettingsSection(
             viewModel = reminderSettings,
             enabled = enabled,
-            onOpenBatteryGuide = { onOpenPage(SettingsPage.BATTERY_GUIDE) },
+            onOpenReminderSetup = { onOpenPage(SettingsPage.REMINDER_SETUP) },
             modifier = Modifier.entrance(4),
         )
 

@@ -542,16 +542,8 @@
     <string name="settings_appointment_reminders_hint">The evening before and 1 hour before</string>
     <string name="settings_notifications_off">Notifications are off</string>
     <string name="settings_notifications_off_hint">Turn them on in your phone\'s settings</string>
-    <string name="settings_battery_guide">Battery guide</string>
-    <string name="settings_battery_guide_hint">Keep reminders on time</string>
     <string name="settings_reminders_failed">Couldn\'t change reminders. Try again.</string>
 
-    <string name="battery_title">Keep reminders on time</string>
-    <string name="battery_intro">To save battery, some phones stop apps in the background, and their reminders come late or not at all. These settings stop that for MedHome.</string>
-    <string name="battery_status_title">On this phone</string>
-    <string name="battery_status_notifications">Notifications</string>
-    <string name="battery_status_exact">Alarms &amp; reminders</string>
-    <string name="battery_status_battery">Not battery optimized</string>
     <string name="battery_status_ok">On</string>
     <string name="battery_status_off">Off</string>
     <string name="battery_samsung_title">Samsung</string>
@@ -563,6 +555,17 @@
     <string name="battery_open_app_info">Open App info</string>
     <string name="battery_open_autostart">Open Autostart</string>
     <string name="battery_open_battery">Open battery settings</string>
+    <string name="settings_reminder_setup">Reminder setup</string>
+    <string name="settings_reminder_setup_hint">Make sure reminders arrive on time</string>
+    <string name="reminder_setup_title">Make sure reminders arrive</string>
+    <string name="reminder_setup_intro">Some phones hold reminders back to save battery. Turn these on so MedHome can remind you on time.</string>
+    <string name="setup_notifications">Notifications</string>
+    <string name="setup_notifications_body">So reminders can show up.</string>
+    <string name="setup_alarms">Alarms &amp; reminders</string>
+    <string name="setup_alarms_body">So reminders ring at the exact time.</string>
+    <string name="setup_background">Run in background</string>
+    <string name="setup_background_body">So the phone doesn\'t stop reminders to save battery.</string>
+    <string name="setup_still_late">Still late on some phones?</string>
 
     <string name="channel_medicine">Medicine reminders</string>
     <string name="channel_medicine_description">A reminder at each dose of your medicines</string>

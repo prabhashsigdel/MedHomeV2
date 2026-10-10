@@ -52,8 +52,11 @@ interface ReminderRepository {
     /** On: every appointment reminder is set. Off: all are cancelled and their notifications go. */
     suspend fun setAppointmentReminders(enabled: Boolean)
 
-    /** True the first time only: the battery guide opens by itself once. */
-    suspend fun claimBatteryGuide(): Boolean
+    /**
+     * Of the setup items [missing] now, those never offered before, which are marked offered:
+     * the setup dialog shows each at most once. Empty: no dialog.
+     */
+    suspend fun claimSetupItems(missing: Set<ReminderSetupItem>): Set<ReminderSetupItem>
 }
 
 /**
@@ -222,10 +225,11 @@ class ReminderEngine(
         if (!enabled) notifier.cancelAllAppointments()
     }
 
-    override suspend fun claimBatteryGuide(): Boolean = locked {
-        if (settings.current().batteryGuideShown) return@locked false
-        settings.setBatteryGuideShown()
-        true
+    override suspend fun claimSetupItems(missing: Set<ReminderSetupItem>): Set<ReminderSetupItem> = locked {
+        val shown = settings.current().setupItemsShown
+        val offered = missing.filterTo(mutableSetOf()) { it.key !in shown }
+        if (offered.isNotEmpty()) settings.addSetupItemsShown(offered.mapTo(mutableSetOf()) { it.key })
+        offered
     }
 
     /**

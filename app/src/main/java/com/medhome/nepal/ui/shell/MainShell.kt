@@ -39,7 +39,6 @@ import com.medhome.nepal.ui.motion.LocalReducedMotion
 import com.medhome.nepal.ui.navigation.ScreenTransitions
 import com.medhome.nepal.ui.navigation.navigateOnce
 import com.medhome.nepal.ui.navigation.navigateOnceWith
-import com.medhome.nepal.ui.navigation.navigateIfTop
 import com.medhome.nepal.ui.navigation.popIfTop
 import com.medhome.nepal.ui.profile.ProfileScreen
 import com.medhome.nepal.ui.profile.ProfileViewModel
@@ -203,9 +202,12 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
                             )
                         }
                     }
-                    composable<MedicinesRoute> {
+                    composable<MedicinesRoute> { entry ->
+                        val checkSetup by entry.savedStateHandle.getStateFlow(CHECK_REMINDER_SETUP, false).collectAsStateWithLifecycle()
                         MedicinesScreen(
                             viewModel = viewModel(factory = reminderViewModelFactory),
+                            checkSetup = checkSetup,
+                            onSetupChecked = { entry.savedStateHandle[CHECK_REMINDER_SETUP] = false },
                             onAdd = navigateOnce { navController.navigate(MedicineFormRoute(MedicineFormViewModel.NEW)) },
                             onOpen = navigateOnceWith { id: Long -> navController.navigate(MedicineFormRoute(id)) },
                         )
@@ -304,17 +306,17 @@ private fun NavHostController.startBooking() {
 }
 
 /**
- * Closes the medicine form (only while it is on top, so once). The first time a reminder is set,
- * the battery guide opens in its place, so Back from the guide returns to the medicines.
+ * Closes the medicine form (only while it is on top, so once). After a save, the medicines list
+ * underneath checks what reminders still need and offers it once ([CHECK_REMINDER_SETUP]).
  */
 private fun NavHostController.closeMedicineForm(entry: NavBackStackEntry, result: FormResult) {
     if (currentBackStackEntry?.id != entry.id) return
-    val medicines = previousBackStackEntry
+    if (result is FormResult.Saved) previousBackStackEntry?.savedStateHandle?.set(CHECK_REMINDER_SETUP, true)
     popIfTop(entry)
-    if (result is FormResult.Saved && result.showBatteryGuide && medicines != null) {
-        navigateIfTop(medicines, SettingsRoute(SettingsPage.BATTERY_GUIDE))
-    }
 }
+
+/** Set on the medicines list's entry when a medicine was just saved there. */
+private const val CHECK_REMINDER_SETUP = "checkReminderSetup"
 
 /**
  * After a booking: the booking flow (Find a doctor, the doctor, the slot picker) leaves Home's

@@ -63,25 +63,15 @@ private enum class DateTarget { START, END }
 
 /**
  * Add or edit a medicine: name, dose, how many times a day and when, which days, and from when
- * until when. Saving asks for the notification permission in context (Android 13+) before
- * closing; [onDone] then gets how it closed.
+ * until when. [onDone] gets how it closed; after a save the medicines list checks the
+ * reminder setup (notifications, exact alarms, background).
  */
 @Composable
 fun MedicineFormScreen(viewModel: MedicineFormViewModel, onDone: (FormResult) -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // The permission prompt, if any, comes first; the screen closes once it is answered.
-    val askNotifications = rememberNotificationPermissionRequest { state.result?.let(onDone) }
-    // Saveable: after a rotation the prompt already showing is not asked again.
-    var asked by rememberSaveable { mutableStateOf(false) }
+    // The medicines list asks for what reminders still need (the setup dialog) once this closes.
     LaunchedEffect(state.result) {
-        when (state.result) {
-            is FormResult.Saved -> if (!asked) {
-                asked = true
-                askNotifications()
-            }
-            FormResult.Deleted -> onDone(FormResult.Deleted)
-            null -> Unit
-        }
+        state.result?.let(onDone)
     }
     // A save in progress still commits if the screen goes, so Back waits for it.
     BackHandler(enabled = state.saving) {}

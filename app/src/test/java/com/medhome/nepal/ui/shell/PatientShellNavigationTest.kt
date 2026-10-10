@@ -1,5 +1,12 @@
 package com.medhome.nepal.ui.shell
 
+import org.junit.Assert.assertTrue
+import androidx.compose.ui.test.isHeading
+import com.medhome.nepal.ui.reminders.STILL_LATE_TOGGLE_TAG
+import com.medhome.nepal.ui.reminders.SETUP_ITEM_TAG
+import com.medhome.nepal.reminders.ReminderSetupItem
+import org.robolectric.shadows.ShadowAlarmManager
+import android.os.PowerManager
 import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.CancelledBy
 import com.medhome.nepal.domain.CancelReason
@@ -127,8 +134,12 @@ class PatientShellNavigationTest {
 
     @Before
     fun showShell() {
-        // Saving a reminder asks for notifications first; granted here, so it goes straight on.
-        shadowOf(ApplicationProvider.getApplicationContext<Application>()).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        // Everything reminders need is allowed here, so saving a medicine offers no setup dialog
+        // (a GlassDialog never settles under Robolectric; MedicinesViewModel's tests cover it).
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        shadowOf(app.getSystemService(PowerManager::class.java)).setIgnoringBatteryOptimizations(app.packageName, true)
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
         compose.setContent {
             MedHomeTheme(darkTheme = false) { MainShell(
                     session,
@@ -265,7 +276,7 @@ class PatientShellNavigationTest {
     }
 
     @Test
-    fun `saving the first medicine opens the battery guide once, then Back returns to the list and Home`() {
+    fun `saving a medicine closes the form back to the list, with no guide or dialog when nothing is missing`() {
         reminders.medicineState.value = listOf(medicine(id = 1, name = "Paracetamol", startDate = NepalTime.dateOf(System.currentTimeMillis())))
         compose.onNodeWithText(text(R.string.shortcut_medicine_reminders)).clickRow()
         settle()
@@ -275,18 +286,10 @@ class PatientShellNavigationTest {
 
         compose.onNodeWithText(text(R.string.action_save)).clickRow()
         settle()
-        compose.onNodeWithText(text(R.string.battery_title)).assertIsDisplayed()
         assertEquals(listOf("save:1"), reminders.calls)
-
-        pressBack()
         compose.onNodeWithText(text(R.string.medicines_add)).assertIsDisplayed()
-        compose.onNodeWithTag(MEDICINE_CARD_TAG).performSemanticsAction(SemanticsActions.OnClick)
-        settle()
-        compose.onNodeWithText(text(R.string.action_save)).clickRow()
-        settle()
-        // Only the first time: now the form just closes.
-        compose.onNodeWithText(text(R.string.medicines_add)).assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.battery_title)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.reminder_setup_title)).assertDoesNotExist()
+        assertTrue(reminders.prefsState.value.setupItemsShown.isEmpty())
 
         pressBack()
         assertOnHome()
@@ -305,17 +308,33 @@ class PatientShellNavigationTest {
     }
 
     @Test
-    fun `Profile's notification switches change the settings and the battery guide opens from there`() {
+    fun `Profile's notification switches change the settings and Reminder setup opens from there`() {
         openProfile()
         compose.onNodeWithText(text(R.string.settings_medicine_reminders)).clickRow()
         settle()
         assertEquals(listOf("medicineReminders:false"), reminders.calls)
 
-        compose.onNodeWithText(text(R.string.settings_battery_guide)).clickRow()
+        compose.onNodeWithText(text(R.string.settings_reminder_setup)).clickRow()
         settle()
-        compose.onNodeWithText(text(R.string.battery_title)).assertIsDisplayed()
+        compose.onNode(isHeading() and hasText(text(R.string.settings_reminder_setup))).assertIsDisplayed()
+        // Every item this phone has, all on here.
+        compose.onAllNodesWithTag(SETUP_ITEM_TAG).assertCountEquals(ReminderSetupItem.entries.size)
+        compose.onNodeWithText(text(R.string.reminders_turn_on)).assertDoesNotExist()
         pressBack()
         assertOnProfile()
+    }
+
+    @Test
+    fun `the phone makers' steps stay folded until Still late is opened`() {
+        openProfile()
+        compose.onNodeWithText(text(R.string.settings_reminder_setup)).clickRow()
+        settle()
+        compose.onNodeWithText(text(R.string.battery_samsung_title)).assertDoesNotExist()
+        compose.onNodeWithTag(STILL_LATE_TOGGLE_TAG).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        compose.onNodeWithText(text(R.string.battery_samsung_title)).assertExists()
+        compose.onNodeWithText(text(R.string.battery_xiaomi_title)).assertExists()
+        compose.onNodeWithText(text(R.string.battery_other_title)).assertExists()
     }
 
     private fun openFindDoctor() {

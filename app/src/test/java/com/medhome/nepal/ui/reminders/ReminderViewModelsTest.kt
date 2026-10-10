@@ -1,5 +1,6 @@
 package com.medhome.nepal.ui.reminders
 
+import com.medhome.nepal.reminders.ReminderSetupItem
 import com.medhome.nepal.data.ReminderPrefs
 import com.medhome.nepal.domain.AppointmentReminder
 import com.medhome.nepal.domain.CalendarDate
@@ -120,19 +121,56 @@ class ReminderViewModelsTest {
     // The form
 
     @Test
-    fun `saving a new medicine closes the form and opens the battery guide only the first time`() = runTest(dispatcher) {
+    fun `saving a new medicine closes the form`() = runTest(dispatcher) {
         val first = MedicineFormViewModel(MedicineFormViewModel.NEW, repo) { now }
         first.onNameChange("Paracetamol")
         first.onDoseChange("1 tablet")
         first.save()
-        assertEquals(FormResult.Saved(showBatteryGuide = true), first.uiState.value.result)
+        assertEquals(FormResult.Saved, first.uiState.value.result)
 
         val second = MedicineFormViewModel(MedicineFormViewModel.NEW, repo) { now }
         second.onNameChange("Vitamin D")
         second.onDoseChange("1 capsule")
         second.save()
-        assertEquals(FormResult.Saved(showBatteryGuide = false), second.uiState.value.result)
+        assertEquals(FormResult.Saved, second.uiState.value.result)
         assertEquals(2, repo.medicineState.value.size)
+    }
+
+    // The reminder setup dialog, after a save
+
+    @Test
+    fun `the setup dialog offers what is missing, each item once ever`() = runTest(dispatcher) {
+        val vm = MedicinesViewModel(repo)
+        val items = collecting(vm.setupItems)
+        vm.checkSetup(setOf(ReminderSetupItem.NOTIFICATIONS, ReminderSetupItem.BACKGROUND))
+        assertEquals(setOf(ReminderSetupItem.NOTIFICATIONS, ReminderSetupItem.BACKGROUND), items.value)
+        vm.dismissSetup()
+        assertTrue(items.value.isEmpty())
+
+        // Still missing after the next save: not offered again. A newly missing one is.
+        vm.checkSetup(setOf(ReminderSetupItem.NOTIFICATIONS, ReminderSetupItem.BACKGROUND, ReminderSetupItem.EXACT_ALARMS))
+        assertEquals(setOf(ReminderSetupItem.EXACT_ALARMS), items.value)
+        vm.dismissSetup()
+        vm.checkSetup(ReminderSetupItem.entries.toSet())
+        assertTrue(items.value.isEmpty())
+    }
+
+    @Test
+    fun `nothing missing shows no dialog and offers nothing`() = runTest(dispatcher) {
+        val vm = MedicinesViewModel(repo)
+        val items = collecting(vm.setupItems)
+        vm.checkSetup(emptySet())
+        assertTrue(items.value.isEmpty())
+        assertTrue(repo.prefsState.value.setupItemsShown.isEmpty())
+    }
+
+    @Test
+    fun `a failed check shows no dialog`() = runTest(dispatcher) {
+        val vm = MedicinesViewModel(repo)
+        val items = collecting(vm.setupItems)
+        repo.failNext = true
+        vm.checkSetup(setOf(ReminderSetupItem.BACKGROUND))
+        assertTrue(items.value.isEmpty())
     }
 
     @Test

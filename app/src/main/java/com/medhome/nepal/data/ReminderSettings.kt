@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -15,8 +16,11 @@ import kotlinx.coroutines.flow.map
 data class ReminderPrefs(
     val medicineReminders: Boolean = true,
     val appointmentReminders: Boolean = true,
-    /** The battery guide opens by itself once, after the first reminder is set. */
-    val batteryGuideShown: Boolean = false,
+    /**
+     * Keys of the reminder setup items (ReminderSetupItem.key) already offered after a medicine
+     * was saved: each is offered at most once.
+     */
+    val setupItemsShown: Set<String> = emptySet(),
 )
 
 interface ReminderSettings {
@@ -28,7 +32,8 @@ interface ReminderSettings {
 
     suspend fun setAppointmentReminders(enabled: Boolean)
 
-    suspend fun setBatteryGuideShown()
+    /** Adds [keys] to [ReminderPrefs.setupItemsShown]. */
+    suspend fun addSetupItemsShown(keys: Set<String>)
 
     /** Back to the defaults, on sign-out (the next account on this phone starts fresh). Keeps [owner]. */
     suspend fun clear()
@@ -54,7 +59,7 @@ class DataStoreReminderSettings(context: Context) : ReminderSettings {
         ReminderPrefs(
             medicineReminders = stored[KEY_MEDICINE] ?: true,
             appointmentReminders = stored[KEY_APPOINTMENT] ?: true,
-            batteryGuideShown = stored[KEY_BATTERY_GUIDE] ?: false,
+            setupItemsShown = stored[KEY_SETUP_SHOWN].orEmpty(),
         )
     }
 
@@ -66,15 +71,17 @@ class DataStoreReminderSettings(context: Context) : ReminderSettings {
         dataStore.edit { it[KEY_APPOINTMENT] = enabled }
     }
 
-    override suspend fun setBatteryGuideShown() {
-        dataStore.edit { it[KEY_BATTERY_GUIDE] = true }
+    override suspend fun addSetupItemsShown(keys: Set<String>) {
+        dataStore.edit { it[KEY_SETUP_SHOWN] = it[KEY_SETUP_SHOWN].orEmpty() + keys }
     }
 
     override suspend fun clear() {
         dataStore.edit { stored ->
             stored.remove(KEY_MEDICINE)
             stored.remove(KEY_APPOINTMENT)
-            stored.remove(KEY_BATTERY_GUIDE)
+            stored.remove(KEY_SETUP_SHOWN)
+            // From before the setup dialog replaced the battery guide's one-time opening.
+            stored.remove(KEY_OLD_BATTERY_GUIDE)
         }
     }
 
@@ -87,7 +94,8 @@ class DataStoreReminderSettings(context: Context) : ReminderSettings {
     private companion object {
         val KEY_MEDICINE = booleanPreferencesKey("medicine_reminders")
         val KEY_APPOINTMENT = booleanPreferencesKey("appointment_reminders")
-        val KEY_BATTERY_GUIDE = booleanPreferencesKey("battery_guide_shown")
+        val KEY_SETUP_SHOWN = stringSetPreferencesKey("setup_items_shown")
+        val KEY_OLD_BATTERY_GUIDE = booleanPreferencesKey("battery_guide_shown")
         val KEY_OWNER = stringPreferencesKey("owner_uid")
     }
 }

@@ -21,6 +21,7 @@ import com.medhome.nepal.domain.TimeOfDay
 import com.medhome.nepal.domain.TodayDose
 import com.medhome.nepal.domain.Weekday
 import com.medhome.nepal.reminders.ReminderRepository
+import com.medhome.nepal.reminders.ReminderSetupItem
 import com.medhome.nepal.ui.common.STOP_TIMEOUT_MS
 import com.medhome.nepal.ui.common.ticker
 import kotlinx.coroutines.CancellationException
@@ -106,18 +107,38 @@ sealed interface MedicinesUiState {
     data class Ready(val medicines: List<Medicine>, val prefs: ReminderPrefs) : MedicinesUiState
 }
 
-class MedicinesViewModel(reminders: ReminderRepository) : ViewModel() {
+class MedicinesViewModel(private val reminders: ReminderRepository) : ViewModel() {
     val uiState: StateFlow<MedicinesUiState> =
         combine(reminders.medicines, reminders.prefs) { medicines, prefs -> MedicinesUiState.Ready(medicines, prefs) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), MedicinesUiState.Loading)
+
+    private val _setupItems = MutableStateFlow<Set<ReminderSetupItem>>(emptySet())
+
+    /** The setup dialog's items (each offered once ever); empty: no dialog. */
+    val setupItems: StateFlow<Set<ReminderSetupItem>> = _setupItems.asStateFlow()
+
+    /**
+     * After a medicine is saved: offers the setup items [missing] on this phone that were never
+     * offered before. Nothing missing (or all offered already): no dialog.
+     */
+    fun checkSetup(missing: Set<ReminderSetupItem>) {
+        if (missing.isEmpty()) return
+        viewModelScope.launch {
+            var offered = emptySet<ReminderSetupItem>()
+            attempt { offered = reminders.claimSetupItems(missing) }
+            if (offered.isNotEmpty()) _setupItems.update { it + offered }
+        }
+    }
+
+    fun dismissSetup() = _setupItems.update { emptySet() }
 }
 
 // Add or edit a medicine
 
 /** How the form closed. */
 sealed interface FormResult {
-    /** Saved; [showBatteryGuide] the first time a reminder is set. */
-    data class Saved(val showBatteryGuide: Boolean) : FormResult
+    /** Saved: the medicines list then checks the reminder setup. */
+    data object Saved : FormResult
     data object Deleted : FormResult
 }
 
@@ -198,11 +219,8 @@ class MedicineFormViewModel(
         _uiState.update { it.copy(saving = true, showErrors = true, changeFailed = false) }
         viewModelScope.launch {
             val ok = attempt { reminders.saveMedicine(medicine) }
-            // Separate: if only this fails, the medicine is saved and Save must not add it again.
-            var showGuide = false
-            if (ok) attempt { showGuide = reminders.claimBatteryGuide() }
             _uiState.update {
-                if (ok) it.copy(saving = false, result = FormResult.Saved(showGuide)) else it.copy(saving = false, changeFailed = true)
+                if (ok) it.copy(saving = false, result = FormResult.Saved) else it.copy(saving = false, changeFailed = true)
             }
         }
     }

@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -28,16 +30,29 @@ const val MEDICINE_CARD_TAG = "medicine_card"
 
 /**
  * Medicine reminders, from Home's shortcut: what may stop reminders arriving (each with its fix),
- * Add medicine, and every medicine (tap to edit).
+ * Add medicine, and every medicine (tap to edit). [checkSetup] is set when a medicine was just
+ * saved: what the phone still blocks is offered once in the setup dialog ([onSetupChecked]
+ * clears it).
  */
 @Composable
 fun MedicinesScreen(
     viewModel: MedicinesViewModel,
     onAdd: () -> Unit,
     onOpen: (Long) -> Unit,
+    checkSetup: Boolean = false,
+    onSetupChecked: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val setupItems by viewModel.setupItems.collectAsStateWithLifecycle()
     val access = rememberReminderAccess()
+    val context = LocalContext.current
+    LaunchedEffect(checkSetup) {
+        if (checkSetup) {
+            onSetupChecked()
+            viewModel.checkSetup(ReminderAccessState.read(context).missing())
+        }
+    }
+    if (setupItems.isNotEmpty()) ReminderSetupDialog(items = setupItems, onDismiss = viewModel::dismissSetup)
     GlassScreen(showBack = true, drawBackground = false) {
         ScreenTitle(
             title = R.string.medicines_title,

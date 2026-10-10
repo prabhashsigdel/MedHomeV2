@@ -1,5 +1,6 @@
 package com.medhome.nepal.fakes
 
+import com.medhome.nepal.reminders.ReminderSetupItem
 import com.medhome.nepal.data.ReminderPrefs
 import com.medhome.nepal.data.ReminderSettings
 import com.medhome.nepal.domain.AppointmentAlert
@@ -108,7 +109,7 @@ class InMemoryReminderSettings(initial: ReminderPrefs = ReminderPrefs()) : Remin
 
     override suspend fun setAppointmentReminders(enabled: Boolean) = state.update { it.copy(appointmentReminders = enabled) }
 
-    override suspend fun setBatteryGuideShown() = state.update { it.copy(batteryGuideShown = true) }
+    override suspend fun addSetupItemsShown(keys: Set<String>) = state.update { it.copy(setupItemsShown = it.setupItemsShown + keys) }
 
     override suspend fun clear() {
         clearCount++
@@ -177,10 +178,12 @@ class FakeReminderRepository(
         calls += "appointmentReminders:$enabled"
     }
 
-    override suspend fun claimBatteryGuide(): Boolean {
-        val first = !prefsState.value.batteryGuideShown
-        prefsState.update { it.copy(batteryGuideShown = true) }
-        return first
+    override suspend fun claimSetupItems(missing: Set<ReminderSetupItem>): Set<ReminderSetupItem> {
+        check()
+        val shown = prefsState.value.setupItemsShown
+        val offered = missing.filterTo(mutableSetOf()) { it.key !in shown }
+        prefsState.update { it.copy(setupItemsShown = shown + offered.map { item -> item.key }) }
+        return offered
     }
 
     private fun check() {
