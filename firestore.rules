@@ -61,16 +61,14 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
 
       // Owners may edit (or clear) name, phone, date of birth and gender, nothing else: never
-      // their role, email or creation time. Admins may change only the role, to a known value.
-      allow update: if (isOwner(uid)
-          && changedKeys().hasOnly(['name', 'phone', 'dateOfBirth', 'gender'])
-          && hasValidName()
-          && hasValidPhone()
-          && hasValidDateOfBirth()
-          && hasValidGender())
-        || (isAdmin()
-          && changedKeys().hasOnly(['role'])
-          && request.resource.data.role in ['patient', 'doctor', 'admin']);
+      // their role, email or creation time. No client changes a role, not even an admin's: roles
+      // are set by hand in the console (tools/README.md).
+      allow update: if isOwner(uid)
+        && changedKeys().hasOnly(['name', 'phone', 'dateOfBirth', 'gender'])
+        && hasValidName()
+        && hasValidPhone()
+        && hasValidDateOfBirth()
+        && hasValidGender();
 
       // Needed for in-app account deletion.
       allow delete: if isOwner(uid);
@@ -314,8 +312,9 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
       // Own bookings only (a list must ask for patientUid == your uid), or any booking for
-      // admins (who may only cancel one for the clinic, below).
-      allow read: if isSignedIn() && (resource.data.patientUid == request.auth.uid || isAdmin());
+      // admins with a verified email (who may only cancel one for the clinic, below).
+      allow read: if isSignedIn()
+        && (resource.data.patientUid == request.auth.uid || (emailVerified() && isAdmin()));
 
       // A new booking, with its slot lock and a quota place in the same write.
       allow create: if isSignedIn()
@@ -407,9 +406,10 @@ service cloud.firestore {
           && booking.startAt == request.resource.data.startAt;
       }
 
-      // Admins may read one place (not list them) to see whether it holds a booking they cancel.
+      // Admins (verified email) may read one place (not list them) to see whether it holds a
+      // booking they cancel.
       allow read: if isOwner(uid);
-      allow get: if isAdmin();
+      allow get: if emailVerified() && isAdmin();
       allow create: if isOwner(uid) && place in ['1', '2', '3'] && holdsNewBooking();
       allow update: if isOwner(uid) && resource.data.startAt <= request.time && holdsNewBooking();
       // The owner frees a place once its booking has started or is cancelled. An admin frees

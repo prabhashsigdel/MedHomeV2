@@ -22,8 +22,8 @@ npm test        # starts the emulator, runs every test, stops it
 ```
 
 The first run downloads the emulator (about 60 MB). Tests live in `rules-tests/test/` and
-cover users (sign-up as patient only, no role/email/createdAt changes, no cross-user access,
-admin role changes, owner delete), doctors (signed-in read of active ones, no deletes),
+cover users (sign-up as patient only, no role/email/createdAt changes by anyone, admins
+included, no cross-user access, owner delete), doctors (signed-in read of active ones, no deletes),
 bookings (`bookings.rules.test.js`: booking a slot, double booking, unverified email, past and
 off-schedule slots, booking for someone else, the 3-upcoming limit, the `patientName` copy of
 the profile name, reading and cancelling with `cancelledBy: "patient"`) and admins
@@ -110,7 +110,8 @@ be refused). Install the matching app build when you deploy the rules.
 Admins can add, edit and hide doctors and see and cancel each doctor's upcoming bookings in the app. The
 role is never granted in the app: set it by hand.
 
-1. Sign up in the app as usual (this creates `users/{uid}` with `role: "patient"`).
+1. Sign up in the app as usual (this creates `users/{uid}` with `role: "patient"`) and verify
+   the email: the rules refuse every admin read and write from an unverified account.
 2. In the Firebase console open **Firestore Database**, collection `users`, and find your
    document (its ID is your UID, shown under **Authentication > Users**).
 3. Change the `role` field from `patient` to `admin` and save.

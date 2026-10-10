@@ -287,7 +287,12 @@ describe('admin', () => {
       await assertFails(updateDoc(doc(as('drx'), 'users/alice'), { role: 'admin' }));
     });
 
-    it('an admin can only set a known role, and change nothing else with it', async () => {
+    // Roles are set by hand in the console (tools/README.md), never from a client.
+    it('an admin cannot change any role, known or not, nor anything else in a profile', async () => {
+      await assertFails(updateDoc(doc(as('admin'), 'users/alice'), { role: 'admin' }));
+      await assertFails(updateDoc(doc(as('admin'), 'users/alice'), { role: 'doctor' }));
+      await assertFails(updateDoc(doc(as('admin'), 'users/drx'), { role: 'patient' }));
+      await assertFails(updateDoc(doc(as('admin'), 'users/admin'), { role: 'patient' }));
       await assertFails(updateDoc(doc(as('admin'), 'users/alice'), { role: 'superadmin' }));
       await assertFails(updateDoc(doc(as('admin'), 'users/alice'), { role: 'admin', email: 'evil@example.com' }));
       await assertFails(updateDoc(doc(as('admin'), 'users/alice'), { name: 'Renamed' }));
@@ -307,6 +312,15 @@ describe('admin', () => {
       await assertSucceeds(getDocs(upcoming(as('admin'), 'doc-001')));
       await assertSucceeds(getCountFromServer(upcoming(as('admin'), 'doc-002')));
       await assertSucceeds(getDoc(doc(as('admin'), 'bookings/b1')));
+    });
+
+    it("an admin whose email is not verified cannot list, count or read anyone's bookings", async () => {
+      await assertFails(getDocs(upcoming(unverified('admin'), 'doc-001')));
+      await assertFails(getCountFromServer(upcoming(unverified('admin'), 'doc-002')));
+      await assertFails(getDoc(doc(unverified('admin'), 'bookings/b1')));
+      // A token without the claim at all counts as unverified too.
+      const noClaim = env.authenticatedContext('admin', { email: 'admin@example.com' }).firestore();
+      await assertFails(getDoc(doc(noClaim, 'bookings/b2')));
     });
 
     it("an admin cannot read a patient's profile (the booking carries the name)", async () => {
@@ -388,6 +402,11 @@ describe('admin', () => {
     it('an admin can read one quota place, to see whether it holds the booking', async () => {
       await seed('c1');
       await assertSucceeds(getDoc(doc(as('admin'), 'users/alice/bookingQuota/1')));
+    });
+
+    it('an admin whose email is not verified cannot read a quota place', async () => {
+      await seed('c1');
+      await assertFails(getDoc(doc(unverified('admin'), 'users/alice/bookingQuota/1')));
     });
 
     it("an admin's cancel must free the slot lock and the quota place in the same write", async () => {

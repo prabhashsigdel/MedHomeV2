@@ -186,11 +186,16 @@ describe('users: editing', () => {
 });
 
 describe('users: admins', () => {
-  it('an admin can change a role to a known value', async () => {
-    await assertSucceeds(updateDoc(doc(as('admin'), 'users/bob'), { role: 'doctor' }));
+  // Roles are set by hand in the console, never from a client.
+  it('an admin cannot change anyone\'s role, even to a known value', async () => {
+    const verifiedAdmin = env.authenticatedContext('admin', { email: 'admin@example.com', email_verified: true }).firestore();
+    await assertFails(updateDoc(doc(as('admin'), 'users/bob'), { role: 'doctor' }));
+    await assertFails(updateDoc(doc(verifiedAdmin, 'users/bob'), { role: 'doctor' }));
+    await assertFails(updateDoc(doc(verifiedAdmin, 'users/bob'), { role: 'admin' }));
+    await assertFails(updateDoc(doc(verifiedAdmin, 'users/admin'), { role: 'patient' }));
   });
 
-  it('an admin cannot set an unknown role or change anything but the role', async () => {
+  it('an admin cannot set an unknown role or change any other field of a profile', async () => {
     await assertFails(updateDoc(doc(as('admin'), 'users/bob'), { role: 'superuser' }));
     await assertFails(updateDoc(doc(as('admin'), 'users/bob'), { name: 'Renamed' }));
   });
