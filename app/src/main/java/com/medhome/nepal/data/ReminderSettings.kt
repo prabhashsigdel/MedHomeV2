@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -29,8 +30,18 @@ interface ReminderSettings {
 
     suspend fun setBatteryGuideShown()
 
-    /** Back to the defaults, on sign-out (the next account on this phone starts fresh). */
+    /** Back to the defaults, on sign-out (the next account on this phone starts fresh). Keeps [owner]. */
     suspend fun clear()
+
+    /**
+     * The uid of the account the reminders on this phone belong to. Null when nobody's are here
+     * yet: wiped, or saved before the owner was kept. Only [setOwner] changes it.
+     */
+    val owner: Flow<String?>
+
+    suspend fun currentOwner(): String? = owner.first()
+
+    suspend fun setOwner(uid: String?)
 }
 
 private val Context.reminderDataStore: DataStore<Preferences> by preferencesDataStore(name = "reminder_settings")
@@ -60,12 +71,23 @@ class DataStoreReminderSettings(context: Context) : ReminderSettings {
     }
 
     override suspend fun clear() {
-        dataStore.edit { it.clear() }
+        dataStore.edit { stored ->
+            stored.remove(KEY_MEDICINE)
+            stored.remove(KEY_APPOINTMENT)
+            stored.remove(KEY_BATTERY_GUIDE)
+        }
+    }
+
+    override val owner: Flow<String?> = dataStore.data.map { it[KEY_OWNER] }
+
+    override suspend fun setOwner(uid: String?) {
+        dataStore.edit { stored -> if (uid == null) stored.remove(KEY_OWNER) else stored[KEY_OWNER] = uid }
     }
 
     private companion object {
         val KEY_MEDICINE = booleanPreferencesKey("medicine_reminders")
         val KEY_APPOINTMENT = booleanPreferencesKey("appointment_reminders")
         val KEY_BATTERY_GUIDE = booleanPreferencesKey("battery_guide_shown")
+        val KEY_OWNER = stringPreferencesKey("owner_uid")
     }
 }

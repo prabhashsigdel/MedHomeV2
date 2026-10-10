@@ -109,7 +109,7 @@ class AppContainer(context: Context) {
             currentPatientUid = {
                 (sessionManager.state.value as? SessionState.SignedIn)?.profile?.takeIf { it.role == Role.PATIENT }?.uid
             },
-            hasAccount = { authDataSource.currentUser != null },
+            accountUid = { authDataSource.currentUser?.uid },
         )
     }
 
@@ -118,6 +118,8 @@ class AppContainer(context: Context) {
         bookings = bookingRepository,
         apply = { uid, snapshot -> reminderEngine.syncAppointments(uid, snapshot.bookings, snapshot.fromCache) },
         scope = appScope,
+        // Another account's reminders, left by a failed sign-out wipe, go before this one's sync.
+        claimOwner = { uid -> reminderEngine.claim(uid) },
     )
 
     /** Only admins' screens use it; the rules refuse everyone else. */

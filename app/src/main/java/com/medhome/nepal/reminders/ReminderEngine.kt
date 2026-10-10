@@ -18,6 +18,7 @@ import com.medhome.nepal.domain.Medicine
 import com.medhome.nepal.domain.NepalTime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -62,10 +63,18 @@ interface ReminderRepository {
  * that exist, so nothing outlives its data.
  *
  * [currentPatientUid] is the signed-in patient (null otherwise); new data is only accepted for
- * them, so a sync or booking finishing after sign-out adds nothing. [hasAccount] says whether
- * Firebase still holds a signed-in account on this phone (known at once, even in a receiver
- * before the session has loaded): when it doesn't, an alarm or a reschedule wipes instead, so
- * reminders left by a sign-out that didn't finish (process killed) never ring for anyone.
+ * them, so a sync or booking finishing after sign-out adds nothing. [accountUid] is the account
+ * Firebase holds on this phone (usually known at once, even in a receiver before the session has
+ * loaded, but null in a cold process before Auth has started).
+ *
+ * The reminders belong to one account, kept as [ReminderSettings.owner]. A wipe that fails keeps
+ * the owner, so when another account signs in on this phone, [claim] wipes again before that
+ * account sees anything; until then the reminder screens show nothing, the notification actions
+ * do nothing, and an alarm or reschedule wipes instead of ringing. That is the only time an alarm
+ * wipes: with no account known yet it just doesn't ring or reschedule (data kept, the next
+ * [claim] sets everything again), since a null account may only mean Auth hasn't started.
+ * Reminders saved before the owner was kept have none: they ring only while their patient is
+ * signed in (never for a doctor or admin), and the first patient to sign in takes them over.
  */
 class ReminderEngine(
     private val dao: ReminderDao,
@@ -73,27 +82,36 @@ class ReminderEngine(
     private val scheduler: AlarmScheduler,
     private val notifier: ReminderNotifier,
     private val currentPatientUid: () -> String?,
-    private val hasAccount: () -> Boolean,
+    private val accountUid: () -> String?,
     private val clock: () -> Long = System::currentTimeMillis,
 ) : ReminderRepository {
 
     private val lock = Mutex()
 
     override val medicines: Flow<List<Medicine>> =
-        dao.observeMedicines().map { rows -> rows.mapNotNull(ReminderMapper::toMedicine) }
+        dao.observeMedicines().visible().map { rows -> rows.mapNotNull(ReminderMapper::toMedicine) }
 
     override val appointments: Flow<List<AppointmentReminder>> =
-        dao.observeAppointments().map { rows -> rows.mapNotNull(ReminderMapper::toAppointment) }
+        dao.observeAppointments().visible().map { rows -> rows.mapNotNull(ReminderMapper::toAppointment) }
 
     override val prefs: Flow<ReminderPrefs> = settings.prefs
 
     override fun recordsOn(date: CalendarDate): Flow<List<DoseRecord>> =
-        dao.observeRecordsOn(date.epochDay).map { rows -> rows.mapNotNull(ReminderMapper::toRecord) }
+        dao.observeRecordsOn(date.epochDay).visible().map { rows -> rows.mapNotNull(ReminderMapper::toRecord) }
 
-    override suspend fun medicine(id: Long): Medicine? = dao.medicine(id)?.let(ReminderMapper::toMedicine)
+    /** Rows only while they are the signed-in patient's (or nobody's yet): never another account's. */
+    private fun <T> Flow<List<T>>.visible(): Flow<List<T>> = combine(settings.owner) { rows, owner ->
+        if (owner == null || owner == currentPatientUid()) rows else emptyList()
+    }
+
+    override suspend fun medicine(id: Long): Medicine? {
+        if (isAnotherAccounts()) return null
+        return dao.medicine(id)?.let(ReminderMapper::toMedicine)
+    }
 
     override suspend fun saveMedicine(medicine: Medicine): Long = locked {
-        checkNotNull(currentPatientUid()) { "Not signed in" }
+        val uid = checkNotNull(currentPatientUid()) { "Not signed in" }
+        check(ownedBy(uid)) { "Reminders of another account are still here" }
         val entity = ReminderMapper.toEntity(medicine)
         val id = if (medicine.id == 0L) {
             dao.insertMedicine(entity.copy(id = 0))
@@ -110,6 +128,7 @@ class ReminderEngine(
     }
 
     override suspend fun deleteMedicine(id: Long) = locked {
+        if (isAnotherAccounts()) return@locked
         clearSnoozes(id)
         scheduler.cancelKey(ReminderAlarm.medicineKey(id))
         notifier.cancelMedicine(id)
@@ -117,6 +136,7 @@ class ReminderEngine(
     }
 
     override suspend fun setTaken(dose: Dose, taken: Boolean) = locked {
+        if (isAnotherAccounts()) return@locked
         dao.medicine(dose.medicineId) ?: return@locked
         val current = dao.record(dose.medicineId, dose.date.epochDay, dose.time.minutes)?.let(ReminderMapper::toRecord)
         if (current?.snoozedUntilMillis != null) scheduler.cancel(ReminderAlarm.Snoozed(dose))
@@ -127,6 +147,7 @@ class ReminderEngine(
 
     /** The notification's Snooze: the reminder comes back in [DoseSchedule.SNOOZE_MINUTES]. */
     suspend fun snooze(dose: Dose) = locked {
+        if (isAnotherAccounts()) return@locked
         dao.medicine(dose.medicineId) ?: return@locked
         val current = dao.record(dose.medicineId, dose.date.epochDay, dose.time.minutes)?.let(ReminderMapper::toRecord)
         notifier.cancelDose(dose)
@@ -138,7 +159,11 @@ class ReminderEngine(
 
     /** An alarm went off. Shows its reminder if it is still wanted, and sets the next one. */
     suspend fun onAlarm(alarm: ReminderAlarm) = locked {
-        if (!hasAccount()) return@locked wipeLocked()
+        when (alarmAccess()) {
+            AlarmAccess.RING -> Unit
+            AlarmAccess.HOLD -> return@locked
+            AlarmAccess.WIPE -> return@locked wipeLocked()
+        }
         val prefs = settings.current()
         when (alarm) {
             is ReminderAlarm.MedicineDue -> onDoseDue(alarm.dose, prefs)
@@ -153,7 +178,14 @@ class ReminderEngine(
      * alarms). A dose alarm that hasn't fired yet keeps its dose, even if a little late.
      */
     suspend fun rescheduleAll() = locked {
-        if (!hasAccount()) return@locked wipeLocked()
+        when (alarmAccess()) {
+            AlarmAccess.RING -> rescheduleLocked()
+            AlarmAccess.HOLD -> Unit
+            AlarmAccess.WIPE -> wipeLocked()
+        }
+    }
+
+    private suspend fun rescheduleLocked() {
         val now = clock()
         val prefs = settings.current()
         dao.deleteRecordsBefore(NepalTime.dateOf(now).plusDays(-KEEP_RECORD_DAYS).epochDay)
@@ -203,7 +235,7 @@ class ReminderEngine(
      * bookings (cleared, or never synced), and that must not cancel real reminders.
      */
     suspend fun syncAppointments(uid: String, bookings: List<Booking>, fromCache: Boolean) = locked {
-        if (currentPatientUid() != uid) return@locked
+        if (currentPatientUid() != uid || !ownedBy(uid)) return@locked
         val now = clock()
         val stored = dao.appointments().mapNotNull(ReminderMapper::toAppointment)
         val plan = AppointmentReminders.plan(stored, bookings, now)
@@ -217,7 +249,8 @@ class ReminderEngine(
 
     /** Just booked: remind at once, before the listener reports it (it fills in the doctor's name). */
     suspend fun addAppointment(bookingId: String, startAtMillis: Long, doctorName: String) = locked {
-        if (currentPatientUid() == null) return@locked
+        val uid = currentPatientUid() ?: return@locked
+        if (!ownedBy(uid)) return@locked
         val known = dao.appointment(bookingId)?.let(ReminderMapper::toAppointment)
         val reminder = AppointmentReminder(bookingId, startAtMillis, doctorName.ifEmpty { known?.doctorName.orEmpty() })
         dao.upsertAppointment(ReminderMapper.toEntity(reminder))
@@ -233,7 +266,58 @@ class ReminderEngine(
      */
     suspend fun wipe() = locked { wipeLocked() }
 
-    /** Every step runs even if an earlier one fails (the data must go); the first failure is rethrown. */
+    /**
+     * [uid] signed in: makes the reminders on this phone theirs. Another account's (left by a
+     * sign-out whose wipe failed) are wiped first; if that fails again it throws, the owner stays
+     * and nothing is shown, so the caller retries.
+     */
+    suspend fun claim(uid: String) = locked {
+        val owner = settings.currentOwner()
+        if (owner != null && owner != uid) wipeLocked()
+        if (owner != uid) settings.setOwner(uid)
+        // A reschedule held back (no account known yet, or nobody's reminders) is done now.
+        rescheduleLocked()
+    }
+
+    /** True when the reminders here are [uid]'s, taking them over for [uid] if nobody's are here. */
+    private suspend fun ownedBy(uid: String): Boolean {
+        val owner = settings.currentOwner()
+        if (owner == null) {
+            settings.setOwner(uid)
+            return true
+        }
+        return owner == uid
+    }
+
+    /**
+     * What an alarm or a reschedule may do. WIPE only on a definite mismatch: an account is
+     * signed in and the reminders belong to another one. HOLD (don't ring, keep everything) when
+     * no account is known yet, or the reminders are nobody's and the account isn't their patient
+     * signed in (a doctor or admin, or a session not loaded yet).
+     */
+    private suspend fun alarmAccess(): AlarmAccess {
+        val account = accountUid() ?: return AlarmAccess.HOLD
+        val owner = settings.currentOwner()
+        return when {
+            owner == account -> AlarmAccess.RING
+            owner != null -> AlarmAccess.WIPE
+            currentPatientUid() == account -> AlarmAccess.RING
+            else -> AlarmAccess.HOLD
+        }
+    }
+
+    private enum class AlarmAccess { RING, HOLD, WIPE }
+
+    /** True when the reminders here belong to someone other than the account on this phone. */
+    private suspend fun isAnotherAccounts(): Boolean {
+        val owner = settings.currentOwner() ?: return false
+        return owner != accountUid()
+    }
+
+    /**
+     * Every step runs even if an earlier one fails (the data must go); the first failure is
+     * rethrown. Only a complete wipe forgets the owner, so a partial one is retried by [claim].
+     */
     private suspend fun wipeLocked() {
         var failure: Exception? = null
         suspend fun step(block: suspend () -> Unit) {
@@ -252,6 +336,7 @@ class ReminderEngine(
         step { dao.deleteAll() }
         step { settings.clear() }
         failure?.let { throw it }
+        settings.setOwner(null)
     }
 
     // Medicines

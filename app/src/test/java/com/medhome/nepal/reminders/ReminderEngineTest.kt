@@ -29,6 +29,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -56,9 +57,10 @@ class ReminderEngineTest {
     private val twenty = TimeOfDay(20 * 60)
     private var now = at(thursday, TimeOfDay(7 * 60))
     private var uid: String? = "uid"
-    private var hasAccount = true
+    /** The account Firebase holds on this phone. */
+    private var account: String? = "uid"
 
-    private val engine = ReminderEngine(dao, settings, alarms, notifications, currentPatientUid = { uid }, hasAccount = { hasAccount }, clock = { now })
+    private val engine = ReminderEngine(dao, settings, alarms, notifications, currentPatientUid = { uid }, accountUid = { account }, clock = { now })
 
     @After
     fun close() = db.close()
@@ -377,17 +379,63 @@ class ReminderEngineTest {
     }
 
     @Test
-    fun `left-over reminders from an unfinished sign-out are wiped, not rung, at the next start or alarm`() = runTest {
+    fun `with no account known yet an alarm neither rings nor wipes, and the same account rings again later`() = runTest {
         val id = addTwiceDaily()
-        val alarm = alarms.alarms.getValue(medicineKey(id)).first
-        // The process died after Firebase signed out but before the wipe.
+        val (alarm, at) = alarms.alarms.getValue(medicineKey(id))
+        // A cold process before Firebase Auth has started (or a sign-out that didn't finish).
         uid = null
-        hasAccount = false
-        now = at(thursday, eight)
+        account = null
+        now = at
         engine.onAlarm(alarm)
         assertTrue(notifications.history.isEmpty())
-        assertTrue(engine.medicines.first().isEmpty())
+        assertEquals(1, dao.medicines().size)
+        assertEquals("uid", settings.ownerState.value)
+
+        // Auth is up again with the same account: the next alarm rings as usual.
+        account = "uid"
+        engine.onAlarm(alarm)
+        assertEquals(setOf(FakeReminderNotifier.doseTag(Dose(id, thursday, eight))), notifications.shown)
+    }
+
+    @Test
+    fun `with no account known yet a reschedule sets nothing and keeps everything, and the next claim sets it all`() = runTest {
+        val id = addTwiceDaily()
+        val before = alarms.alarms.toMap()
+        alarms.reboot()
+        uid = null
+        account = null
+        engine.rescheduleAll()
         assertTrue(alarms.alarms.isEmpty())
+        assertEquals(1, dao.medicines().size)
+        assertEquals("uid", settings.ownerState.value)
+
+        uid = "uid"
+        account = "uid"
+        engine.claim("uid")
+        assertEquals(before, alarms.alarms)
+        assertEquals(at(thursday, eight), alarms.at(medicineKey(id)))
+    }
+
+    @Test
+    fun `reminders nobody owns yet don't ring while a doctor or admin is signed in`() = runTest {
+        val id = addTwiceDaily()
+        val (alarm, at) = alarms.alarms.getValue(medicineKey(id))
+        settings.ownerState.value = null
+        // A staff account: signed in to Firebase, but not the signed-in patient.
+        uid = null
+        account = "staff"
+        now = at
+        engine.onAlarm(alarm)
+        engine.rescheduleAll()
+        assertTrue(notifications.history.isEmpty())
+        assertEquals(1, dao.medicines().size)
+        assertNull(settings.ownerState.value)
+
+        // Their patient signed in: they ring.
+        uid = "uid"
+        account = "uid"
+        engine.onAlarm(alarm)
+        assertEquals(setOf(FakeReminderNotifier.doseTag(Dose(id, thursday, eight))), notifications.shown)
     }
 
     @Test
@@ -395,13 +443,143 @@ class ReminderEngineTest {
         addTwiceDaily()
         val failing = ReminderEngine(dao, settings, object : AlarmScheduler by alarms {
             override fun cancelKey(key: String) = error("Binder died")
-        }, notifications, { uid }, { hasAccount }, { now })
+        }, notifications, { uid }, { account }, { now })
         try {
             failing.wipe()
         } catch (_: IllegalStateException) {
             // Rethrown after every step ran.
         }
         assertTrue(engine.medicines.first().isEmpty())
+    }
+
+    // Switching accounts on one phone
+
+    /** Another account signs in on this phone without the previous one's reminders being wiped. */
+    private fun switchAccount(to: String = "other") {
+        uid = to
+        account = to
+    }
+
+    @Test
+    fun `reminders belong to the patient who set them`() = runTest {
+        addTwiceDaily()
+        assertEquals("uid", settings.ownerState.value)
+    }
+
+    @Test
+    fun `a complete wipe forgets the owner`() = runTest {
+        addTwiceDaily()
+        engine.wipe()
+        assertNull(settings.ownerState.value)
+    }
+
+    @Test
+    fun `a failed wipe keeps the owner, so the next account's sign-in wipes again`() = runTest {
+        addTwiceDaily()
+        val failing = ReminderEngine(dao, settings, object : AlarmScheduler by alarms {
+            override fun cancelKey(key: String) = error("Binder died")
+        }, notifications, { uid }, { account }, { now })
+        try {
+            failing.wipe()
+        } catch (_: IllegalStateException) {
+            // Expected.
+        }
+        assertEquals("uid", settings.ownerState.value)
+    }
+
+    @Test
+    fun `another account sees none of the previous account's reminders until they are wiped`() = runTest {
+        val id = addTwiceDaily()
+        engine.syncAppointments("uid", listOf(booking(id = "b1", startAtMillis = at(thursday.plusDays(2), eight))), fromCache = false)
+        engine.setTaken(Dose(id, thursday, eight), taken = true)
+
+        switchAccount()
+        assertTrue(engine.medicines.first().isEmpty())
+        assertTrue(engine.appointments.first().isEmpty())
+        assertTrue(engine.recordsOn(thursday).first().isEmpty())
+
+        engine.claim("other")
+        assertEquals("other", settings.ownerState.value)
+        assertTrue(alarms.alarms.isEmpty())
+        assertTrue(dao.medicines().isEmpty())
+        assertTrue(dao.appointments().isEmpty())
+        // Theirs from now on.
+        addTwiceDaily()
+        assertEquals(1, engine.medicines.first().size)
+    }
+
+    @Test
+    fun `an alarm of the previous account's reminder wipes instead of ringing`() = runTest {
+        val id = addTwiceDaily()
+        val (alarm, at) = alarms.alarms.getValue(medicineKey(id))
+        switchAccount()
+        now = at
+        engine.onAlarm(alarm)
+        assertTrue(notifications.history.isEmpty())
+        assertTrue(alarms.alarms.isEmpty())
+        assertTrue(dao.medicines().isEmpty())
+
+        // Same at the next app start or reboot.
+        switchAccount("uid")
+        addTwiceDaily()
+        switchAccount()
+        engine.rescheduleAll()
+        assertTrue(alarms.alarms.isEmpty())
+        assertTrue(dao.medicines().isEmpty())
+    }
+
+    @Test
+    fun `nothing is added for an account while another's reminders are here`() = runTest {
+        addTwiceDaily()
+        switchAccount()
+        try {
+            addTwiceDaily()
+            fail("Saved over another account's reminders")
+        } catch (_: IllegalStateException) {
+            // Expected: the claim must wipe first.
+        }
+        engine.syncAppointments("other", listOf(booking(id = "b9", startAtMillis = at(thursday.plusDays(2), eight))), fromCache = false)
+        engine.addAppointment("b8", at(thursday.plusDays(2), eight), doctorName = "")
+        assertTrue(dao.appointments().isEmpty())
+        assertEquals("uid", settings.ownerState.value)
+    }
+
+    @Test
+    fun `another account can't read, delete, mark or snooze the previous account's medicines`() = runTest {
+        val id = addTwiceDaily()
+        fire(id)
+        val dose = Dose(id, thursday, eight)
+        switchAccount()
+        assertNull(engine.medicine(id))
+        engine.setTaken(dose, taken = true)
+        engine.snooze(dose)
+        engine.deleteMedicine(id)
+        assertEquals(1, dao.medicines().size)
+        assertNull(dao.record(id, thursday.epochDay, eight.minutes))
+        assertFalse(alarms.alarms.keys.any { it.startsWith("snooze/") })
+        // The previous account's notification is left for the claim's wipe.
+        assertEquals(setOf(FakeReminderNotifier.doseTag(dose)), notifications.shown)
+
+        switchAccount("uid")
+        assertEquals(id, engine.medicine(id)?.id)
+    }
+
+    @Test
+    fun `the same account signing in again keeps its reminders`() = runTest {
+        val id = addTwiceDaily()
+        engine.claim("uid")
+        assertEquals(1, engine.medicines.first().size)
+        assertEquals(at(thursday, eight), alarms.at(medicineKey(id)))
+    }
+
+    @Test
+    fun `reminders saved before the owner was kept are taken over by the patient who signs in`() = runTest {
+        addTwiceDaily()
+        settings.ownerState.value = null
+        assertEquals(1, engine.medicines.first().size)
+        engine.claim("uid")
+        assertEquals("uid", settings.ownerState.value)
+        assertEquals(1, engine.medicines.first().size)
     }
 
     @Test(expected = IllegalStateException::class)

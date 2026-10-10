@@ -114,6 +114,14 @@ class InMemoryReminderSettings(initial: ReminderPrefs = ReminderPrefs()) : Remin
         clearCount++
         state.value = ReminderPrefs()
     }
+
+    val ownerState = MutableStateFlow<String?>(null)
+
+    override val owner: Flow<String?> = ownerState
+
+    override suspend fun setOwner(uid: String?) {
+        ownerState.value = uid
+    }
 }
 
 /** The reminder screens' repository, in memory (no alarms). */
