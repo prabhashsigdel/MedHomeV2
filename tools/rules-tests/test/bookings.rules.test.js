@@ -527,6 +527,23 @@ describe('bookings', () => {
       await assertSucceeds(updateDoc(ref(verified('alice')), { patientName: '' }));
     });
 
+    it('a patient cancel cannot give a clinic reason or note, then or later', async () => {
+      const s = slot(1, 10);
+      const id = await seedBooking('alice', s);
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelReason: 'other' } }));
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelNote: 'Changed my mind' } }));
+      await assertFails(cancel(verified('alice'), 'alice', id, s, { changes: { cancelReason: 'other', cancelNote: 'x' } }));
+      await assertSucceeds(cancel(verified('alice'), 'alice', id, s));
+      await assertFails(updateDoc(doc(verified('alice'), `bookings/${id}`), { cancelReason: 'doctor_unavailable' }));
+      await assertFails(updateDoc(doc(verified('alice'), `bookings/${id}`), { cancelNote: 'x' }));
+    });
+
+    it('a booking cannot be created with a cancel reason or note', async () => {
+      const s = slot(1, 10);
+      await assertFails(book(verified('alice'), 'alice', s, { overrides: { cancelReason: 'other' } }).commit);
+      await assertFails(book(verified('alice'), 'alice', s, { overrides: { cancelNote: 'x' } }).commit);
+    });
+
     it('a patient cancel says it was the patient, never the clinic', async () => {
       const s = slot(1, 10);
       const id = await seedBooking('alice', s);

@@ -10,6 +10,8 @@ import com.medhome.nepal.domain.AdminBookingFilter
 import com.medhome.nepal.domain.AdminError
 import com.medhome.nepal.domain.AdminException
 import com.medhome.nepal.domain.AuthError
+import com.medhome.nepal.domain.CancelReason
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.ui.common.Load
 import com.medhome.nepal.ui.common.STOP_TIMEOUT_MS
@@ -171,6 +173,10 @@ class AdminBookingViewModel(
         if (ready.canCancel) cancel.request(ready.booking.toAppointment())
     }
 
+    fun selectCancelReason(reason: CancelReason) = cancel.selectReason(reason)
+
+    fun editCancelNote(note: String) = cancel.editNote(note)
+
     fun confirmCancel() = cancel.confirm()
 
     fun dismissCancel() = cancel.dismiss()
@@ -184,12 +190,19 @@ class AdminBookingViewModel(
     }
 }
 
-/** The confirm dialog for cancelling one booking for the clinic. */
+/**
+ * The confirm dialog for cancelling one booking for the clinic: the reason the admin picks
+ * (required) and an optional note for the patient.
+ */
 data class CancelBookingDialogState(
     val appointment: DoctorAppointment,
+    val reason: CancelReason? = null,
+    val note: String = "",
     val isCancelling: Boolean = false,
     val error: AdminError? = null,
-)
+) {
+    val canConfirm: Boolean get() = reason != null && !isCancelling
+}
 
 /**
  * Cancelling one booking for the clinic, behind a confirm dialog: shared by a doctor's screen
@@ -209,13 +222,21 @@ internal class ClinicCancelFlow(
         if (_dialog.value == null) _dialog.value = CancelBookingDialogState(appointment)
     }
 
+    fun selectReason(reason: CancelReason) = _dialog.update { if (it == null || it.isCancelling) it else it.copy(reason = reason) }
+
+    /** Capped at the note's limit as it is typed. */
+    fun editNote(note: String) =
+        _dialog.update { if (it == null || it.isCancelling) it else it.copy(note = note.take(ClinicCancelReason.MAX_NOTE_LENGTH)) }
+
+    /** Cancels with the chosen reason; nothing happens until one is chosen. */
     fun confirm() {
         val current = _dialog.value ?: return
+        val reason = current.reason ?: return
         if (current.isCancelling) return
         _dialog.value = current.copy(isCancelling = true, error = null)
         scope.launch {
             try {
-                repository.cancelBooking(current.appointment.bookingId)
+                repository.cancelBooking(current.appointment.bookingId, ClinicCancelReason(reason, current.note.ifBlank { null }))
                 _dialog.value = null
             } catch (e: AdminException) {
                 _dialog.update { it?.copy(isCancelling = false, error = e.error) }

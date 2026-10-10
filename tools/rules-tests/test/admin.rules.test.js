@@ -435,7 +435,8 @@ describe('admin', () => {
     function clinicCancel(db, booking, { by = 'admin', changes = {}, deleteLock = true, deleteQuota = true, also = () => {} } = {}) {
       const batch = writeBatch(db);
       batch.update(doc(db, `bookings/${booking.id}`), {
-        status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'clinic', cancelledByUid: by, ...changes,
+        status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'clinic', cancelledByUid: by,
+        cancelReason: 'doctor_unavailable', ...changes,
       });
       if (deleteLock) batch.delete(doc(db, `slotLocks/${booking.slotId}`));
       if (deleteQuota) batch.delete(doc(db, `users/${booking.uid}/bookingQuota/${booking.place}`));
@@ -533,6 +534,79 @@ describe('admin', () => {
       await assertFails(updateDoc(doc(as('alice'), 'bookings/c1'), { patientName: '', cancelledAt: deleteField() }));
     });
 
+    // Reasons: a fixed code, required; a note optional, one line of plain text, <= 150 characters.
+    const REASONS = ['doctor_unavailable', 'schedule_changed', 'fully_booked', 'clinic_closed', 'other'];
+
+    it('a clinic cancel accepts every reason code, with or without a note', async () => {
+      for (const [index, code] of REASONS.entries()) {
+        const booking = await seed(`r${index}`, { uid: index % 2 ? 'alice' : 'bob', place: 1 + (index % 3) });
+        const changes = index % 2 ? { cancelReason: code } : { cancelReason: code, cancelNote: 'Dr Rai is away this week.' };
+        await assertSucceeds(clinicCancel(as('admin'), booking, { changes }));
+        const after = await stored(`bookings/r${index}`);
+        if (after.cancelReason !== code) throw new Error(`reason ${code} not stored`);
+      }
+    });
+
+    it('a clinic cancel needs a known reason code', async () => {
+      const booking = await seed('c1');
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelReason: deleteField() } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelReason: 'bored' } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelReason: 'Doctor not available' } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelReason: '' } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelReason: 1 } }));
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelReason: ['other'] } }));
+      // A note never stands in for the reason.
+      await assertFails(clinicCancel(as('admin'), booking, { changes: { cancelReason: deleteField(), cancelNote: 'Away' } }));
+      await assertSucceeds(clinicCancel(as('admin'), booking));
+    });
+
+    it('a clinic note is one line of plain text, at most 150 characters', async () => {
+      const booking = await seed('c1');
+      const note = (text) => ({ changes: { cancelNote: text } });
+      await assertFails(clinicCancel(as('admin'), booking, note('x'.repeat(151))));
+      await assertFails(clinicCancel(as('admin'), booking, note('')));
+      await assertFails(clinicCancel(as('admin'), booking, note(' leading space')));
+      await assertFails(clinicCancel(as('admin'), booking, note('two  spaces')));
+      await assertFails(clinicCancel(as('admin'), booking, note('line\nbreak')));
+      await assertFails(clinicCancel(as('admin'), booking, note('tab\there')));
+      await assertFails(clinicCancel(as('admin'), booking, note('zero​width')));
+      await assertFails(clinicCancel(as('admin'), booking, note(42)));
+      await assertFails(clinicCancel(as('admin'), booking, note(null)));
+      await assertFails(clinicCancel(as('admin'), booking, note({ text: 'hi' })));
+      await assertSucceeds(clinicCancel(as('admin'), booking, note('x'.repeat(150))));
+    });
+
+    it('a clinic note may be Devanagari', async () => {
+      const booking = await seed('c1');
+      await assertSucceeds(clinicCancel(as('admin'), booking, { changes: { cancelNote: 'डाक्टर यो हप्ता बिदामा हुनुहुन्छ।' } }));
+    });
+
+    it('the reason and note never change after a clinic cancel, by anyone', async () => {
+      const booking = await seed('c1');
+      await assertSucceeds(clinicCancel(as('admin'), booking, { changes: { cancelNote: 'Away' } }));
+      for (const db of [as('admin'), as('alice'), as('drx')]) {
+        await assertFails(updateDoc(doc(db, 'bookings/c1'), { cancelReason: 'other' }));
+        await assertFails(updateDoc(doc(db, 'bookings/c1'), { cancelReason: deleteField() }));
+        await assertFails(updateDoc(doc(db, 'bookings/c1'), { cancelNote: 'Changed' }));
+        await assertFails(updateDoc(doc(db, 'bookings/c1'), { cancelNote: deleteField() }));
+      }
+      // Not even next to the patient's name erasure.
+      await assertFails(updateDoc(doc(as('alice'), 'bookings/c1'), { patientName: '', cancelNote: 'Changed' }));
+      await assertSucceeds(updateDoc(doc(as('alice'), 'bookings/c1'), { patientName: '' }));
+    });
+
+    it('a note cannot be added later to a clinic cancel that had none', async () => {
+      const booking = await seed('c1');
+      await assertSucceeds(clinicCancel(as('admin'), booking));
+      await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { cancelNote: 'Late note' }));
+    });
+
+    it('a booked booking cannot get a reason without being cancelled', async () => {
+      await seed('c1');
+      await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { cancelReason: 'other' }));
+      await assertFails(updateDoc(doc(as('alice'), 'bookings/c1'), { cancelReason: 'other', cancelNote: 'x' }));
+    });
+
     it("an admin cannot blank or change a patient's name on a booking", async () => {
       await seed('c1');
       await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { patientName: '' }));
@@ -556,6 +630,7 @@ describe('admin', () => {
       await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), { status: 'booked' }));
       await assertFails(updateDoc(doc(as('admin'), 'bookings/c1'), {
         status: 'cancelled', cancelledAt: serverTimestamp(), cancelledBy: 'clinic', cancelledByUid: 'admin',
+        cancelReason: 'other',
       }));
     });
 

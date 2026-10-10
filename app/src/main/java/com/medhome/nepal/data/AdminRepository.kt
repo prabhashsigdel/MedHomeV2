@@ -18,6 +18,7 @@ import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.CancelledBy
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
@@ -102,10 +103,11 @@ interface AdminRepository {
 
     /**
      * Cancels one booking for the clinic (`cancelledBy` "clinic", `cancelledByUid` the signed-in
-     * admin), freeing its slot lock and the patient's quota place in the same write. Returns false when it was already cancelled
-     * (nothing to do). Started: BOOKING_STARTED. Needs the server.
+     * admin, `cancelReason` and, when given, `cancelNote` from [reason]), freeing its slot lock
+     * and the patient's quota place in the same write. Returns false when it was already
+     * cancelled (nothing to do). Started: BOOKING_STARTED. Needs the server.
      */
-    suspend fun cancelBooking(bookingId: String): Boolean
+    suspend fun cancelBooking(bookingId: String, reason: ClinicCancelReason): Boolean
 }
 
 /**
@@ -241,7 +243,7 @@ class FirestoreAdminRepository(
         }
     }
 
-    override suspend fun cancelBooking(bookingId: String): Boolean = write {
+    override suspend fun cancelBooking(bookingId: String, reason: ClinicCancelReason): Boolean = write {
         val uid = signedInUid()
         if (!BookingMapper.isValidId(bookingId)) throw AdminException(AdminError.NOT_FOUND)
         val db = firestore()
@@ -258,6 +260,8 @@ class FirestoreAdminRepository(
             // As a patient cancel: delete only what exists, and only the place holding this booking.
             val lockExists = transaction.get(lockRef).exists()
             val placeHeld = transaction.get(placeRef).getString(FIELD_QUOTA_BOOKING_ID) == bookingId
+            // Cleaned as the rules require (one line, at most 150 characters); blank means none.
+            val note = BookingMapper.cleanNote(reason.note)
             transaction.update(
                 bookingRef,
                 mapOf(
@@ -266,7 +270,8 @@ class FirestoreAdminRepository(
                     BookingMapper.FIELD_CANCELLED_BY to CancelledBy.CLINIC.key,
                     // Which admin: the rules require their own uid.
                     BookingMapper.FIELD_CANCELLED_BY_UID to uid,
-                ),
+                    BookingMapper.FIELD_CANCEL_REASON to reason.reason.key,
+                ) + (if (note != null) mapOf(BookingMapper.FIELD_CANCEL_NOTE to note) else emptyMap()),
             )
             if (lockExists) transaction.delete(lockRef)
             if (placeHeld) transaction.delete(placeRef)

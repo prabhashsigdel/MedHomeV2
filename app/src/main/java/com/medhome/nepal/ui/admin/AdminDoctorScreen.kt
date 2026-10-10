@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.AdminError
+import com.medhome.nepal.domain.CancelReason
 import com.medhome.nepal.domain.ClinicCancel
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
@@ -109,6 +110,8 @@ fun AdminDoctorScreen(viewModel: AdminDoctorViewModel, onEdit: (String) -> Unit)
                 state = current,
                 doctorName = doctorName,
                 onConfirm = viewModel::confirmToggle,
+                onReason = viewModel::selectHideReason,
+                onNote = viewModel::editHideNote,
                 onRetryCancel = viewModel::retryCancelBookings,
                 onDismiss = viewModel::dismissDialog,
             )
@@ -116,7 +119,13 @@ fun AdminDoctorScreen(viewModel: AdminDoctorViewModel, onEdit: (String) -> Unit)
     }
     // Only over a loaded doctor (the screen may have gone to an error under it).
     if (doctorName != null) cancelDialog?.let { current ->
-        CancelBookingDialog(state = current, onConfirm = viewModel::confirmCancel, onDismiss = viewModel::dismissCancel)
+        CancelBookingDialog(
+            state = current,
+            onReason = viewModel::selectCancelReason,
+            onNote = viewModel::editCancelNote,
+            onConfirm = viewModel::confirmCancel,
+            onDismiss = viewModel::dismissCancel,
+        )
     }
 }
 
@@ -274,6 +283,8 @@ private fun ActiveDialog(
     state: ActiveDialogState,
     doctorName: String,
     onConfirm: (cancelBookings: Boolean) -> Unit,
+    onReason: (CancelReason) -> Unit,
+    onNote: (String) -> Unit,
     onRetryCancel: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -283,7 +294,7 @@ private fun ActiveDialog(
         if (result != null) {
             BulkCancelReport(state = state, result = result, onRetry = onRetryCancel, onClose = onDismiss)
         } else {
-            ConfirmActive(state = state, doctorName = doctorName, onConfirm = onConfirm, onDismiss = onDismiss)
+            ConfirmActive(state = state, doctorName = doctorName, onConfirm = onConfirm, onReason = onReason, onNote = onNote, onDismiss = onDismiss)
         }
     }
 }
@@ -293,6 +304,8 @@ private fun ColumnScope.ConfirmActive(
     state: ActiveDialogState,
     doctorName: String,
     onConfirm: (cancelBookings: Boolean) -> Unit,
+    onReason: (CancelReason) -> Unit,
+    onNote: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val colors = GlassTheme.colors
@@ -316,6 +329,10 @@ private fun ColumnScope.ConfirmActive(
         style = MaterialTheme.typography.titleMedium,
         color = colors.textPrimary,
     )
+    // Cancelling their bookings too tells the patients why: only that button needs a reason.
+    if (state.canCancelBookings) {
+        CancelReasonPicker(reason = state.reason, note = state.note, onReason = onReason, onNote = onNote, enabled = !state.isSaving)
+    }
     state.error?.let { StatusMessage(message = adminErrorText(it), kind = MessageKind.Error) }
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         val count = state.upcomingCount
@@ -325,7 +342,7 @@ private fun ColumnScope.ConfirmActive(
                 onClick = { onConfirm(true) },
                 style = GlassButtonStyle.Danger,
                 loading = state.isSaving && state.cancellingBookings,
-                enabled = state.canConfirm,
+                enabled = state.canHideAndCancel,
             )
         }
         GlassButton(
@@ -389,7 +406,13 @@ private fun ColumnScope.BulkCancelReport(
 
 /** "Cancel this booking?" with when and whose. Back and tapping outside keep it, except while cancelling. */
 @Composable
-internal fun CancelBookingDialog(state: CancelBookingDialogState, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun CancelBookingDialog(
+    state: CancelBookingDialogState,
+    onReason: (CancelReason) -> Unit,
+    onNote: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val appointment = state.appointment
     GlassDialog(onDismissRequest = onDismiss) {
         DialogTitle(R.string.admin_cancel_booking_title)
@@ -402,6 +425,7 @@ internal fun CancelBookingDialog(state: CancelBookingDialogState, onConfirm: () 
             style = MaterialTheme.typography.bodyMedium,
             color = GlassTheme.colors.textSecondary,
         )
+        CancelReasonPicker(reason = state.reason, note = state.note, onReason = onReason, onNote = onNote, enabled = !state.isCancelling)
         state.error?.let { StatusMessage(message = adminCancelErrorText(it), kind = MessageKind.Error) }
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             GlassButton(
@@ -409,7 +433,7 @@ internal fun CancelBookingDialog(state: CancelBookingDialogState, onConfirm: () 
                 onClick = onConfirm,
                 style = GlassButtonStyle.Danger,
                 loading = state.isCancelling,
-                enabled = !state.isCancelling,
+                enabled = state.canConfirm,
             )
             GlassButton(
                 text = R.string.admin_keep_booking,

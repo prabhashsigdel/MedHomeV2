@@ -1,10 +1,13 @@
 package com.medhome.nepal.ui.admin
 
+import org.junit.Assert.assertNotNull
 import com.medhome.nepal.R
 import com.medhome.nepal.data.AdminRepository
 import com.medhome.nepal.data.UpcomingPage
 import com.medhome.nepal.domain.AdminError
 import com.medhome.nepal.domain.AuthError
+import com.medhome.nepal.domain.CancelReason
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.ClinicCancel
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
@@ -43,6 +46,9 @@ class AdminViewModelsTest {
         active = false,
     )
     private val now = 1_000_000_000_000L
+
+    /** The reason bulk cancels in these tests give. */
+    private val REASON = ClinicCancelReason(CancelReason.DOCTOR_UNAVAILABLE)
 
     @Before
     fun setUp() = Dispatchers.setMain(dispatcher)
@@ -221,6 +227,7 @@ class AdminViewModelsTest {
         assertTrue(repository.cancelledBookings.isEmpty())
 
         viewModel.requestCancel(target)
+        viewModel.selectCancelReason(CancelReason.OTHER)
         viewModel.confirmCancel()
         assertEquals(listOf("b1"), repository.cancelledBookings)
         assertNull(viewModel.cancelDialog.value)
@@ -270,13 +277,14 @@ class AdminViewModelsTest {
         val viewModel = AdminDoctorViewModel("doc-001", repository) { now }
         val target = (collecting(viewModel.appointments).value as AppointmentsUiState.Ready).appointments.single()
         viewModel.requestCancel(target)
+        viewModel.selectCancelReason(CancelReason.OTHER)
         viewModel.confirmCancel()
-        assertEquals(CancelBookingDialogState(target, error = AdminError.BOOKING_STARTED), viewModel.cancelDialog.value)
+        assertEquals(CancelBookingDialogState(target, reason = CancelReason.OTHER, error = AdminError.BOOKING_STARTED), viewModel.cancelDialog.value)
 
         repository.cancelFailures.clear()
         val gate = CompletableDeferred<Unit>().also { repository.gate = it }
         viewModel.confirmCancel()
-        assertEquals(CancelBookingDialogState(target, isCancelling = true), viewModel.cancelDialog.value)
+        assertEquals(CancelBookingDialogState(target, reason = CancelReason.OTHER, isCancelling = true), viewModel.cancelDialog.value)
         viewModel.dismissCancel()
         viewModel.confirmCancel()
         assertTrue(requireNotNull(viewModel.cancelDialog.value).isCancelling)
@@ -325,6 +333,7 @@ class AdminViewModelsTest {
         val viewModel = AdminDoctorViewModel("doc-001", repository) { now }
         val state = collecting(viewModel.uiState)
         viewModel.requestToggle()
+        viewModel.selectHideReason(CancelReason.DOCTOR_UNAVAILABLE)
         viewModel.confirmToggle(cancelBookings = true)
 
         assertEquals(listOf("doc-001" to false), repository.activeChanges)
@@ -352,6 +361,7 @@ class AdminViewModelsTest {
         val viewModel = AdminDoctorViewModel("doc-001", repository) { now }
         collecting(viewModel.uiState)
         viewModel.requestToggle()
+        viewModel.selectHideReason(CancelReason.DOCTOR_UNAVAILABLE)
         viewModel.confirmToggle(cancelBookings = true)
         val dialog = requireNotNull(viewModel.dialog.value)
         assertEquals(AdminError.NETWORK, dialog.error)
@@ -370,6 +380,7 @@ class AdminViewModelsTest {
         val viewModel = AdminDoctorViewModel("doc-001", repository) { now }
         val state = collecting(viewModel.uiState)
         viewModel.requestToggle()
+        viewModel.selectHideReason(CancelReason.DOCTOR_UNAVAILABLE)
         viewModel.confirmToggle(cancelBookings = true)
 
         // Hidden either way; the dialog stays with what is left.
@@ -380,6 +391,7 @@ class AdminViewModelsTest {
         assertFalse(partial.canCancelBookings)
         assertEquals(listOf("b2", "b4"), repository.upcomingIds())
         // Confirming again can't hide twice or start over.
+        viewModel.selectHideReason(CancelReason.DOCTOR_UNAVAILABLE)
         viewModel.confirmToggle(cancelBookings = true)
         assertEquals(1, repository.activeChanges.size)
 
@@ -405,6 +417,7 @@ class AdminViewModelsTest {
         collecting(viewModel.uiState)
         viewModel.requestToggle()
         val gate = CompletableDeferred<Unit>().also { repository.gate = it }
+        viewModel.selectHideReason(CancelReason.DOCTOR_UNAVAILABLE)
         viewModel.confirmToggle(cancelBookings = true)
         val saving = requireNotNull(viewModel.dialog.value)
         assertTrue(saving.isSaving)
@@ -421,6 +434,7 @@ class AdminViewModelsTest {
         val viewModel = AdminDoctorViewModel("doc-001", repository) { now }
         collecting(viewModel.uiState)
         viewModel.requestToggle()
+        viewModel.selectHideReason(CancelReason.DOCTOR_UNAVAILABLE)
         viewModel.confirmToggle(cancelBookings = true)
         assertEquals(BulkCancelResult(cancelled = 0, failed = 0, error = AdminError.NETWORK), viewModel.dialog.value?.cancelResult)
         assertEquals(listOf("doc-001" to false), repository.activeChanges)
@@ -438,7 +452,7 @@ class AdminViewModelsTest {
             cancelFailures["b1"] = AdminError.UNKNOWN
             cancelFailures["b3"] = AdminError.BOOKING_STARTED
         }
-        val result = BulkCancel.cancelUpcoming(repository, "doc-001")
+        val result = BulkCancel.cancelUpcoming(repository, "doc-001", REASON)
         assertEquals(BulkCancelResult(cancelled = 3, failed = 1, error = AdminError.UNKNOWN), result)
         assertEquals(listOf("b2", "b4", "b5"), repository.cancelledBookings.sorted())
     }
@@ -446,7 +460,7 @@ class AdminViewModelsTest {
     @Test
     fun `bookings the patient cancelled meanwhile aren't counted as cancelled by the clinic`() = runTest(dispatcher) {
         val repository = withBookings("b1", "b2").apply { alreadyCancelled += "b2" }
-        assertEquals(BulkCancelResult(cancelled = 1, failed = 0, error = null), BulkCancel.cancelUpcoming(repository, "doc-001"))
+        assertEquals(BulkCancelResult(cancelled = 1, failed = 0, error = null), BulkCancel.cancelUpcoming(repository, "doc-001", REASON))
     }
 
     @Test
@@ -471,6 +485,7 @@ class AdminViewModelsTest {
         val slow = AdminDoctorViewModel("doc-001", slowCount) { now }
         collecting(slow.uiState)
         slow.requestToggle()
+        slow.selectHideReason(CancelReason.DOCTOR_UNAVAILABLE)
         slow.confirmToggle(cancelBookings = true)
         slow.confirmToggle(cancelBookings = false)
         assertTrue(repository.activeChanges.isEmpty())
@@ -483,22 +498,22 @@ class AdminViewModelsTest {
     fun `a bulk cancel reports unexpected exceptions as UNKNOWN instead of crashing`() = runTest(dispatcher) {
         val fake = withBookings("b1", "b2")
         val brokenCancel = object : AdminRepository by fake {
-            override suspend fun cancelBooking(bookingId: String): Boolean =
-                if (bookingId == "b1") throw IllegalStateException("terminated") else fake.cancelBooking(bookingId)
+            override suspend fun cancelBooking(bookingId: String, reason: ClinicCancelReason): Boolean =
+                if (bookingId == "b1") throw IllegalStateException("terminated") else fake.cancelBooking(bookingId, reason)
         }
-        assertEquals(BulkCancelResult(cancelled = 1, failed = 1, error = AdminError.UNKNOWN), BulkCancel.cancelUpcoming(brokenCancel, "doc-001"))
+        assertEquals(BulkCancelResult(cancelled = 1, failed = 1, error = AdminError.UNKNOWN), BulkCancel.cancelUpcoming(brokenCancel, "doc-001", REASON))
 
         val brokenPage = object : AdminRepository by fake {
             override suspend fun upcomingBookingPage(doctorId: String, afterMillis: Long?): UpcomingPage =
                 throw IllegalStateException("terminated")
         }
-        assertEquals(BulkCancelResult(cancelled = 0, failed = 0, error = AdminError.UNKNOWN), BulkCancel.cancelUpcoming(brokenPage, "doc-001"))
+        assertEquals(BulkCancelResult(cancelled = 0, failed = 0, error = AdminError.UNKNOWN), BulkCancel.cancelUpcoming(brokenPage, "doc-001", REASON))
     }
 
     @Test
     fun `a bulk cancel with only started bookings left is complete`() = runTest(dispatcher) {
         val repository = withBookings("b1").apply { cancelFailures["b1"] = AdminError.BOOKING_STARTED }
-        assertTrue(BulkCancel.cancelUpcoming(repository, "doc-001").isComplete)
+        assertTrue(BulkCancel.cancelUpcoming(repository, "doc-001", REASON).isComplete)
     }
 
     @Test
@@ -509,9 +524,9 @@ class AdminViewModelsTest {
             override suspend fun upcomingBookingPage(doctorId: String, afterMillis: Long?) =
                 UpcomingPage(listOf("p$page"), nextAfterMillis = page++)
 
-            override suspend fun cancelBooking(bookingId: String) = true
+            override suspend fun cancelBooking(bookingId: String, reason: ClinicCancelReason) = true
         }
-        val result = BulkCancel.cancelUpcoming(repository, "doc-001")
+        val result = BulkCancel.cancelUpcoming(repository, "doc-001", REASON)
         assertEquals(BulkCancel.MAX_PAGES, result.cancelled)
         assertFalse(result.isComplete)
     }
@@ -632,5 +647,39 @@ class AdminViewModelsTest {
         viewModel.retryLoad()
         assertNull(viewModel.uiState.value.loadError)
         assertEquals("Asha Rai", viewModel.uiState.value.fields.name)
+    }
+
+    @Test
+    fun `hide and cancel needs a reason, gives it to every booking, and Retry keeps it`() = runTest(dispatcher) {
+        val repository = withBookings("b1", "b2").apply { cancelFailures["b2"] = AdminError.NETWORK }
+        val viewModel = AdminDoctorViewModel("doc-001", repository) { now }
+        collecting(viewModel.uiState)
+        viewModel.requestToggle()
+        assertFalse(requireNotNull(viewModel.dialog.value).canHideAndCancel)
+        viewModel.confirmToggle(cancelBookings = true)
+        assertTrue(repository.activeChanges.isEmpty())
+
+        viewModel.selectHideReason(CancelReason.SCHEDULE_CHANGED)
+        viewModel.editHideNote("New hours from Sunday")
+        viewModel.confirmToggle(cancelBookings = true)
+        val reason = ClinicCancelReason(CancelReason.SCHEDULE_CHANGED, "New hours from Sunday")
+        assertEquals(reason, repository.cancelReasons["b1"])
+        assertNotNull(viewModel.dialog.value?.cancelResult)
+
+        repository.cancelFailures.clear()
+        viewModel.retryCancelBookings()
+        assertEquals(reason, repository.cancelReasons["b2"])
+        assertNull(viewModel.dialog.value)
+    }
+
+    @Test
+    fun `hiding only needs no reason`() = runTest(dispatcher) {
+        val repository = withBookings("b1")
+        val viewModel = AdminDoctorViewModel("doc-001", repository) { now }
+        collecting(viewModel.uiState)
+        viewModel.requestToggle()
+        viewModel.confirmToggle(cancelBookings = false)
+        assertEquals(listOf("doc-001" to false), repository.activeChanges)
+        assertTrue(repository.cancelledBookings.isEmpty())
     }
 }

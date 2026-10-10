@@ -2,6 +2,8 @@ package com.medhome.nepal.data
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.medhome.nepal.domain.AdminError
+import com.medhome.nepal.domain.CancelReason
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.AdminException
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
@@ -133,7 +135,7 @@ class TerminatedFirestoreTest {
     @Test
     fun `admin writes with a terminated instance fail as UNKNOWN`() = runTest {
         val asha = doctor(id = "doc-001")
-        expectAdmin(AdminError.UNKNOWN) { admin.cancelBooking("b1") }
+        expectAdmin(AdminError.UNKNOWN) { admin.cancelBooking("b1", ClinicCancelReason(CancelReason.OTHER)) }
         expectAdmin(AdminError.UNKNOWN) { admin.createDoctor(asha) }
         expectAdmin(AdminError.UNKNOWN) { admin.updateDoctor(asha) }
         expectAdmin(AdminError.UNKNOWN) { admin.setActive("doc-001", active = false) }
@@ -143,10 +145,10 @@ class TerminatedFirestoreTest {
 
     @Test
     fun `admin input checks still come first`() = runTest {
-        expectAdmin(AdminError.NOT_FOUND) { admin.cancelBooking("bad/id") }
+        expectAdmin(AdminError.NOT_FOUND) { admin.cancelBooking("bad/id", ClinicCancelReason(CancelReason.OTHER)) }
         expectAdmin(AdminError.NOT_FOUND) { admin.setActive("doc_001", active = false) }
         val signedOut = FirestoreAdminRepository(terminated, currentUid = { null }, listeners = ListenerRegistry())
-        expectAdmin(AdminError.PERMISSION_DENIED) { signedOut.cancelBooking("b1") }
+        expectAdmin(AdminError.PERMISSION_DENIED) { signedOut.cancelBooking("b1", ClinicCancelReason(CancelReason.OTHER)) }
     }
 
     @Test
@@ -232,7 +234,7 @@ class TerminatedFirestoreTest {
 
         val adminCancelled = FirestoreAdminRepository({ throw cancelled }, currentUid = { "admin" }, listeners = ListenerRegistry())
         val adminUidCancelled = FirestoreAdminRepository(terminated, currentUid = { throw cancelled }, listeners = ListenerRegistry())
-        expectCancellation { adminCancelled.cancelBooking("b1") }
+        expectCancellation { adminCancelled.cancelBooking("b1", ClinicCancelReason(CancelReason.OTHER)) }
         expectCancellation { adminCancelled.setActive("doc-001", active = false) }
         expectCancellation { adminCancelled.upcomingCount("doc-001") }
         expectCancellation { adminUidCancelled.createDoctor(doctor(id = "doc-001")) }

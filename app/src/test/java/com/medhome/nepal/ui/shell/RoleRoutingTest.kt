@@ -28,6 +28,8 @@ import com.medhome.nepal.domain.AdminBooking
 import com.medhome.nepal.domain.AdminCancelledBy
 import com.medhome.nepal.domain.BookedDoctor
 import com.medhome.nepal.domain.BookingStatus
+import com.medhome.nepal.domain.CancelReason
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
 import com.medhome.nepal.domain.Role
@@ -241,10 +243,12 @@ class RoleRoutingTest {
         compose.onNodeWithText(text(R.string.admin_cancel_booking_confirm)).assertExists()
         compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).assertDoesNotExist()
 
-        runBlocking { admin.cancelBooking("b1") }
+        runBlocking { admin.cancelBooking("b1", ClinicCancelReason(CancelReason.CLINIC_CLOSED, "Holiday")) }
         settle()
         compose.onNodeWithText(text(R.string.admin_cancelled_by_you)).assertExists()
         compose.onNodeWithText(text(R.string.label_cancelled_at)).assertExists()
+        compose.onNodeWithText(text(R.string.cancel_reason_clinic_closed)).assertExists()
+        compose.onNodeWithText("Holiday").assertExists()
         compose.onNodeWithText(text(R.string.admin_cancel_booking_confirm)).assertDoesNotExist()
 
         pressBack()

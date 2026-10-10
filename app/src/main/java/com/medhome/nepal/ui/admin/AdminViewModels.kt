@@ -19,6 +19,8 @@ import com.medhome.nepal.data.ManagedDoctorsSnapshot
 import com.medhome.nepal.domain.AdminError
 import com.medhome.nepal.domain.AdminException
 import com.medhome.nepal.domain.AuthError
+import com.medhome.nepal.domain.CancelReason
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
@@ -154,8 +156,9 @@ sealed interface AppointmentsUiState {
 /**
  * The confirm dialog for showing ([activate]) or hiding a doctor. [upcomingCount] is null while
  * it is being counted, and stays null if counting failed ([countFailed]). Hiding a doctor with
- * upcoming bookings can also cancel them ([cancellingBookings] while that is saving); when some
- * couldn't be cancelled, the doctor is hidden and [cancelResult] says what is left, with Retry.
+ * upcoming bookings can also cancel them ([cancellingBookings] while that is saving), all with
+ * the same [reason] (required for that) and optional [note]; when some couldn't be cancelled,
+ * the doctor is hidden and [cancelResult] says what is left, with Retry (same reason and note).
  */
 data class ActiveDialogState(
     val activate: Boolean,
@@ -165,6 +168,8 @@ data class ActiveDialogState(
     val cancellingBookings: Boolean = false,
     val error: AdminError? = null,
     val cancelResult: BulkCancelResult? = null,
+    val reason: CancelReason? = null,
+    val note: String = "",
 ) {
     /**
      * Hiding waits for the count (or its failure) so "Hide and cancel" can't appear under a tap
@@ -176,6 +181,13 @@ data class ActiveDialogState(
     /** Hiding, with bookings to cancel, and nothing done yet. */
     val canCancelBookings: Boolean
         get() = !activate && (upcomingCount ?: 0) > 0 && cancelResult == null
+
+    /** "Hide and cancel" also needs a reason for the patients. */
+    val canHideAndCancel: Boolean
+        get() = canConfirm && canCancelBookings && reason != null
+
+    val cancelReason: ClinicCancelReason?
+        get() = reason?.let { ClinicCancelReason(it, note.ifBlank { null }) }
 }
 
 class AdminDoctorViewModel(
@@ -230,6 +242,7 @@ class AdminDoctorViewModel(
     fun confirmToggle(cancelBookings: Boolean = false) {
         val current = _dialog.value ?: return
         if (!current.canConfirm) return
+        if (cancelBookings && !current.canHideAndCancel) return
         val alsoCancel = cancelBookings && current.canCancelBookings
         _dialog.value = current.copy(isSaving = true, cancellingBookings = alsoCancel, error = null)
         viewModelScope.launch {
@@ -252,6 +265,14 @@ class AdminDoctorViewModel(
         viewModelScope.launch { cancelUpcoming() }
     }
 
+    /** The reason given to patients when hiding also cancels their bookings. */
+    fun selectHideReason(reason: CancelReason) =
+        _dialog.update { if (it == null || it.isSaving || it.cancelResult != null) it else it.copy(reason = reason) }
+
+    fun editHideNote(note: String) = _dialog.update {
+        if (it == null || it.isSaving || it.cancelResult != null) it else it.copy(note = note.take(ClinicCancelReason.MAX_NOTE_LENGTH))
+    }
+
     /** Closes the dialog, unless the change is being saved. */
     fun dismissDialog() {
         if (_dialog.value?.isSaving == true) return
@@ -260,7 +281,12 @@ class AdminDoctorViewModel(
     }
 
     private suspend fun cancelUpcoming() {
-        val result = BulkCancel.cancelUpcoming(repository, doctorId)
+        // Never without a reason (confirmToggle checks it); if it ever were, stop saving instead of hanging.
+        val reason = _dialog.value?.cancelReason ?: run {
+            _dialog.update { it?.copy(isSaving = false, cancellingBookings = false) }
+            return
+        }
+        val result = BulkCancel.cancelUpcoming(repository, doctorId, reason)
         if (result.isComplete) {
             _dialog.value = null
         } else {
@@ -273,6 +299,10 @@ class AdminDoctorViewModel(
         if (!appointment.isBooked || _dialog.value != null) return
         cancel.request(appointment)
     }
+
+    fun selectCancelReason(reason: CancelReason) = cancel.selectReason(reason)
+
+    fun editCancelNote(note: String) = cancel.editNote(note)
 
     /** The live list then shows it as cancelled by this admin. */
     fun confirmCancel() = cancel.confirm()

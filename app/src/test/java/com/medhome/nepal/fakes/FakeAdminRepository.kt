@@ -14,6 +14,7 @@ import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.AuthException
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.ClinicCancel
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.DoctorAppointment
 import com.medhome.nepal.domain.ManagedDoctor
@@ -48,6 +49,9 @@ class FakeAdminRepository(initial: List<ManagedDoctor> = emptyList()) : AdminRep
     var idsFailure: AdminError? = null
     var idsPageSize = Int.MAX_VALUE
     val cancelledBookings = mutableListOf<String>()
+
+    /** The reason each cancel was given (also those that turned out to be already cancelled). */
+    val cancelReasons = mutableMapOf<String, ClinicCancelReason>()
 
     /** Bookings the patient cancelled after the list was read: cancelling them does nothing. */
     val alreadyCancelled = mutableSetOf<String>()
@@ -139,8 +143,9 @@ class FakeAdminRepository(initial: List<ManagedDoctor> = emptyList()) : AdminRep
         return UpcomingPage(page.map { it.bookingId }, if (full) page.last().startAtMillis else null)
     }
 
-    override suspend fun cancelBooking(bookingId: String): Boolean {
+    override suspend fun cancelBooking(bookingId: String, reason: ClinicCancelReason): Boolean {
         write()
+        cancelReasons[bookingId] = reason
         cancelFailures[bookingId]?.let { throw AdminException(it) }
         if (alreadyCancelled.remove(bookingId)) return false
         cancelledBookings += bookingId
@@ -150,7 +155,12 @@ class FakeAdminRepository(initial: List<ManagedDoctor> = emptyList()) : AdminRep
         }
         allBookings.value = allBookings.value.map {
             if (it.bookingId == bookingId) {
-                it.copy(status = BookingStatus.CANCELLED, cancelledBy = AdminCancelledBy.YOU, cancelledAtMillis = now())
+                it.copy(
+                    status = BookingStatus.CANCELLED,
+                    cancelledBy = AdminCancelledBy.YOU,
+                    cancelledAtMillis = now(),
+                    clinicReason = reason,
+                )
             } else {
                 it
             }

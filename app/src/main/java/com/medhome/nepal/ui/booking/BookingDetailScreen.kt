@@ -96,8 +96,16 @@ private fun BookingDetails(state: BookingDetailUiState.Ready, onCancel: () -> Un
         }
     }
     when {
-        booking.status == BookingStatus.CANCELLED ->
-            StatusMessage(message = cancelledNoticeText(booking.cancelledBy), kind = MessageKind.Warning)
+        booking.status == BookingStatus.CANCELLED -> {
+            // Who cancelled; for the clinic, why (and its note) when it said. Older cancels have none.
+            val why = booking.clinicReason
+            val lines = listOfNotNull(
+                stringResource(cancelledNoticeText(booking.cancelledBy)),
+                why?.let { clinicReasonLine(it) },
+                why?.note?.let { clinicNoteLine(it) },
+            )
+            StatusMessage(text = lines.joinToString("\n"), kind = MessageKind.Warning)
+        }
         !state.canCancel -> StatusMessage(message = R.string.booking_past_notice, kind = MessageKind.Info)
     }
 

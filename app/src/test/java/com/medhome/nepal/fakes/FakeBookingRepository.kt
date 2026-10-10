@@ -9,6 +9,7 @@ import com.medhome.nepal.domain.BookingError
 import com.medhome.nepal.domain.BookingException
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.CancelledBy
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.NepalTime
 import com.medhome.nepal.domain.Slot
@@ -30,6 +31,7 @@ fun booking(
     status: BookingStatus = BookingStatus.BOOKED,
     quotaPlace: Int = 1,
     cancelledBy: CancelledBy? = null,
+    clinicReason: ClinicCancelReason? = null,
 ): Booking {
     val slot = Slot(doctor.id, NepalTime.dateOf(startAtMillis), NepalTime.timeOf(startAtMillis))
     return Booking(
@@ -41,6 +43,7 @@ fun booking(
         slotId = slot.id,
         quotaPlace = quotaPlace,
         cancelledBy = cancelledBy,
+        clinicReason = clinicReason,
     )
 }
 

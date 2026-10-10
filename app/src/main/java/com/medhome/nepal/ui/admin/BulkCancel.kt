@@ -3,6 +3,7 @@ package com.medhome.nepal.ui.admin
 import com.medhome.nepal.data.AdminRepository
 import com.medhome.nepal.domain.AdminError
 import com.medhome.nepal.domain.AdminException
+import com.medhome.nepal.domain.ClinicCancelReason
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -31,7 +32,8 @@ object BulkCancel {
     /** Pages of [AdminRepository.upcomingBookingPage]; a guard against a list that never ends. */
     const val MAX_PAGES = 25
 
-    suspend fun cancelUpcoming(repository: AdminRepository, doctorId: String): BulkCancelResult {
+    /** Every booking gets the same [reason]. */
+    suspend fun cancelUpcoming(repository: AdminRepository, doctorId: String, reason: ClinicCancelReason): BulkCancelResult {
         var failed = 0
         var cancelled = 0
         var error: AdminError? = null
@@ -45,7 +47,7 @@ object BulkCancel {
                 return BulkCancelResult(cancelled, failed, error ?: e.adminError())
             }
             page.bookingIds.chunked(CHUNK_SIZE).forEach { chunk ->
-                cancelEach(repository, chunk).forEach { outcome ->
+                cancelEach(repository, chunk, reason).forEach { outcome ->
                     when (outcome) {
                         Outcome.Cancelled -> cancelled++
                         // Cancelled by the patient meanwhile, or no longer upcoming: nothing to cancel.
@@ -69,12 +71,12 @@ object BulkCancel {
         data class Failed(val error: AdminError) : Outcome
     }
 
-    private suspend fun cancelEach(repository: AdminRepository, ids: List<String>): List<Outcome> =
+    private suspend fun cancelEach(repository: AdminRepository, ids: List<String>, reason: ClinicCancelReason): List<Outcome> =
         coroutineScope {
             ids.map { id ->
                 async {
                     try {
-                        if (repository.cancelBooking(id)) Outcome.Cancelled else Outcome.AlreadyCancelled
+                        if (repository.cancelBooking(id, reason)) Outcome.Cancelled else Outcome.AlreadyCancelled
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {

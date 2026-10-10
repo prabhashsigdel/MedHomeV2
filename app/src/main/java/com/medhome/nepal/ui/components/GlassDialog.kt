@@ -3,6 +3,8 @@ package com.medhome.nepal.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,6 +43,8 @@ fun GlassDialog(
                     .widthIn(max = DialogMaxWidth)
                     .fillMaxWidth()
                     .glassPanel(GlassShapes.Card)
+                    // Scrolls when taller than the window (large text, a list of choices).
+                    .verticalScroll(rememberScrollState())
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(GlassDimens.ItemSpacing),
                 content = content,

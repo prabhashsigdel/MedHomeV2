@@ -1,5 +1,9 @@
 package com.medhome.nepal.ui.shell
 
+import com.medhome.nepal.domain.ClinicCancelReason
+import com.medhome.nepal.domain.CancelledBy
+import com.medhome.nepal.domain.CancelReason
+import com.medhome.nepal.domain.BookingStatus
 import android.Manifest
 import android.app.Application
 import androidx.activity.ComponentActivity
@@ -527,6 +531,33 @@ class PatientShellNavigationTest {
         compose.onAllNodesWithTag(BOOK_APPOINTMENT_BUTTON_TAG).assertCountEquals(1)
         pressBack()
         assertOnHome()
+    }
+
+    @Test
+    fun `a clinic cancel shows its reason and note in the list and in the details`() {
+        bookings.bookings.value = listOf(
+            booking(
+                id = "c1",
+                doctor = asha,
+                startAtMillis = System.currentTimeMillis() + DAY_MS,
+                status = BookingStatus.CANCELLED,
+                cancelledBy = CancelledBy.CLINIC,
+                clinicReason = ClinicCancelReason(CancelReason.CLINIC_CLOSED, "Closed for Dashain."),
+            ),
+        )
+        compose.onNode(isTab and hasText(text(R.string.nav_bookings))).performClick()
+        settle()
+        compose.onNodeWithText(text(R.string.bookings_past)).performClick()
+        settle()
+        val reason = text(R.string.booking_clinic_reason, text(R.string.cancel_reason_clinic_closed))
+        val note = text(R.string.booking_clinic_note, "Closed for Dashain.")
+        compose.onNodeWithText(reason, useUnmergedTree = true).assertExists()
+        compose.onNodeWithText(note, useUnmergedTree = true).assertExists()
+
+        compose.onAllNodesWithTag(BOOKING_CARD_TAG)[0].performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        compose.onNodeWithText(reason, substring = true).assertExists()
+        compose.onNodeWithText(note, substring = true).assertExists()
     }
 
     @Test

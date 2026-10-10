@@ -35,7 +35,9 @@ doctors or make themselves admins; only admins with a verified email may list ev
 bookings by status (the Bookings tab), and patients still list only their own; admins can't
 read patient profiles, and the only booking write they may make is cancelling an upcoming one
 for the clinic, naming themselves in `cancelledByUid`, stamping `cancelledAt` at the server
-time and freeing exactly its slot lock and quota place).
+time, giving a `cancelReason` code (and optionally a one-line `cancelNote` of at most 150
+characters; patients can never set either, and neither changes afterwards) and freeing exactly
+its slot lock and quota place).
 
 ## Seeding doctors
 
@@ -107,8 +109,8 @@ The project ID is shown in Project settings (it is also `project_id` in `app/goo
 Deploying publishes `firestore.rules` exactly as it is in your working copy.
 
 The rules and the app change together: the rules require `patientName` on new bookings,
-`cancelledBy` on cancels and `cancelledByUid` (the admin's own uid) on clinic cancels, which older
-app builds don't write (their booking and cancelling would be refused). Install the matching app
+`cancelledBy` on cancels, and `cancelledByUid` (the admin's own uid) and `cancelReason` on clinic
+cancels, which older app builds don't write (their booking and cancelling would be refused). Install the matching app
 build when you deploy the rules. Deploy the rules before releasing a build: a new build on old
 rules can't cancel for the clinic or delete an account (blanking the booking names is refused),
 while on new rules only older admin builds lose clinic cancels until updated.

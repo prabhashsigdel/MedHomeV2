@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.medhome.nepal.R
@@ -129,8 +130,23 @@ private fun BookingCard(booking: Booking, onClick: () -> Unit) {
                         style = MaterialTheme.typography.labelMedium,
                         color = colors.error,
                     )
+                    booking.clinicReason?.let { why ->
+                        Text(text = clinicReasonLine(why), style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
+                        why.note?.let { note ->
+                            Text(
+                                text = clinicNoteLine(note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.textSecondary,
+                                maxLines = NOTE_LINES_ON_CARD,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/** The card shows the start of a clinic note; the booking's details show all of it. */
+private const val NOTE_LINES_ON_CARD = 2

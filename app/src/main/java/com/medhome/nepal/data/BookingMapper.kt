@@ -7,7 +7,9 @@ import com.medhome.nepal.domain.BookedDoctor
 import com.medhome.nepal.domain.Booking
 import com.medhome.nepal.domain.BookingStatus
 import com.medhome.nepal.domain.CalendarDate
+import com.medhome.nepal.domain.CancelReason
 import com.medhome.nepal.domain.CancelledBy
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.ClinicCancel
 import com.medhome.nepal.domain.Doctor
 import com.medhome.nepal.domain.DoctorAppointment
@@ -34,6 +36,12 @@ object BookingMapper {
     const val FIELD_CREATED_AT = "createdAt"
     const val FIELD_CANCELLED_AT = "cancelledAt"
     const val FIELD_CANCELLED_BY = "cancelledBy"
+
+    /** Why the clinic cancelled ([CancelReason.key]); clinic cancels only. */
+    const val FIELD_CANCEL_REASON = "cancelReason"
+
+    /** The clinic's optional note to the patient: one line of plain text. */
+    const val FIELD_CANCEL_NOTE = "cancelNote"
 
     /** Which admin cancelled for the clinic (their uid). Never shown to patients. */
     const val FIELD_CANCELLED_BY_UID = "cancelledByUid"
@@ -73,8 +81,24 @@ object BookingMapper {
             slotId = slotId,
             quotaPlace = place,
             cancelledBy = if (status == BookingStatus.CANCELLED) cancelledByOf(data[FIELD_CANCELLED_BY]) else null,
+            clinicReason = clinicReasonOf(status, data),
         )
     }
+
+    /**
+     * The clinic's reason, for a booking the clinic cancelled; null otherwise, for cancels from
+     * before reasons, and for an unknown code (the screens then say only who cancelled). The note
+     * is cleaned like any other text and never comes without a reason.
+     */
+    private fun clinicReasonOf(status: BookingStatus, data: Map<String, Any?>): ClinicCancelReason? {
+        if (status != BookingStatus.CANCELLED) return null
+        if (CancelledBy.fromKey(data[FIELD_CANCELLED_BY] as? String) != CancelledBy.CLINIC) return null
+        val reason = CancelReason.fromKey(data[FIELD_CANCEL_REASON] as? String) ?: return null
+        return ClinicCancelReason(reason, cleanNote(data[FIELD_CANCEL_NOTE]))
+    }
+
+    /** A clinic note as stored and shown: one line of visible text, at most 150 characters. */
+    fun cleanNote(value: Any?): String? = DoctorMapper.cleanLine(value, ClinicCancelReason.MAX_NOTE_LENGTH)
 
     /**
      * Only patients could cancel before `cancelledBy` was stored, so a cancelled booking without
@@ -141,6 +165,7 @@ object BookingMapper {
             status = status,
             cancelledBy = if (cancelled) adminCancelledByOf(data, adminUid) else null,
             cancelledAtMillis = if (cancelled) (data[FIELD_CANCELLED_AT] as? Timestamp)?.toMillis() else null,
+            clinicReason = clinicReasonOf(status, data),
         )
     }
 

@@ -7,7 +7,9 @@ import androidx.compose.ui.res.stringResource
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.Booking
 import com.medhome.nepal.domain.BookingError
+import com.medhome.nepal.domain.CancelReason
 import com.medhome.nepal.domain.CancelledBy
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.DayPeriod
 import com.medhome.nepal.ui.common.LocaleFormat
 import com.medhome.nepal.ui.common.currentLocale
@@ -65,3 +67,25 @@ fun cancelledNoticeText(cancelledBy: CancelledBy?): Int = when (cancelledBy) {
     CancelledBy.CLINIC -> R.string.booking_cancelled_by_clinic_notice
     null -> R.string.booking_cancelled_notice
 }
+
+/** The clinic's cancel reason, as patients and admins read it. */
+@get:StringRes
+val CancelReason.label: Int
+    get() = when (this) {
+        CancelReason.DOCTOR_UNAVAILABLE -> R.string.cancel_reason_doctor_unavailable
+        CancelReason.SCHEDULE_CHANGED -> R.string.cancel_reason_schedule_changed
+        CancelReason.FULLY_BOOKED -> R.string.cancel_reason_fully_booked
+        CancelReason.CLINIC_CLOSED -> R.string.cancel_reason_clinic_closed
+        CancelReason.OTHER -> R.string.cancel_reason_other
+    }
+
+/** "Reason: Doctor not available", for a clinic cancel. */
+@Composable
+@ReadOnlyComposable
+fun clinicReasonLine(reason: ClinicCancelReason): String =
+    stringResource(R.string.booking_clinic_reason, stringResource(reason.reason.label))
+
+/** "Note from the clinic: ...", shown as plain text, never markup. */
+@Composable
+@ReadOnlyComposable
+fun clinicNoteLine(note: String): String = stringResource(R.string.booking_clinic_note, note)

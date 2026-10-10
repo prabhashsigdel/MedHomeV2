@@ -38,6 +38,7 @@ import com.medhome.nepal.ui.components.SettingsDivider
 import com.medhome.nepal.ui.components.StatusMessage
 import com.medhome.nepal.ui.doctors.LoadingCard
 import com.medhome.nepal.ui.doctors.MessageCard
+import com.medhome.nepal.ui.booking.label as reasonLabel
 import com.medhome.nepal.ui.doctors.label
 import com.medhome.nepal.ui.motion.entrance
 import com.medhome.nepal.ui.theme.GlassTheme
@@ -189,7 +190,13 @@ fun AdminBookingScreen(viewModel: AdminBookingViewModel) {
     }
     // Only over a loaded booking (the screen may have gone to an error under it).
     if (state is AdminBookingUiState.Ready) cancelDialog?.let { current ->
-        CancelBookingDialog(state = current, onConfirm = viewModel::confirmCancel, onDismiss = viewModel::dismissCancel)
+        CancelBookingDialog(
+            state = current,
+            onReason = viewModel::selectCancelReason,
+            onNote = viewModel::editCancelNote,
+            onConfirm = viewModel::confirmCancel,
+            onDismiss = viewModel::dismissCancel,
+        )
     }
 }
 
@@ -215,6 +222,15 @@ private fun BookingFacts(booking: AdminBooking, upcoming: Boolean, modifier: Mod
         booking.cancelledAtMillis?.let { at ->
             SettingsDivider()
             FactRow(label = R.string.label_cancelled_at, value = dateTimeText(NepalTime.dateOf(at), NepalTime.timeOf(at)))
+        }
+        booking.clinicReason?.let { why ->
+            SettingsDivider()
+            FactRow(label = R.string.label_reason, value = stringResource(why.reason.reasonLabel))
+            why.note?.let { note ->
+                SettingsDivider()
+                // A plain Text: the note shows as typed, never as markup or links.
+                FactRow(label = R.string.label_note, value = note)
+            }
         }
     }
 }

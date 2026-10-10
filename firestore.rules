@@ -343,10 +343,11 @@ service cloud.firestore {
         && getAfter(quotaPath(request.auth.uid, request.resource.data.quotaPlace)).data.bookingId == bookingId;
 
       // Cancelling, before it starts: only status, cancelledAt and cancelledBy change (and, for
-      // the clinic, cancelledByUid), and the slot lock goes in the same write so the slot frees
-      // up. The patient cancels their own ("patient"); an admin cancels for the clinic ("clinic"),
-      // names themselves in cancelledByUid and must free the patient's quota place too. Nobody
-      // un-cancels.
+      // the clinic, cancelledByUid, cancelReason and cancelNote), and the slot lock goes in the
+      // same write so the slot frees up. The patient cancels their own ("patient", no reason); an
+      // admin cancels for the clinic ("clinic"), names themselves in cancelledByUid, gives a
+      // reason and must free the patient's quota place too. Nobody un-cancels, and a cancelled
+      // booking's cancel fields never change again (only the name erasure below applies).
       function isCancelling() {
         return resource.data.status == 'booked'
           && request.time < resource.data.startAt
@@ -361,10 +362,19 @@ service cloud.firestore {
           && request.resource.data.cancelledBy == 'patient';
       }
 
+      // The clinic says why, as one of these codes (CancelReason in the app), and may add a note
+      // for the patient: one line of plain text, at most 150 characters.
+      function hasClinicReason() {
+        let booking = request.resource.data;
+        return booking.get('cancelReason', null) in ['doctor_unavailable', 'schedule_changed', 'fully_booked', 'clinic_closed', 'other']
+          && (!('cancelNote' in booking) || isLine(booking.cancelNote, 150));
+      }
+
       function isClinicCancel() {
-        return changedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancelledByUid'])
+        return changedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancelledByUid', 'cancelReason', 'cancelNote'])
           && request.resource.data.cancelledBy == 'clinic'
           && request.resource.data.get('cancelledByUid', null) == request.auth.uid
+          && hasClinicReason()
           && emailVerified()
           && isAdmin()
           && !holdsAfter(resource.data.patientUid, resource.data.quotaPlace, bookingId);

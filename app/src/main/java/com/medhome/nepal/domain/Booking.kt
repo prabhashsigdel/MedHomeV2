@@ -22,6 +22,31 @@ enum class CancelledBy(val key: String) {
     }
 }
 
+/** Why the clinic cancelled a booking. [key] is what Firestore stores (firestore.rules lists the same). */
+enum class CancelReason(val key: String) {
+    DOCTOR_UNAVAILABLE("doctor_unavailable"),
+    SCHEDULE_CHANGED("schedule_changed"),
+    FULLY_BOOKED("fully_booked"),
+    CLINIC_CLOSED("clinic_closed"),
+    OTHER("other"),
+    ;
+
+    companion object {
+        fun fromKey(key: String?): CancelReason? = entries.firstOrNull { it.key == key }
+    }
+}
+
+/**
+ * The clinic's reason for a cancel, with an optional note for the patient (one line of plain
+ * text, at most [MAX_NOTE_LENGTH] characters; null when there is none).
+ */
+data class ClinicCancelReason(val reason: CancelReason, val note: String? = null) {
+    companion object {
+        /** The rules allow no more (`isLine(cancelNote, 150)`). */
+        const val MAX_NOTE_LENGTH = 150
+    }
+}
+
 /** The doctor as they were when booked (a booking keeps its fee if the doctor's changes later). */
 data class BookedDoctor(
     val name: String,
@@ -43,6 +68,8 @@ data class Booking(
     val quotaPlace: Int,
     /** Who cancelled it; null while booked, or when the stored value is unknown. */
     val cancelledBy: CancelledBy? = null,
+    /** Why the clinic cancelled it; null otherwise, and for clinic cancels from before reasons. */
+    val clinicReason: ClinicCancelReason? = null,
 ) {
     val date: CalendarDate get() = NepalTime.dateOf(startAtMillis)
     val start: TimeOfDay get() = NepalTime.timeOf(startAtMillis)

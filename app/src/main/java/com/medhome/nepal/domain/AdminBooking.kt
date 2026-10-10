@@ -42,6 +42,8 @@ data class AdminBooking(
     val cancelledBy: AdminCancelledBy? = null,
     /** When it was cancelled (server time); null while booked and for cancels before it was stored. */
     val cancelledAtMillis: Long? = null,
+    /** Why the clinic cancelled it; null otherwise, and for clinic cancels from before reasons. */
+    val clinicReason: ClinicCancelReason? = null,
 ) {
     val date: CalendarDate get() = NepalTime.dateOf(startAtMillis)
     val start: TimeOfDay get() = NepalTime.timeOf(startAtMillis)

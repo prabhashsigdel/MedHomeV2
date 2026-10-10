@@ -1,5 +1,6 @@
 package com.medhome.nepal.ui.admin
 
+import com.medhome.nepal.domain.ClinicCancelReason
 import com.medhome.nepal.domain.AdminBooking
 import com.medhome.nepal.domain.AdminBookingFilter
 import com.medhome.nepal.domain.AdminCancelledBy
@@ -7,6 +8,7 @@ import com.medhome.nepal.domain.AdminError
 import com.medhome.nepal.domain.AuthError
 import com.medhome.nepal.domain.BookedDoctor
 import com.medhome.nepal.domain.BookingStatus
+import com.medhome.nepal.domain.CancelReason
 import com.medhome.nepal.domain.Specialty
 import com.medhome.nepal.fakes.FakeAdminRepository
 import com.medhome.nepal.ui.common.OFFLINE_GRACE_MS
@@ -188,6 +190,7 @@ class AdminBookingsViewModelsTest {
 
         viewModel.requestCancel()
         assertEquals("b1", dialog.value?.appointment?.bookingId)
+        viewModel.selectCancelReason(CancelReason.CLINIC_CLOSED)
         viewModel.confirmCancel()
         assertNull(dialog.value)
         assertEquals(listOf("b1"), repository.cancelledBookings)
@@ -221,6 +224,7 @@ class AdminBookingsViewModelsTest {
         collecting(viewModel.uiState)
         val dialog = collecting(viewModel.cancelDialog)
         viewModel.requestCancel()
+        viewModel.selectCancelReason(CancelReason.OTHER)
         viewModel.confirmCancel()
         assertTrue(dialog.value?.isCancelling == true)
         viewModel.dismissCancel()
@@ -247,5 +251,39 @@ class AdminBookingsViewModelsTest {
 
     private companion object {
         const val HOUR_MS = 60 * 60 * 1000L
+    }
+
+    @Test
+    fun `a cancel needs a reason, and the reason and note reach the booking`() = runTest(dispatcher) {
+        val repository = repository(booking("b1", 2))
+        val viewModel = AdminBookingViewModel("b1", repository, clock)
+        val state = collecting(viewModel.uiState)
+        val dialog = collecting(viewModel.cancelDialog)
+        viewModel.requestCancel()
+        assertFalse(requireNotNull(dialog.value).canConfirm)
+        viewModel.confirmCancel()
+        assertTrue(repository.cancelledBookings.isEmpty())
+
+        viewModel.editCancelNote("x".repeat(200))
+        assertEquals(ClinicCancelReason.MAX_NOTE_LENGTH, dialog.value?.note?.length)
+        viewModel.editCancelNote("Dr Rai is away")
+        viewModel.selectCancelReason(CancelReason.DOCTOR_UNAVAILABLE)
+        viewModel.confirmCancel()
+        val expected = ClinicCancelReason(CancelReason.DOCTOR_UNAVAILABLE, "Dr Rai is away")
+        assertEquals(expected, repository.cancelReasons["b1"])
+        assertEquals(expected, (state.value as AdminBookingUiState.Ready).booking.clinicReason)
+    }
+
+    @Test
+    fun `a blank note is no note`() = runTest(dispatcher) {
+        val repository = repository(booking("b1", 2))
+        val viewModel = AdminBookingViewModel("b1", repository, clock)
+        collecting(viewModel.uiState)
+        collecting(viewModel.cancelDialog)
+        viewModel.requestCancel()
+        viewModel.editCancelNote("   ")
+        viewModel.selectCancelReason(CancelReason.FULLY_BOOKED)
+        viewModel.confirmCancel()
+        assertEquals(ClinicCancelReason(CancelReason.FULLY_BOOKED, null), repository.cancelReasons["b1"])
     }
 }

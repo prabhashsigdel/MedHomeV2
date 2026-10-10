@@ -1,5 +1,7 @@
 package com.medhome.nepal.data
 
+import com.medhome.nepal.domain.ClinicCancelReason
+import com.medhome.nepal.domain.CancelReason
 import com.google.firebase.Timestamp
 import com.medhome.nepal.domain.AdminCancelledBy
 import com.medhome.nepal.domain.BookingStatus
@@ -250,5 +252,49 @@ class BookingMapperTest {
         assertNull(parseForAdmin(valid() + ("startAt" to "2026-10-12")))
         assertNull(parseForAdmin(valid() + ("status" to "done")))
         assertNull(parseForAdmin(valid() + ("doctor" to "Asha")))
+    }
+
+    // The clinic's cancel reason
+
+    private fun clinicCancelled(vararg fields: Pair<String, Any?>) =
+        valid() + mapOf("status" to "cancelled", "cancelledBy" to "clinic", "cancelledByUid" to "admin1") + fields.toMap()
+
+    @Test
+    fun `a clinic cancel carries its reason and note, for the patient and for admins`() {
+        val data = clinicCancelled("cancelReason" to "clinic_closed", "cancelNote" to "Closed for Dashain.")
+        val expected = ClinicCancelReason(CancelReason.CLINIC_CLOSED, "Closed for Dashain.")
+        assertEquals(expected, parse(data)?.clinicReason)
+        assertEquals(expected, parseForAdmin(data)?.clinicReason)
+        for (reason in CancelReason.entries) {
+            assertEquals(reason, parse(clinicCancelled("cancelReason" to reason.key))?.clinicReason?.reason)
+        }
+    }
+
+    @Test
+    fun `old clinic cancels and unknown codes have no reason`() {
+        assertNull(parse(clinicCancelled())?.clinicReason)
+        assertNull(parse(clinicCancelled("cancelReason" to "bored"))?.clinicReason)
+        assertNull(parse(clinicCancelled("cancelReason" to 3L))?.clinicReason)
+        // A note never comes without a reason.
+        assertNull(parse(clinicCancelled("cancelNote" to "Away"))?.clinicReason)
+        // The booking itself still shows.
+        assertEquals(CancelledBy.CLINIC, parse(clinicCancelled("cancelReason" to "bored"))?.cancelledBy)
+    }
+
+    @Test
+    fun `only clinic cancels have a reason`() {
+        val patient = valid() + mapOf("status" to "cancelled", "cancelledBy" to "patient", "cancelReason" to "other")
+        assertNull(parse(patient)?.clinicReason)
+        assertNull(parse(valid() + ("cancelReason" to "other"))?.clinicReason)
+    }
+
+    @Test
+    fun `a clinic note is cleaned to one line of at most 150 characters`() {
+        fun note(raw: Any?) = parse(clinicCancelled("cancelReason" to "other", "cancelNote" to raw))?.clinicReason?.note
+        assertEquals("Doctor away", note("  Doctor\n\taway ​ "))
+        assertEquals(150, note("x".repeat(400))?.length)
+        assertNull(note("   "))
+        assertNull(note(42L))
+        assertEquals("<b>bold</b>", note("<b>bold</b>"))
     }
 }
