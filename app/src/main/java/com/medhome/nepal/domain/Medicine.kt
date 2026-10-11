@@ -59,9 +59,15 @@ data class Dose(val medicineId: Long, val date: CalendarDate, val time: TimeOfDa
     val atMillis: Long get() = NepalTime.epochMillis(date, time)
 }
 
-/** What happened to one dose, if anything. A dose with no record is simply not taken yet. */
+/**
+ * One dose as scheduled on its day, from the day's log: the medicine's [name] and [amount] (its
+ * dose text) as they were then, and what happened to it. Editing or deleting the medicine later
+ * doesn't change it, so the history shows what was actually scheduled and taken.
+ */
 data class DoseRecord(
     val dose: Dose,
+    val name: String,
+    val amount: String,
     val takenAtMillis: Long?,
     /** When a pending snooze fires; at or before now means it has fired. */
     val snoozedUntilMillis: Long?,
@@ -69,8 +75,8 @@ data class DoseRecord(
 
 enum class DoseState { TAKEN, UPCOMING, MISSED }
 
-/** A dose of a medicine shown in a list, with its state now. */
-data class TodayDose(val medicine: Medicine, val dose: Dose, val state: DoseState)
+/** A logged dose shown in a list, with its state now. */
+data class TodayDose(val dose: Dose, val name: String, val amount: String, val state: DoseState)
 
 object DoseSchedule {
     /** A dose not marked taken this long after its time is missed. */
@@ -95,40 +101,56 @@ object DoseSchedule {
     fun dosesOn(medicine: Medicine, date: CalendarDate): List<Dose> =
         if (medicine.isDueOn(date)) medicine.times.map { Dose(medicine.id, date, it) } else emptyList()
 
-    /** Every dose of [medicines] on [date] with its state at [nowMillis], in time order. */
-    fun today(
-        medicines: List<Medicine>,
-        records: List<DoseRecord>,
-        date: CalendarDate,
-        nowMillis: Long,
-    ): List<TodayDose> {
-        val byDose = records.associateBy { it.dose }
-        return medicines
-            .flatMap { medicine -> dosesOn(medicine, date).map { medicine to it } }
-            .sortedWith(compareBy({ it.second.time }, { it.first.name.lowercase() }, { it.first.id }))
-            .map { (medicine, dose) -> TodayDose(medicine, dose, state(dose, byDose[dose], nowMillis)) }
-    }
+    /** [medicines]' doses on [date] as that day's log first records them: scheduled, not taken. */
+    fun logFor(medicines: List<Medicine>, date: CalendarDate): List<DoseRecord> =
+        medicines.flatMap { medicine ->
+            dosesOn(medicine, date).map { DoseRecord(it, medicine.name, medicine.dose, takenAtMillis = null, snoozedUntilMillis = null) }
+        }
 
     /**
-     * Every dose of [medicines] from [from] to [to] (inclusive, Nepal dates) with its state at
+     * What an edit of [medicine] (null: deleted) changes in its logged doses of today, [today]:
+     * only the ones still upcoming at [nowMillis] go, replaced by the new schedule's doses that
+     * aren't missed yet; taken and missed ones stay as they were (a new dose at the same time as
+     * one of those is left out). Days before today are never changed.
+     */
+    fun replanToday(
+        today: List<DoseRecord>,
+        medicine: Medicine?,
+        date: CalendarDate,
+        nowMillis: Long,
+    ): Replan {
+        val (upcoming, settled) = today.partition { state(it.dose, it, nowMillis) == DoseState.UPCOMING }
+        val settledTimes = settled.mapTo(mutableSetOf()) { it.dose.time }
+        val added = medicine?.let { logFor(listOf(it), date) }.orEmpty()
+            .filter { it.dose.time !in settledTimes && state(it.dose, it, nowMillis) == DoseState.UPCOMING }
+        return Replan(remove = upcoming, add = added)
+    }
+
+    /** See [replanToday]. */
+    data class Replan(val remove: List<DoseRecord>, val add: List<DoseRecord>)
+
+    /** [records] with their state at [nowMillis], in time order (then by name). */
+    fun listed(records: List<DoseRecord>, nowMillis: Long): List<TodayDose> =
+        records
+            .sortedWith(compareBy({ it.dose.time }, { it.name.lowercase() }, { it.dose.medicineId }))
+            .map { TodayDose(it.dose, it.name, it.amount, state(it.dose, it, nowMillis)) }
+
+    /**
+     * The logged doses from [from] to [to] (inclusive, Nepal dates) with their state at
      * [nowMillis], grouped by day, latest day first and each day in time order. Days with no
-     * doses are left out. Worked out from the medicines as they are now, so a medicine deleted
-     * (with its records) or rescheduled since changes the days before.
+     * doses are left out. Read from the log, so later edits and deletions don't change them.
      */
     fun history(
-        medicines: List<Medicine>,
         records: List<DoseRecord>,
         from: CalendarDate,
         to: CalendarDate,
         nowMillis: Long,
-    ): List<Pair<CalendarDate, List<TodayDose>>> {
-        if (to < from) return emptyList()
-        val days = generateSequence(to) { day -> day.plusDays(-1).takeIf { it >= from } }
-        return days
-            .map { day -> day to today(medicines, records, day, nowMillis) }
-            .filter { (_, doses) -> doses.isNotEmpty() }
-            .toList()
-    }
+    ): List<Pair<CalendarDate, List<TodayDose>>> =
+        records
+            .filter { it.dose.date in from..to }
+            .groupBy { it.dose.date }
+            .toSortedMap(compareByDescending { it })
+            .map { (day, dayRecords) -> day to listed(dayRecords, nowMillis) }
 
     /**
      * The first dose of [medicine] strictly after [afterMillis], or null when there is none

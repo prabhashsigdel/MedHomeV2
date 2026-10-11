@@ -16,6 +16,9 @@ class DoseScheduleTest {
     private fun at(date: CalendarDate, time: TimeOfDay, plusMinutes: Int = 0) =
         NepalTime.epochMillis(date, time) + plusMinutes * NepalTime.MILLIS_PER_MINUTE
 
+    private fun logged(dose: Dose, name: String = "Paracetamol", taken: Long? = null, snoozedUntil: Long? = null) =
+        DoseRecord(dose, name, "1 tablet", takenAtMillis = taken, snoozedUntilMillis = snoozedUntil)
+
     // Next dose
 
     @Test
@@ -129,7 +132,7 @@ class DoseScheduleTest {
     @Test
     fun `a taken dose stays taken`() {
         val dose = Dose(1, thursday, eight)
-        val record = DoseRecord(dose, takenAtMillis = at(thursday, eight, plusMinutes = 90), snoozedUntilMillis = null)
+        val record = logged(dose, taken = at(thursday, eight, plusMinutes = 90))
         assertEquals(DoseState.TAKEN, DoseSchedule.state(dose, record, at(thursday, twenty)))
     }
 
@@ -137,25 +140,68 @@ class DoseScheduleTest {
     fun `a snoozed dose stays upcoming until the snooze fires`() {
         val dose = Dose(1, thursday, eight)
         val snoozedUntil = at(thursday, eight, plusMinutes = 65)
-        val record = DoseRecord(dose, takenAtMillis = null, snoozedUntilMillis = snoozedUntil)
+        val record = logged(dose, snoozedUntil = snoozedUntil)
         assertEquals(DoseState.UPCOMING, DoseSchedule.state(dose, record, at(thursday, eight, plusMinutes = 64)))
         assertEquals(DoseState.MISSED, DoseSchedule.state(dose, record, snoozedUntil))
     }
 
     @Test
-    fun `states start afresh every day`() {
-        val med = medicine(times = listOf(eight))
-        val yesterday = DoseRecord(Dose(1, thursday.plusDays(-1), eight), takenAtMillis = 1, snoozedUntilMillis = null)
-        val today = DoseSchedule.today(listOf(med), listOf(yesterday), thursday, at(thursday, TimeOfDay(7 * 60)))
-        assertEquals(listOf(DoseState.UPCOMING), today.map { it.state })
+    fun `a day's log is every due medicine's doses, not taken, with the name and dose of that day`() {
+        val a = medicine(id = 1, name = "B", times = listOf(twenty))
+        val b = medicine(id = 2, name = "A", dose = "5 ml", times = listOf(eight, twenty))
+        val mondays = medicine(id = 3, days = MedicineDays.Chosen(setOf(Weekday.MONDAY)))
+        val log = DoseSchedule.logFor(listOf(a, b, mondays), thursday)
+        assertEquals(
+            listOf(
+                DoseRecord(Dose(1, thursday, twenty), "B", "1 tablet", null, null),
+                DoseRecord(Dose(2, thursday, eight), "A", "5 ml", null, null),
+                DoseRecord(Dose(2, thursday, twenty), "A", "5 ml", null, null),
+            ),
+            log,
+        )
     }
 
     @Test
-    fun `today lists every medicine's doses in time order`() {
-        val a = medicine(id = 1, name = "B", times = listOf(twenty))
-        val b = medicine(id = 2, name = "A", times = listOf(eight, twenty))
-        val today = DoseSchedule.today(listOf(a, b), emptyList(), thursday, at(thursday, TimeOfDay(0)))
+    fun `a day lists its logged doses in time order, then by name`() {
+        val log = listOf(logged(Dose(1, thursday, twenty), name = "B"), logged(Dose(2, thursday, eight), name = "A"), logged(Dose(2, thursday, twenty), name = "A"))
+        val today = DoseSchedule.listed(log, at(thursday, TimeOfDay(0)))
         assertEquals(listOf(2L to eight, 2L to twenty, 1L to twenty), today.map { it.dose.medicineId to it.dose.time })
+        assertEquals(listOf("A", "A", "B"), today.map { it.name })
+    }
+
+    // Editing today
+
+    @Test
+    fun `an edit replaces today's upcoming doses and keeps the taken and missed ones`() {
+        val six = TimeOfDay(6 * 60)
+        val noon = TimeOfDay(12 * 60)
+        val today = listOf(
+            logged(Dose(1, thursday, six)),
+            logged(Dose(1, thursday, eight), taken = 1L),
+            logged(Dose(1, thursday, twenty)),
+        )
+        val edited = medicine(name = "New name", times = listOf(eight, noon, TimeOfDay(21 * 60)))
+        val plan = DoseSchedule.replanToday(today, edited, thursday, at(thursday, TimeOfDay(9 * 60)))
+        // 06:00 was missed and 08:00 taken: they stay. 20:00 was still to come: replaced.
+        assertEquals(listOf(Dose(1, thursday, twenty)), plan.remove.map { it.dose })
+        assertEquals(listOf(noon, TimeOfDay(21 * 60)), plan.add.map { it.dose.time })
+        assertEquals(listOf("New name", "New name"), plan.add.map { it.name })
+    }
+
+    @Test
+    fun `an edit doesn't add doses that are already missed`() {
+        val edited = medicine(times = listOf(TimeOfDay(6 * 60), eight))
+        val plan = DoseSchedule.replanToday(emptyList(), edited, thursday, at(thursday, eight, plusMinutes = 30))
+        // 06:00 is over an hour ago; 08:00 can still be taken.
+        assertEquals(listOf(eight), plan.add.map { it.dose.time })
+    }
+
+    @Test
+    fun `deleting removes only today's upcoming doses`() {
+        val today = listOf(logged(Dose(1, thursday, eight), taken = 1L), logged(Dose(1, thursday, twenty)))
+        val plan = DoseSchedule.replanToday(today, null, thursday, at(thursday, TimeOfDay(9 * 60)))
+        assertEquals(listOf(Dose(1, thursday, twenty)), plan.remove.map { it.dose })
+        assertEquals(emptyList<DoseRecord>(), plan.add)
     }
 
     // The medicine itself
@@ -183,14 +229,17 @@ class DoseScheduleTest {
 
     @Test
     fun `history groups past days latest first, each in time order, taken or missed`() {
-        val med = medicine(times = listOf(eight, twenty), startDate = thursday.plusDays(-2))
         val tuesday = thursday.plusDays(-2)
         val wednesday = thursday.plusDays(-1)
         val records = listOf(
-            DoseRecord(Dose(1, wednesday, eight), takenAtMillis = 1L, snoozedUntilMillis = null),
-            DoseRecord(Dose(1, tuesday, twenty), takenAtMillis = 1L, snoozedUntilMillis = null),
+            logged(Dose(1, wednesday, twenty)),
+            logged(Dose(1, wednesday, eight), taken = 1L),
+            logged(Dose(1, tuesday, eight)),
+            logged(Dose(1, tuesday, twenty), taken = 1L),
+            // Today's are the Today view's.
+            logged(Dose(1, thursday, eight)),
         )
-        val history = DoseSchedule.history(listOf(med), records, thursday.plusDays(-30), wednesday, at(thursday, eight))
+        val history = DoseSchedule.history(records, thursday.plusDays(-30), wednesday, at(thursday, eight))
         assertEquals(listOf(wednesday, tuesday), history.map { it.first })
         assertEquals(listOf(DoseState.TAKEN, DoseState.MISSED), history[0].second.map { it.state })
         assertEquals(listOf(DoseState.MISSED, DoseState.TAKEN), history[1].second.map { it.state })
@@ -199,9 +248,9 @@ class DoseScheduleTest {
 
     @Test
     fun `history leaves out days with no doses and an empty range`() {
-        val mondays = medicine(times = listOf(eight), days = MedicineDays.Chosen(setOf(Weekday.MONDAY)), startDate = CalendarDate(2026, 9, 1))
-        val history = DoseSchedule.history(listOf(mondays), emptyList(), thursday.plusDays(-14), thursday.plusDays(-1), at(thursday, eight))
+        val records = listOf(logged(Dose(1, CalendarDate(2026, 10, 5), eight)), logged(Dose(1, CalendarDate(2026, 9, 28), eight)))
+        val history = DoseSchedule.history(records, thursday.plusDays(-14), thursday.plusDays(-1), at(thursday, eight))
         assertEquals(listOf(CalendarDate(2026, 10, 5), CalendarDate(2026, 9, 28)), history.map { it.first })
-        assertEquals(emptyList<Any>(), DoseSchedule.history(listOf(mondays), emptyList(), thursday, thursday.plusDays(-1), at(thursday, eight)))
+        assertEquals(emptyList<Any>(), DoseSchedule.history(records, thursday, thursday.plusDays(-1), at(thursday, eight)))
     }
 }

@@ -48,18 +48,22 @@ object ReminderMapper {
         )
     }.getOrNull()
 
-    fun toRecord(entity: DoseRecordEntity): DoseRecord? = runCatching {
+    fun toRecord(entity: DoseLogEntity): DoseRecord? = runCatching {
         DoseRecord(
             dose = Dose(entity.medicineId, CalendarDate.ofEpochDay(entity.epochDay), TimeOfDay(entity.minuteOfDay)),
+            name = entity.name,
+            amount = entity.dose,
             takenAtMillis = entity.takenAtMillis,
             snoozedUntilMillis = entity.snoozedUntilMillis,
         )
     }.getOrNull()
 
-    fun toEntity(record: DoseRecord): DoseRecordEntity = DoseRecordEntity(
+    fun toEntity(record: DoseRecord): DoseLogEntity = DoseLogEntity(
         medicineId = record.dose.medicineId,
         epochDay = record.dose.date.epochDay,
         minuteOfDay = record.dose.time.minutes,
+        name = record.name,
+        dose = record.amount,
         takenAtMillis = record.takenAtMillis,
         snoozedUntilMillis = record.snoozedUntilMillis,
     )

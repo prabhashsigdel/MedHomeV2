@@ -72,7 +72,7 @@ fun DoseRow(dose: TodayDose, onToggle: (TodayDose) -> Unit) {
         )
         Spacer(Modifier.width(12.dp))
         Text(
-            text = stringResource(R.string.medicine_name_dose, dose.medicine.name, dose.medicine.dose),
+            text = stringResource(R.string.medicine_name_dose, dose.name, dose.amount),
             style = MaterialTheme.typography.bodyMedium,
             color = colors.textPrimary,
             maxLines = 1,
@@ -107,7 +107,7 @@ fun DoseHistoryRow(dose: TodayDose) {
         )
         Spacer(Modifier.width(12.dp))
         Text(
-            text = stringResource(R.string.medicine_name_dose, dose.medicine.name, dose.medicine.dose),
+            text = stringResource(R.string.medicine_name_dose, dose.name, dose.amount),
             style = MaterialTheme.typography.bodyMedium,
             color = colors.textPrimary,
             maxLines = 1,

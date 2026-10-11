@@ -8,6 +8,7 @@ import com.medhome.nepal.domain.AppointmentReminder
 import com.medhome.nepal.domain.CalendarDate
 import com.medhome.nepal.domain.Dose
 import com.medhome.nepal.domain.DoseRecord
+import com.medhome.nepal.domain.DoseSchedule
 import com.medhome.nepal.domain.Medicine
 import com.medhome.nepal.domain.MedicineDays
 import com.medhome.nepal.domain.TimeOfDay
@@ -18,7 +19,7 @@ import com.medhome.nepal.reminders.ReminderRepository
 import com.medhome.nepal.ui.reminders.ReminderViewModels
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 
 fun medicine(
@@ -142,9 +143,19 @@ class FakeReminderRepository(
     override val appointments: Flow<List<AppointmentReminder>> = appointmentState
     override val prefs: Flow<ReminderPrefs> = prefsState
 
-    override fun recordsOn(date: CalendarDate): Flow<List<DoseRecord>> = records.map { all -> all.filter { it.dose.date == date } }
+    /**
+     * The doses of [from] to [to]: [records] as set, then the current medicines' other doses on
+     * those days, not taken (the engine logs each day; tests of that are in ReminderEngineTest).
+     */
+    override fun dosesBetween(from: CalendarDate, to: CalendarDate): Flow<List<DoseRecord>> =
+        combine(medicineState, records) { medicines, all ->
+            val set = all.filter { it.dose.date in from..to }
+            val setDoses = set.mapTo(mutableSetOf()) { it.dose }
+            val days = generateSequence(from) { it.plusDays(1).takeIf { day -> day <= to } }
+            set + days.flatMap { DoseSchedule.logFor(medicines, it) }.filter { it.dose !in setDoses }
+        }
 
-    override fun recordsFrom(date: CalendarDate): Flow<List<DoseRecord>> = records.map { all -> all.filter { it.dose.date >= date } }
+    override fun dosesOn(date: CalendarDate): Flow<List<DoseRecord>> = dosesBetween(date, date)
 
     override suspend fun medicine(id: Long): Medicine? = medicineState.value.firstOrNull { it.id == id }
 
@@ -164,7 +175,8 @@ class FakeReminderRepository(
 
     override suspend fun setTaken(dose: Dose, taken: Boolean) {
         check()
-        records.update { list -> list.filter { it.dose != dose } + DoseRecord(dose, if (taken) 1L else null, null) }
+        val medicine = medicineState.value.first { it.id == dose.medicineId }
+        records.update { list -> list.filter { it.dose != dose } + DoseRecord(dose, medicine.name, medicine.dose, if (taken) 1L else null, null) }
         calls += "taken:$taken"
     }
 

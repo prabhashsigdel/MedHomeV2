@@ -73,18 +73,18 @@ class TodayRemindersViewModel(private val reminders: ReminderRepository, clock: 
 
     private val now: Flow<Long> = ticker(clock)
 
-    /** Today's records, following the date when midnight passes. */
+    /** Today's logged doses, following the date when midnight passes. */
     private val records: Flow<Pair<CalendarDate, List<DoseRecord>>> = ticker(clock)
         .map { NepalTime.dateOf(it) }
         .distinctUntilChanged()
-        .flatMapLatest { date -> reminders.recordsOn(date).map { date to it } }
+        .flatMapLatest { date -> reminders.dosesOn(date).map { date to it } }
 
     val state: StateFlow<TodayReminders> =
         combine(reminders.medicines, records, reminders.appointments, now, changeFailed) { medicines, (date, dayRecords), appointments, nowMillis, failed ->
             TodayReminders(
-                doses = DoseSchedule.today(medicines, dayRecords, date, nowMillis),
+                doses = DoseSchedule.listed(dayRecords, nowMillis),
                 appointments = appointments.filter { NepalTime.dateOf(it.startAtMillis) == date && it.startAtMillis > nowMillis },
-                hasMedicines = medicines.isNotEmpty(),
+                hasMedicines = medicines.isNotEmpty() || dayRecords.isNotEmpty(),
                 loading = false,
                 changeFailed = failed,
             )
@@ -111,8 +111,8 @@ data class DoseHistory(
 
 /**
  * The [HISTORY_DAYS] days before today (today is the Today view's), following the date at
- * midnight. Records older than that are pruned, so the history never claims a dose was missed
- * just because its record was deleted.
+ * midnight, as logged on each day: later edits and deletions don't change them. Older days are
+ * pruned from the log.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DoseHistoryViewModel(reminders: ReminderRepository, private val clock: () -> Long) : ViewModel() {
@@ -121,8 +121,9 @@ class DoseHistoryViewModel(reminders: ReminderRepository, private val clock: () 
         .distinctUntilChanged()
         .flatMapLatest { today ->
             val from = today.plusDays(-HISTORY_DAYS)
-            combine(reminders.medicines, reminders.recordsFrom(from)) { medicines, records ->
-                DoseHistory(DoseSchedule.history(medicines, records, from, today.plusDays(-1), clock()), loading = false)
+            val to = today.plusDays(-1)
+            reminders.dosesBetween(from, to).map { records ->
+                DoseHistory(DoseSchedule.history(records, from, to, clock()), loading = false)
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), DoseHistory())

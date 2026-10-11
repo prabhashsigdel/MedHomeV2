@@ -225,7 +225,7 @@ class ReminderViewModelsTest {
         val today = NepalTime.dateOf(now)
         val yesterday = today.plusDays(-1)
         repo.medicineState.value = listOf(medicine(times = listOf(TimeOfDay(8 * 60)), startDate = today.plusDays(-40)))
-        repo.records.value = listOf(DoseRecord(Dose(1, yesterday, TimeOfDay(8 * 60)), takenAtMillis = 1L, snoozedUntilMillis = null))
+        repo.records.value = listOf(DoseRecord(Dose(1, yesterday, TimeOfDay(8 * 60)), "Paracetamol", "1 tablet", takenAtMillis = 1L, snoozedUntilMillis = null))
         val history = collecting(DoseHistoryViewModel(repo) { now }.state)
         assertFalse(history.value.loading)
         assertEquals(DoseHistoryViewModel.HISTORY_DAYS, history.value.days.size)

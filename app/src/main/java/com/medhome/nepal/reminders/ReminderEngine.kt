@@ -1,6 +1,7 @@
 package com.medhome.nepal.reminders
 
 import com.medhome.nepal.data.BookingMapper
+import com.medhome.nepal.data.DoseLogEntity
 import com.medhome.nepal.data.MedicineEntity
 import com.medhome.nepal.data.ReminderDao
 import com.medhome.nepal.data.ReminderMapper
@@ -19,6 +20,8 @@ import com.medhome.nepal.domain.NepalTime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,11 +36,14 @@ interface ReminderRepository {
 
     val prefs: Flow<ReminderPrefs>
 
-    /** What happened to the doses of [date] (taken, snoozed). */
-    fun recordsOn(date: CalendarDate): Flow<List<DoseRecord>>
+    /**
+     * [date]'s doses as logged on that day (written when the day is first worked out, then only
+     * today's upcoming ones follow edits), with what happened to each.
+     */
+    fun dosesOn(date: CalendarDate): Flow<List<DoseRecord>>
 
-    /** What happened to every dose from [date] on (records go after [ReminderEngine.KEEP_RECORD_DAYS]). */
-    fun recordsFrom(date: CalendarDate): Flow<List<DoseRecord>>
+    /** The logged doses from [from] to [to], both included (kept [ReminderEngine.KEEP_RECORD_DAYS]). */
+    fun dosesBetween(from: CalendarDate, to: CalendarDate): Flow<List<DoseRecord>>
 
     suspend fun medicine(id: Long): Medicine?
 
@@ -102,11 +108,18 @@ class ReminderEngine(
 
     override val prefs: Flow<ReminderPrefs> = settings.prefs
 
-    override fun recordsOn(date: CalendarDate): Flow<List<DoseRecord>> =
-        dao.observeRecordsOn(date.epochDay).visible().map { rows -> rows.mapNotNull(ReminderMapper::toRecord) }
+    override fun dosesOn(date: CalendarDate): Flow<List<DoseRecord>> =
+        loggedFirst(dao.observeLogOn(date.epochDay))
 
-    override fun recordsFrom(date: CalendarDate): Flow<List<DoseRecord>> =
-        dao.observeRecordsFrom(date.epochDay).visible().map { rows -> rows.mapNotNull(ReminderMapper::toRecord) }
+    override fun dosesBetween(from: CalendarDate, to: CalendarDate): Flow<List<DoseRecord>> =
+        loggedFirst(dao.observeLogBetween(from.epochDay, to.epochDay))
+
+    /** [rows] once every day up to today is logged (a day that just began gets its doses). */
+    private fun loggedFirst(rows: Flow<List<DoseLogEntity>>): Flow<List<DoseRecord>> =
+        flow {
+            locked { if (!isAnotherAccounts()) logDaysThrough(clock()) }
+            emitAll(rows)
+        }.visible().map { list -> list.mapNotNull(ReminderMapper::toRecord) }
 
     /** Rows only while they are the signed-in patient's (or nobody's yet): never another account's. */
     private fun <T> Flow<List<T>>.visible(): Flow<List<T>> = combine(settings.owner) { rows, owner ->
@@ -121,6 +134,9 @@ class ReminderEngine(
     override suspend fun saveMedicine(medicine: Medicine): Long = locked {
         val uid = checkNotNull(currentPatientUid()) { "Not signed in" }
         check(ownedBy(uid)) { "Reminders of another account are still here" }
+        val now = clock()
+        // Days up to today are logged with the old schedule before it changes.
+        logDaysThrough(now)
         val entity = ReminderMapper.toEntity(medicine)
         val id = if (medicine.id == 0L) {
             dao.insertMedicine(entity.copy(id = 0))
@@ -128,29 +144,34 @@ class ReminderEngine(
             check(dao.updateMedicine(entity) == 1) { "No such medicine" }
             medicine.id
         }
-        // Old times may be gone: drop their snoozes and notifications, then set the next dose.
-        clearSnoozes(id)
-        notifier.cancelMedicine(id)
         val saved = medicine.copy(id = id)
-        if (settings.current().medicineReminders) scheduleNextDose(saved, after = clock()) else clearDoseAlarm(id)
+        // Old times may be gone: today's upcoming doses follow the edit, snoozes and
+        // notifications go, then the next dose is set.
+        replanToday(id, saved, now)
+        notifier.cancelMedicine(id)
+        if (settings.current().medicineReminders) scheduleNextDose(saved, after = now) else clearDoseAlarm(id)
         id
     }
 
+    /** Its doses taken or missed (today's too) stay in the log; today's upcoming ones go. */
     override suspend fun deleteMedicine(id: Long) = locked {
         if (isAnotherAccounts()) return@locked
-        clearSnoozes(id)
+        val now = clock()
+        logDaysThrough(now)
+        replanToday(id, medicine = null, now)
         scheduler.cancelKey(ReminderAlarm.medicineKey(id))
         notifier.cancelMedicine(id)
         dao.deleteMedicine(id)
     }
 
+    /** Only a logged dose can be marked (also one of a medicine deleted since). */
     override suspend fun setTaken(dose: Dose, taken: Boolean) = locked {
         if (isAnotherAccounts()) return@locked
-        dao.medicine(dose.medicineId) ?: return@locked
-        val current = dao.record(dose.medicineId, dose.date.epochDay, dose.time.minutes)?.let(ReminderMapper::toRecord)
-        if (current?.snoozedUntilMillis != null) scheduler.cancel(ReminderAlarm.Snoozed(dose))
-        val record = DoseRecord(dose, takenAtMillis = if (taken) clock() else null, snoozedUntilMillis = null)
-        dao.upsertRecord(ReminderMapper.toEntity(record))
+        logDaysThrough(clock())
+        val current = loggedDose(dose) ?: return@locked
+        if (current.snoozedUntilMillis != null) scheduler.cancel(ReminderAlarm.Snoozed(dose))
+        val record = current.copy(takenAtMillis = if (taken) clock() else null, snoozedUntilMillis = null)
+        dao.upsertLogEntry(ReminderMapper.toEntity(record))
         if (taken) notifier.cancelDose(dose)
     }
 
@@ -158,11 +179,11 @@ class ReminderEngine(
     suspend fun snooze(dose: Dose) = locked {
         if (isAnotherAccounts()) return@locked
         dao.medicine(dose.medicineId) ?: return@locked
-        val current = dao.record(dose.medicineId, dose.date.epochDay, dose.time.minutes)?.let(ReminderMapper::toRecord)
         notifier.cancelDose(dose)
-        if (current?.takenAtMillis != null || !settings.current().medicineReminders) return@locked
+        val current = loggedDose(dose) ?: return@locked
+        if (current.takenAtMillis != null || !settings.current().medicineReminders) return@locked
         val until = clock() + DoseSchedule.SNOOZE_MINUTES * NepalTime.MILLIS_PER_MINUTE
-        dao.upsertRecord(ReminderMapper.toEntity(DoseRecord(dose, takenAtMillis = null, snoozedUntilMillis = until)))
+        dao.upsertLogEntry(ReminderMapper.toEntity(current.copy(snoozedUntilMillis = until)))
         scheduler.schedule(ReminderAlarm.Snoozed(dose), until)
     }
 
@@ -173,6 +194,8 @@ class ReminderEngine(
             AlarmAccess.HOLD -> return@locked
             AlarmAccess.WIPE -> return@locked wipeLocked()
         }
+        // The first thing on a new day may be its first alarm: log the day before acting on it.
+        logDaysThrough(clock())
         val prefs = settings.current()
         when (alarm) {
             is ReminderAlarm.MedicineDue -> onDoseDue(alarm.dose, prefs)
@@ -197,7 +220,8 @@ class ReminderEngine(
     private suspend fun rescheduleLocked() {
         val now = clock()
         val prefs = settings.current()
-        dao.deleteRecordsBefore(NepalTime.dateOf(now).plusDays(-KEEP_RECORD_DAYS).epochDay)
+        dao.deleteLogBefore(NepalTime.dateOf(now).plusDays(-KEEP_RECORD_DAYS).epochDay)
+        logDaysThrough(now)
         dao.medicines().forEach { entity ->
             if (prefs.medicineReminders) restoreDoseAlarm(entity, now) else clearDoseAlarm(entity.id)
         }
@@ -219,7 +243,7 @@ class ReminderEngine(
             dao.medicines().forEach { restoreDoseAlarm(it, now) }
         } else {
             dao.medicines().forEach { clearDoseAlarm(it.id) }
-            dao.snoozedRecords().forEach { row -> ReminderMapper.toRecord(row)?.let { clearSnooze(it) } }
+            dao.snoozedEntries().forEach { row -> ReminderMapper.toRecord(row)?.let { clearSnooze(it) } }
             notifier.cancelAllMedicines()
         }
     }
@@ -340,7 +364,7 @@ class ReminderEngine(
             }
         }
         step { dao.medicines().forEach { scheduler.cancelKey(ReminderAlarm.medicineKey(it.id)) } }
-        step { dao.snoozedRecords().forEach { row -> ReminderMapper.toRecord(row)?.let { scheduler.cancel(ReminderAlarm.Snoozed(it.dose)) } } }
+        step { dao.snoozedEntries().forEach { row -> ReminderMapper.toRecord(row)?.let { scheduler.cancel(ReminderAlarm.Snoozed(it.dose)) } } }
         step { dao.appointments().forEach { row -> cancelAppointmentAlarms(row.bookingId) } }
         step { notifier.cancelAll() }
         step { dao.deleteAll() }
@@ -368,8 +392,45 @@ class ReminderEngine(
         if (dose in DoseSchedule.dosesOn(medicine, dose.date)) notifier.showDose(medicine, dose)
     }
 
+    private suspend fun loggedDose(dose: Dose): DoseRecord? =
+        dao.logEntry(dose.medicineId, dose.date.epochDay, dose.time.minutes)?.let(ReminderMapper::toRecord)
+
+    /**
+     * Logs every day up to [nowMillis]'s date not logged yet, from the medicines as they are
+     * now: every change logs first, so they are the ones in effect on those days. Starts the
+     * day after the last one logged, or [KEEP_RECORD_DAYS] back when none is (a new install or
+     * a wipe has no medicines then; an update from version 1 logs the days before it as the
+     * history showed them). A day already logged is never written again.
+     */
+    private suspend fun logDaysThrough(nowMillis: Long) {
+        val today = NepalTime.dateOf(nowMillis)
+        val earliest = today.plusDays(-KEEP_RECORD_DAYS)
+        val next = dao.lastLoggedDay()?.let { CalendarDate.ofEpochDay(it).plusDays(1) }
+        var day = if (next == null || next < earliest) earliest else next
+        if (day > today) return
+        val medicines = dao.medicines().mapNotNull(ReminderMapper::toMedicine)
+        while (day <= today) {
+            dao.logDay(day.epochDay, DoseSchedule.logFor(medicines, day).map(ReminderMapper::toEntity))
+            day = day.plusDays(1)
+        }
+    }
+
+    /**
+     * After [medicineId] was edited to [medicine] (null: deleted): its logged doses of today
+     * still upcoming are replaced by the new schedule's (see [DoseSchedule.replanToday]), and
+     * its snoozes go. Earlier days stay as logged.
+     */
+    private suspend fun replanToday(medicineId: Long, medicine: Medicine?, nowMillis: Long) {
+        val today = NepalTime.dateOf(nowMillis)
+        val logged = dao.logOf(medicineId, today.epochDay).mapNotNull(ReminderMapper::toRecord)
+        val plan = DoseSchedule.replanToday(logged, medicine, today, nowMillis)
+        clearSnoozes(medicineId)
+        dao.deleteLogEntries(plan.remove.map(ReminderMapper::toEntity))
+        dao.insertLogEntries(plan.add.map(ReminderMapper::toEntity))
+    }
+
     private suspend fun isTaken(dose: Dose): Boolean =
-        dao.record(dose.medicineId, dose.date.epochDay, dose.time.minutes)?.takenAtMillis != null
+        loggedDose(dose)?.takenAtMillis != null
 
     private suspend fun scheduleNextDose(medicine: Medicine, after: Long) {
         val next = DoseSchedule.nextDose(medicine, after)
@@ -412,19 +473,19 @@ class ReminderEngine(
     }
 
     private suspend fun clearSnoozes(medicineId: Long) {
-        dao.snoozedRecords()
+        dao.snoozedEntries()
             .filter { it.medicineId == medicineId }
             .forEach { row -> ReminderMapper.toRecord(row)?.let { clearSnooze(it) } }
     }
 
     private suspend fun clearSnooze(record: DoseRecord) {
         scheduler.cancel(ReminderAlarm.Snoozed(record.dose))
-        dao.upsertRecord(ReminderMapper.toEntity(record.copy(snoozedUntilMillis = null)))
+        dao.upsertLogEntry(ReminderMapper.toEntity(record.copy(snoozedUntilMillis = null)))
     }
 
     /** Pending snoozes are set again; ones that came due while the phone was off are dropped. */
     private suspend fun restoreSnoozes(now: Long, prefs: ReminderPrefs) {
-        dao.snoozedRecords().mapNotNull(ReminderMapper::toRecord).forEach { record ->
+        dao.snoozedEntries().mapNotNull(ReminderMapper::toRecord).forEach { record ->
             val until = record.snoozedUntilMillis ?: return@forEach
             if (prefs.medicineReminders && until > now && record.takenAtMillis == null) {
                 scheduler.schedule(ReminderAlarm.Snoozed(record.dose), until)
@@ -467,7 +528,7 @@ class ReminderEngine(
 
     companion object {
         /**
-         * Dose records older than this many days are deleted (when reminders are rescheduled: at
+         * Logged doses older than this many days are deleted (when reminders are rescheduled: at
          * app start, after a reboot and on time changes). The Medicines tab's history shows them.
          */
         const val KEEP_RECORD_DAYS = 30

@@ -1,10 +1,10 @@
 package com.medhome.nepal.reminders
 
-import com.medhome.nepal.data.DoseRecordEntity
 import android.app.Application
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.medhome.nepal.data.DoseLogEntity
 import com.medhome.nepal.data.ReminderDatabase
 import com.medhome.nepal.data.ReminderPrefs
 import com.medhome.nepal.domain.AppointmentAlert
@@ -117,7 +117,7 @@ class ReminderEngineTest {
         engine.setTaken(dose, taken = true)
         assertTrue(notifications.shown.isEmpty())
         assertFalse(alarms.alarms.keys.any { it.startsWith("snooze/") })
-        val record = engine.recordsOn(thursday).first().single()
+        val record = engine.dosesOn(thursday).first().single { it.dose == dose }
         assertEquals(DoseState.TAKEN, DoseSchedule.state(dose, record, now))
     }
 
@@ -132,7 +132,7 @@ class ReminderEngineTest {
         val snooze = ReminderAlarm.Snoozed(dose)
         assertEquals(now + 10 * NepalTime.MILLIS_PER_MINUTE, alarms.at(snooze.key))
         // Past the 60-minute mark, but the snooze hasn't fired: still upcoming.
-        val record = engine.recordsOn(thursday).first().single()
+        val record = engine.dosesOn(thursday).first().single { it.dose == dose }
         assertEquals(DoseState.UPCOMING, DoseSchedule.state(dose, record, at(thursday, eight, plusMinutes = 62)))
 
         now = alarms.at(snooze.key)!!
@@ -369,7 +369,7 @@ class ReminderEngineTest {
         assertTrue(notifications.shown.isEmpty())
         assertTrue(engine.medicines.first().isEmpty())
         assertTrue(engine.appointments.first().isEmpty())
-        assertTrue(engine.recordsOn(thursday).first().isEmpty())
+        assertTrue(engine.dosesOn(thursday).first().isEmpty())
         assertEquals(ReminderPrefs(), settings.state.value)
 
         // Late arrivals find nothing to act on.
@@ -497,7 +497,7 @@ class ReminderEngineTest {
         switchAccount()
         assertTrue(engine.medicines.first().isEmpty())
         assertTrue(engine.appointments.first().isEmpty())
-        assertTrue(engine.recordsOn(thursday).first().isEmpty())
+        assertTrue(engine.dosesOn(thursday).first().isEmpty())
 
         engine.claim("other")
         assertEquals("other", settings.ownerState.value)
@@ -556,7 +556,7 @@ class ReminderEngineTest {
         engine.snooze(dose)
         engine.deleteMedicine(id)
         assertEquals(1, dao.medicines().size)
-        assertNull(dao.record(id, thursday.epochDay, eight.minutes))
+        assertNull(dao.logEntry(id, thursday.epochDay, eight.minutes)?.takenAtMillis)
         assertFalse(alarms.alarms.keys.any { it.startsWith("snooze/") })
         // The previous account's notification is left for the claim's wipe.
         assertEquals(setOf(FakeReminderNotifier.doseTag(dose)), notifications.shown)
@@ -606,14 +606,145 @@ class ReminderEngineTest {
         assertEquals(setOf(ReminderSetupItem.BACKGROUND), engine.claimSetupItems(setOf(ReminderSetupItem.BACKGROUND)))
     }
 
+    // The dose log: history as it happened
+
+    /** [date]'s logged doses as (time, name, state at [now]). */
+    private suspend fun day(date: CalendarDate) =
+        DoseSchedule.listed(engine.dosesOn(date).first(), now).map { Triple(it.dose.time, it.name, it.state) }
+
     @Test
-    fun `dose records are kept 30 days, then pruned when reminders are rescheduled`() = runTest {
+    fun `editing the times after taking a dose leaves the days before unchanged`() = runTest {
+        val wednesday = thursday.plusDays(-1)
+        now = at(wednesday, TimeOfDay(7 * 60))
+        val id = engine.saveMedicine(medicine(id = 0, times = listOf(eight, twenty), startDate = wednesday))
+        now = at(wednesday, eight, plusMinutes = 5)
+        engine.setTaken(Dose(id, wednesday, eight), taken = true)
+
+        now = at(thursday, TimeOfDay(7 * 60))
+        val before = day(wednesday)
+        engine.saveMedicine(medicine(id = id, name = "Renamed", times = listOf(TimeOfDay(9 * 60), TimeOfDay(21 * 60)), startDate = wednesday))
+
+        assertEquals(before, day(wednesday))
+        assertEquals(
+            listOf(Triple(eight, "Paracetamol", DoseState.TAKEN), Triple(twenty, "Paracetamol", DoseState.MISSED)),
+            day(wednesday),
+        )
+        // Today follows the edit.
+        assertEquals(listOf(TimeOfDay(9 * 60), TimeOfDay(21 * 60)), day(thursday).map { it.first })
+        assertEquals(setOf("Renamed"), day(thursday).map { it.second }.toSet())
+    }
+
+    @Test
+    fun `deleting a medicine keeps its history and today's taken and missed doses`() = runTest {
+        val wednesday = thursday.plusDays(-1)
+        val six = TimeOfDay(6 * 60)
+        now = at(wednesday, TimeOfDay(5 * 60))
+        val id = engine.saveMedicine(medicine(id = 0, times = listOf(six, eight, twenty), startDate = wednesday))
+        engine.setTaken(Dose(id, wednesday, eight), taken = true)
+        now = at(thursday, TimeOfDay(5 * 60))
+        engine.rescheduleAll()
+        now = at(thursday, TimeOfDay(9 * 60))
+        engine.setTaken(Dose(id, thursday, eight), taken = true)
+        val yesterday = day(wednesday)
+
+        engine.deleteMedicine(id)
+
+        assertTrue(engine.medicines.first().isEmpty())
+        assertEquals(yesterday, day(wednesday))
+        assertEquals(3, yesterday.size)
+        // Today: 06:00 missed and 08:00 taken stay; 20:00, still to come, goes.
+        assertEquals(listOf(Triple(six, "Paracetamol", DoseState.MISSED), Triple(eight, "Paracetamol", DoseState.TAKEN)), day(thursday))
+        // Its history is still there (no cascade).
+        assertEquals(5, engine.dosesBetween(wednesday, thursday).first().size)
+    }
+
+    @Test
+    fun `an edit mid-day applies from the next upcoming dose, taken and missed doses stay`() = runTest {
+        val six = TimeOfDay(6 * 60)
+        now = at(thursday, TimeOfDay(5 * 60))
+        val id = engine.saveMedicine(medicine(id = 0, times = listOf(six, eight, twenty), startDate = thursday))
+        now = at(thursday, TimeOfDay(9 * 60))
+        engine.setTaken(Dose(id, thursday, eight), taken = true)
+
+        // 07:00 is already over an hour ago, so it isn't added; noon and 21:00 replace 20:00.
+        val noon = TimeOfDay(12 * 60)
+        val evening = TimeOfDay(21 * 60)
+        engine.saveMedicine(medicine(id = id, name = "Renamed", times = listOf(TimeOfDay(7 * 60), noon, evening), startDate = thursday))
+
+        assertEquals(
+            listOf(
+                Triple(six, "Paracetamol", DoseState.MISSED),
+                Triple(eight, "Paracetamol", DoseState.TAKEN),
+                Triple(noon, "Renamed", DoseState.UPCOMING),
+                Triple(evening, "Renamed", DoseState.UPCOMING),
+            ),
+            day(thursday),
+        )
+        assertEquals(at(thursday, noon), alarms.at(medicineKey(id)))
+        // Tomorrow is logged from the new schedule when it comes; today stays as it was.
+        now = at(thursday.plusDays(1), TimeOfDay(6 * 60))
+        assertEquals(listOf(TimeOfDay(7 * 60), noon, evening), day(thursday.plusDays(1)).map { it.first })
+        assertEquals(4, day(thursday).size)
+    }
+
+    @Test
+    fun `days the app was not opened are logged from the schedule in effect then`() = runTest {
+        val monday = thursday.plusDays(-3)
+        now = at(monday, TimeOfDay(7 * 60))
+        val id = engine.saveMedicine(medicine(id = 0, times = listOf(eight), startDate = monday))
+
+        // Next opened on Thursday, and edited at once.
+        now = at(thursday, TimeOfDay(7 * 60))
+        engine.saveMedicine(medicine(id = id, times = listOf(TimeOfDay(10 * 60)), startDate = monday))
+
+        for (date in listOf(monday.plusDays(1), monday.plusDays(2))) {
+            assertEquals(listOf(Triple(eight, "Paracetamol", DoseState.MISSED)), day(date))
+        }
+        assertEquals(listOf(TimeOfDay(10 * 60)), day(thursday).map { it.first })
+    }
+
+    @Test
+    fun `days before a medicine was added stay empty`() = runTest {
+        // Started a week ago, but only added today: nothing before today is claimed missed.
+        val id = engine.saveMedicine(medicine(id = 0, times = listOf(eight), startDate = thursday.plusDays(-7)))
+        assertTrue(engine.dosesBetween(thursday.plusDays(-30), thursday.plusDays(-1)).first().isEmpty())
+        assertEquals(listOf(Dose(id, thursday, eight)), engine.dosesOn(thursday).first().map { it.dose })
+    }
+
+    @Test
+    fun `a logged dose of a deleted medicine can still be marked taken`() = runTest {
+        val id = addTwiceDaily()
+        now = at(thursday, TimeOfDay(10 * 60))
+        engine.deleteMedicine(id)
+        engine.setTaken(Dose(id, thursday, eight), taken = true)
+        assertEquals(listOf(Triple(eight, "Paracetamol", DoseState.TAKEN)), day(thursday))
+        // A dose not in the log can't be.
+        engine.setTaken(Dose(id, thursday, twenty), taken = true)
+        assertEquals(1, day(thursday).size)
+    }
+
+    @Test
+    fun `the log is kept 30 days, then pruned when reminders are rescheduled`() = runTest {
         val id = addTwiceDaily()
         for (daysAgo in listOf(1, 30, 31, 45)) {
-            dao.upsertRecord(DoseRecordEntity(id, thursday.plusDays(-daysAgo).epochDay, 8 * 60, takenAtMillis = 1L, snoozedUntilMillis = null))
+            val epochDay = thursday.plusDays(-daysAgo).epochDay
+            dao.logDay(epochDay, listOf(DoseLogEntity(id, epochDay, 8 * 60, "Paracetamol", "1 tablet", takenAtMillis = 1L, snoozedUntilMillis = null)))
         }
         engine.rescheduleAll()
-        val kept = engine.recordsFrom(thursday.plusDays(-60)).first().map { it.dose.date }.sorted()
+        val kept = engine.dosesBetween(thursday.plusDays(-60), thursday.plusDays(-1)).first().map { it.dose.date }.sorted()
         assertEquals(listOf(thursday.plusDays(-30), thursday.plusDays(-1)), kept)
+
+        // A pruned day is never logged again.
+        now = at(thursday.plusDays(1), TimeOfDay(7 * 60))
+        engine.rescheduleAll()
+        assertTrue(engine.dosesBetween(thursday.plusDays(-60), thursday.plusDays(-30)).first().isEmpty())
+    }
+
+    @Test
+    fun `the wipe empties the log, days included`() = runTest {
+        addTwiceDaily()
+        engine.wipe()
+        assertNull(dao.lastLoggedDay())
+        assertTrue(engine.dosesBetween(thursday.plusDays(-30), thursday).first().isEmpty())
     }
 }
