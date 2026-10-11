@@ -230,8 +230,12 @@ private fun PatientShell(session: SessionState.SignedIn, factories: ShellFactori
                             )
                         }
                     }
-                    composable<BookingDetailRoute> {
-                        BookingDetailScreen(viewModel = viewModel(factory = bookingViewModelFactory))
+                    composable<BookingDetailRoute> { entry ->
+                        BookingDetailScreen(
+                            viewModel = viewModel(factory = bookingViewModelFactory),
+                            // Pushed on the Bookings tab, so popping it is the Bookings list.
+                            onBackToBookings = { navController.popIfTop(entry) },
+                        )
                     }
                 }
                 navigation<MedicinesTab>(startDestination = MedicinesRoute) {

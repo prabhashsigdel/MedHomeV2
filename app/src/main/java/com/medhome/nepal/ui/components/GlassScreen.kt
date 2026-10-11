@@ -69,6 +69,7 @@ val LocalBottomBarClearance = staticCompositionLocalOf { 0.dp }
 /**
  * Mesh background, optional top bar, scrollable keyboard-aware content and an optional
  * floating bottom bar. safeDrawing insets include the keyboard, so forms stay reachable.
+ * [bottomAction] (a full-width button) is pinned below the content, outside the scroll.
  */
 @Composable
 fun GlassScreen(
@@ -77,6 +78,7 @@ fun GlassScreen(
     /** False inside a parent that already draws the background (the signed-in shell). */
     drawBackground: Boolean = true,
     bottomBar: (@Composable () -> Unit)? = null,
+    bottomAction: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val parentBarClearance = LocalBottomBarClearance.current
@@ -114,6 +116,16 @@ fun GlassScreen(
                     verticalArrangement = Arrangement.spacedBy(GlassDimens.ItemSpacing),
                     content = content,
                 )
+            }
+            if (bottomAction != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = GlassDimens.ScreenPadding, vertical = 12.dp),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    Box(modifier = Modifier.widthIn(max = GlassDimens.FormMaxWidth).fillMaxWidth()) { bottomAction() }
+                }
             }
         }
         if (bottomBar != null) {

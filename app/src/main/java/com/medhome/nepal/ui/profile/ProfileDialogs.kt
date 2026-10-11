@@ -10,8 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.medhome.nepal.R
@@ -32,9 +30,8 @@ internal fun DeleteAccountDialog(state: ProfileUiState, usesPassword: Boolean, v
         onResult = viewModel::onGoogleDeleteResult,
     )
     // Back and tapping outside go through dismissDeleteDialog, which ignores them mid-delete.
-    GlassDialog(onDismissRequest = viewModel::dismissDeleteDialog) {
+    GlassDialog(onDismissRequest = viewModel::dismissDeleteDialog, title = R.string.delete_title, closeEnabled = !state.isDeleting) {
         SuppressAutofillSave()
-        DialogTitle(R.string.delete_title)
         Text(
             text = stringResource(if (usesPassword) R.string.delete_body_password else R.string.delete_body_google),
             style = MaterialTheme.typography.bodyMedium,
@@ -62,16 +59,6 @@ internal fun DeleteAccountDialog(state: ProfileUiState, usesPassword: Boolean, v
             onConfirm = if (usesPassword) viewModel::confirmDeleteWithPassword else confirmWithGoogle,
         )
     }
-}
-
-@Composable
-private fun DialogTitle(@StringRes text: Int) {
-    Text(
-        text = stringResource(text),
-        style = MaterialTheme.typography.headlineSmall,
-        color = GlassTheme.colors.textPrimary,
-        modifier = Modifier.semantics { heading() },
-    )
 }
 
 @Composable

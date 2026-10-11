@@ -136,6 +136,7 @@
     <string name="action_ok">OK</string>
     <string name="action_clear">Clear</string>
     <string name="action_done">Done</string>
+    <string name="action_close">Close</string>
     <string name="state_expanded">Expanded</string>
     <string name="state_collapsed">Collapsed</string>
 
@@ -308,6 +309,7 @@
     <string name="booking_cancel_confirm_title">Cancel this appointment?</string>
     <string name="booking_cancel_confirm_body">The time will be freed for other patients. This can\'t be undone.</string>
     <string name="booking_keep">Keep appointment</string>
+    <string name="booking_back_to_bookings">Back to bookings</string>
     <string name="booking_cancelled_notice">This appointment was cancelled.</string>
     <string name="booking_status_cancelled_by_you">Cancelled by you</string>
     <string name="booking_status_cancelled_by_clinic">Cancelled by clinic</string>

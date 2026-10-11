@@ -135,6 +135,7 @@
     <string name="action_ok">ठीक छ</string>
     <string name="action_clear">हटाउनुहोस्</string> <!-- review -->
     <string name="action_done">भयो</string>
+    <string name="action_close">बन्द गर्नुहोस्</string> <!-- review -->
     <string name="state_expanded">खुला</string>
     <string name="state_collapsed">बन्द</string> <!-- review -->
 
@@ -307,6 +308,7 @@
     <string name="booking_cancel_confirm_title">यो अपोइन्टमेन्ट रद्द गर्ने?</string> <!-- review -->
     <string name="booking_cancel_confirm_body">यो समय अरू बिरामीका लागि खुला हुनेछ। यसलाई फिर्ता गर्न सकिँदैन।</string> <!-- review -->
     <string name="booking_keep">अपोइन्टमेन्ट राख्नुहोस्</string> <!-- review -->
+    <string name="booking_back_to_bookings">बुकिङमा फर्कनुहोस्</string> <!-- review -->
     <string name="booking_cancelled_notice">यो अपोइन्टमेन्ट रद्द गरिएको छ।</string> <!-- review -->
     <string name="booking_status_cancelled_by_you">तपाईंले रद्द गर्नुभयो</string> <!-- review -->
     <string name="booking_status_cancelled_by_clinic">क्लिनिकले रद्द गर्‍यो</string> <!-- review -->

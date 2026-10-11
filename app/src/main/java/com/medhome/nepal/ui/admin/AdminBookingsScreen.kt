@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.medhome.nepal.ui.booking.BackToBookingsButton
 import com.medhome.nepal.R
 import com.medhome.nepal.domain.AdminBooking
 import com.medhome.nepal.domain.AdminBookingFilter
@@ -162,10 +163,20 @@ private fun statusLabel(booking: AdminBooking, upcoming: Boolean): Int = when (b
  * fee and the status, and Cancel while it is upcoming (the same confirm dialog as a doctor's list).
  */
 @Composable
-fun AdminBookingScreen(viewModel: AdminBookingViewModel) {
+fun AdminBookingScreen(viewModel: AdminBookingViewModel, onBackToBookings: () -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val cancelDialog by viewModel.cancelDialog.collectAsStateWithLifecycle()
-    GlassScreen(showBack = true, drawBackground = false) {
+    // Cancelled (here or elsewhere) or past: nothing left to do but go back to the list.
+    val settled = (state as? AdminBookingUiState.Ready)?.canCancel == false
+    GlassScreen(
+        showBack = true,
+        drawBackground = false,
+        bottomAction = if (settled) {
+            { BackToBookingsButton(onClick = onBackToBookings) }
+        } else {
+            null
+        },
+    ) {
         ScreenTitle(title = R.string.admin_booking_title, modifier = Modifier.entrance(0))
         when (val current = state) {
             AdminBookingUiState.Loading -> LoadingCard()

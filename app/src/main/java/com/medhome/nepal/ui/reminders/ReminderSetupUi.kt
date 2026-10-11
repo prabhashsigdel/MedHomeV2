@@ -148,12 +148,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 @Composable
 fun ReminderSetupDialog(items: Set<ReminderSetupItem>, onDismiss: () -> Unit) {
     val access = rememberReminderAccess()
-    GlassDialog(onDismissRequest = onDismiss) {
-        Text(
-            text = stringResource(R.string.reminder_setup_title),
-            style = MaterialTheme.typography.headlineSmall,
-            color = GlassTheme.colors.textPrimary,
-        )
+    GlassDialog(onDismissRequest = onDismiss, title = R.string.reminder_setup_title) {
         Text(
             text = stringResource(R.string.reminder_setup_intro),
             style = MaterialTheme.typography.bodyMedium,

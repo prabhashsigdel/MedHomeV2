@@ -58,6 +58,7 @@ import com.medhome.nepal.domain.TimeOfDay
 import com.medhome.nepal.domain.TimeRange
 import com.medhome.nepal.domain.Weekday
 import com.medhome.nepal.ui.booking.BOOKING_CARD_TAG
+import com.medhome.nepal.ui.booking.BACK_TO_BOOKINGS_TAG
 import com.medhome.nepal.ui.booking.BOOK_APPOINTMENT_BUTTON_TAG
 import com.medhome.nepal.ui.booking.SLOT_CHIP_TAG
 import com.medhome.nepal.fakes.doctor
@@ -631,6 +632,41 @@ class PatientShellNavigationTest {
         compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).assertDoesNotExist()
 
         pressBack()
+        assertOnBookingsTab()
+    }
+
+    @Test
+    fun `a past booking's Back to bookings returns to the Bookings tab`() {
+        compose.onNode(isTab and hasText(text(R.string.nav_bookings))).performClick()
+        settle()
+        compose.onNodeWithText(text(R.string.bookings_past)).performClick()
+        settle()
+        compose.onAllNodesWithTag(BOOKING_CARD_TAG)[0].performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        compose.onNodeWithTag(BACK_TO_BOOKINGS_TAG).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.booking_back_to_bookings)).performClick()
+        settle()
+        assertOnBookingsTab()
+        compose.onNodeWithTag(BACK_TO_BOOKINGS_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun `Back to bookings appears once an upcoming booking is cancelled`() {
+        val upcoming = booking(id = "u1", doctor = asha, startAtMillis = System.currentTimeMillis() + DAY_MS)
+        bookings.bookings.value = listOf(upcoming)
+        compose.onNode(isTab and hasText(text(R.string.nav_bookings))).performClick()
+        settle()
+        compose.onAllNodesWithTag(BOOKING_CARD_TAG)[0].performSemanticsAction(SemanticsActions.OnClick)
+        settle()
+        compose.onNodeWithText(text(R.string.booking_cancel)).assertExists()
+        compose.onNodeWithTag(BACK_TO_BOOKINGS_TAG).assertDoesNotExist()
+
+        // Cancelled (the dialog's flow is covered by the ViewModel tests): the screen follows live.
+        bookings.bookings.value = listOf(upcoming.copy(status = BookingStatus.CANCELLED, cancelledBy = CancelledBy.PATIENT))
+        settle()
+        compose.onNodeWithText(text(R.string.booking_cancel)).assertDoesNotExist()
+        compose.onNodeWithText(text(R.string.booking_back_to_bookings)).performClick()
+        settle()
         assertOnBookingsTab()
     }
 

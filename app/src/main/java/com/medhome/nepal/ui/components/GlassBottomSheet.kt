@@ -20,7 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,8 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.medhome.nepal.ui.theme.GlassDimens
 import com.medhome.nepal.ui.theme.GlassTheme
@@ -50,6 +47,9 @@ const val GLASS_SHEET_TAG = "glass_sheet"
  * predictive back come from Material's sheet. While [locked] (a request is being sent) the
  * sheet is completely static: no drag, no predictive back, and neither Back nor the scrim
  * dismisses it.
+ *
+ * The header has a close button (see [ModalHeader]) that slides the sheet down and then calls
+ * [onDismissRequest], exactly like a swipe down; it is disabled while [locked].
  *
  * The border is drawn on our own body, inside the sheet, with our own drag handle and insets:
  * Material places the sheet with an offset inside its surface, so a border on the sheet's
@@ -73,6 +73,7 @@ fun GlassBottomSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = GlassTheme.colors
+    val scope = rememberCoroutineScope()
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         // Before Material's own modifiers: its anchors then measure the space below the status bar.
@@ -102,14 +103,16 @@ fun GlassBottomSheet(
                 color = colors.textSecondary.copy(alpha = 0.4f),
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
-            Text(
-                text = stringResource(title),
+            ModalHeader(
+                title = stringResource(title),
                 style = MaterialTheme.typography.titleLarge,
-                color = colors.textPrimary,
+                onClose = {
+                    if (!locked) scope.launch { sheetState.hide() }.invokeOnCompletion { onDismissRequest() }
+                },
+                closeEnabled = !locked,
                 modifier = Modifier
                     .padding(horizontal = GlassDimens.CardPadding)
-                    .padding(bottom = 8.dp)
-                    .semantics { heading() },
+                    .padding(bottom = 8.dp),
             )
             content()
         }

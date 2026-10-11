@@ -126,8 +126,12 @@ fun AdminShell(
                         )
                     }
                 }
-                composable<AdminBookingRoute> {
-                    AdminBookingScreen(viewModel = viewModel(factory = adminViewModelFactory))
+                composable<AdminBookingRoute> { entry ->
+                    AdminBookingScreen(
+                        viewModel = viewModel(factory = adminViewModelFactory),
+                        // Pushed on the Bookings tab, so popping it is the Bookings list.
+                        onBackToBookings = { navController.popIfTop(entry) },
+                    )
                 }
             }
             navigation<AdminProfileTab>(startDestination = AdminProfileRoute) {

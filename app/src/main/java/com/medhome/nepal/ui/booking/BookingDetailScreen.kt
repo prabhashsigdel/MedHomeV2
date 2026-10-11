@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -42,12 +43,22 @@ import com.medhome.nepal.ui.theme.GlassTheme
 /**
  * One booking (pushed from the Bookings tab): doctor, date, time, hospital and fee, its status,
  * and Cancel while it is upcoming, behind a confirm dialog. The screen stays after cancelling
- * and shows the booking as cancelled (live).
+ * and shows the booking as cancelled (live). Once it is cancelled or past, "Back to bookings"
+ * is pinned at the bottom ([onBackToBookings] returns to the Bookings tab).
  */
 @Composable
-fun BookingDetailScreen(viewModel: BookingDetailViewModel) {
+fun BookingDetailScreen(viewModel: BookingDetailViewModel, onBackToBookings: () -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    GlassScreen(showBack = true, drawBackground = false) {
+    val settled = (state as? BookingDetailUiState.Ready)?.canCancel == false
+    GlassScreen(
+        showBack = true,
+        drawBackground = false,
+        bottomAction = if (settled) {
+            { BackToBookingsButton(onClick = onBackToBookings) }
+        } else {
+            null
+        },
+    ) {
         when (val current = state) {
             BookingDetailUiState.Loading -> LoadingCard()
             BookingDetailUiState.Failed -> StatusMessage(
@@ -148,13 +159,11 @@ private fun BookingDetails(state: BookingDetailUiState.Ready, onCancel: () -> Un
 @Composable
 private fun CancelDialog(cancelling: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val colors = GlassTheme.colors
-    GlassDialog(onDismissRequest = { if (!cancelling) onDismiss() }) {
-        Text(
-            text = stringResource(R.string.booking_cancel_confirm_title),
-            style = MaterialTheme.typography.titleLarge,
-            color = colors.textPrimary,
-            modifier = Modifier.semantics { heading() },
-        )
+    GlassDialog(
+        onDismissRequest = { if (!cancelling) onDismiss() },
+        title = R.string.booking_cancel_confirm_title,
+        closeEnabled = !cancelling,
+    ) {
         Text(
             text = stringResource(R.string.booking_cancel_confirm_body),
             style = MaterialTheme.typography.bodyMedium,
@@ -175,3 +184,16 @@ private fun CancelDialog(cancelling: Boolean, onConfirm: () -> Unit, onDismiss: 
         )
     }
 }
+
+/** Full width, at the bottom of a booking that can no longer change (cancelled or past). */
+@Composable
+internal fun BackToBookingsButton(onClick: () -> Unit) {
+    GlassButton(
+        text = R.string.booking_back_to_bookings,
+        onClick = onClick,
+        modifier = Modifier.testTag(BACK_TO_BOOKINGS_TAG),
+    )
+}
+
+/** Test tag on "Back to bookings". */
+const val BACK_TO_BOOKINGS_TAG = "back_to_bookings"

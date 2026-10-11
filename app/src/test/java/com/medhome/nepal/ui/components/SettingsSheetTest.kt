@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
@@ -115,6 +116,22 @@ class SettingsSheetTest {
         compose.waitForIdle()
         compose.onNodeWithTag(GLASS_SHEET_TAG).assertDoesNotExist()
         assertEquals(listOf(AppLanguage.NEPALI), chosenLanguages)
+    }
+
+    @Test
+    fun `the close button closes the sheet without choosing anything`() {
+        openRow(R.string.settings_theme)
+        compose.onNodeWithContentDescription(text(R.string.action_close)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(GLASS_SHEET_TAG).assertDoesNotExist()
+        assertEquals(emptyList<ThemeMode>(), chosenModes)
+
+        // And it opens again afterwards, so the dismissal went through.
+        openRow(R.string.profile_language)
+        compose.onNodeWithContentDescription(text(R.string.action_close)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(GLASS_SHEET_TAG).assertDoesNotExist()
+        assertEquals(emptyList<AppLanguage>(), chosenLanguages)
     }
 
     @Test

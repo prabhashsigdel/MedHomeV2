@@ -289,8 +289,13 @@ private fun ActiveDialog(
     onDismiss: () -> Unit,
 ) {
     // Back and tapping outside go through onDismiss, which the ViewModel ignores while saving.
-    GlassDialog(onDismissRequest = onDismiss) {
-        val result = state.cancelResult
+    val result = state.cancelResult
+    val title = when {
+        result != null -> R.string.admin_hidden_title
+        state.activate -> R.string.admin_show_title
+        else -> R.string.admin_hide_title
+    }
+    GlassDialog(onDismissRequest = onDismiss, title = title, closeEnabled = !state.isSaving) {
         if (result != null) {
             BulkCancelReport(state = state, result = result, onRetry = onRetryCancel, onClose = onDismiss)
         } else {
@@ -310,7 +315,6 @@ private fun ColumnScope.ConfirmActive(
 ) {
     val colors = GlassTheme.colors
     val locale = currentLocale()
-    DialogTitle(if (state.activate) R.string.admin_show_title else R.string.admin_hide_title)
     Text(
         text = stringResource(if (state.activate) R.string.admin_show_body else R.string.admin_hide_body, doctorName),
         style = MaterialTheme.typography.bodyMedium,
@@ -374,7 +378,6 @@ private fun ColumnScope.BulkCancelReport(
 ) {
     val colors = GlassTheme.colors
     val locale = currentLocale()
-    DialogTitle(R.string.admin_hidden_title)
     if (result.cancelled > 0) {
         Text(
             text = pluralStringResource(R.plurals.admin_bulk_cancelled, result.cancelled, LocaleFormat.number(result.cancelled, locale)),
@@ -414,8 +417,7 @@ internal fun CancelBookingDialog(
     onDismiss: () -> Unit,
 ) {
     val appointment = state.appointment
-    GlassDialog(onDismissRequest = onDismiss) {
-        DialogTitle(R.string.admin_cancel_booking_title)
+    GlassDialog(onDismissRequest = onDismiss, title = R.string.admin_cancel_booking_title, closeEnabled = !state.isCancelling) {
         Text(
             text = stringResource(
                 R.string.admin_cancel_booking_body,
@@ -450,16 +452,6 @@ internal fun CancelBookingDialog(
 internal fun patientLabel(appointment: DoctorAppointment): String = when {
     appointment.patientDeleted -> stringResource(R.string.admin_patient_deleted)
     else -> appointment.patientFirstName ?: stringResource(R.string.admin_patient_unknown)
-}
-
-@Composable
-internal fun DialogTitle(@StringRes text: Int) {
-    Text(
-        text = stringResource(text),
-        style = MaterialTheme.typography.headlineSmall,
-        color = GlassTheme.colors.textPrimary,
-        modifier = Modifier.semantics { heading() },
-    )
 }
 
 /** Why cancelling a booking failed, in this feature's words. */

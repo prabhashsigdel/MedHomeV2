@@ -267,8 +267,7 @@ private fun WeekdayChips(selected: Set<Weekday>, enabled: Boolean, onToggle: (We
 
 @Composable
 private fun DeleteDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    GlassDialog(onDismissRequest = onDismiss) {
-        Text(stringResource(R.string.medicine_delete_title), style = MaterialTheme.typography.titleLarge, color = GlassTheme.colors.textPrimary)
+    GlassDialog(onDismissRequest = onDismiss, title = R.string.medicine_delete_title) {
         Text(stringResource(R.string.medicine_delete_body), style = MaterialTheme.typography.bodyMedium, color = GlassTheme.colors.textSecondary)
         GlassButton(text = R.string.medicine_delete, onClick = onConfirm, style = GlassButtonStyle.Danger)
         GlassButton(text = R.string.action_cancel, onClick = onDismiss, style = GlassButtonStyle.Secondary)

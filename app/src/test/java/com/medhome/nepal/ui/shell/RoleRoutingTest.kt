@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.performClick
@@ -36,6 +37,7 @@ import com.medhome.nepal.domain.Role
 import com.medhome.nepal.domain.Specialty
 import com.medhome.nepal.domain.UserProfile
 import com.medhome.nepal.fakes.FakeAdminRepository
+import com.medhome.nepal.ui.booking.BACK_TO_BOOKINGS_TAG
 import com.medhome.nepal.fakes.FakeAuthDataSource
 import com.medhome.nepal.fakes.FakeBookingRepository
 import com.medhome.nepal.fakes.FakeCredentialClient
@@ -255,6 +257,26 @@ class RoleRoutingTest {
         compose.onNode(isHeading() and hasText(text(R.string.admin_bookings_title))).assertExists()
         // No longer upcoming.
         compose.onAllNodesWithTag(ADMIN_BOOKING_ROW_TAG).assertCountEquals(1)
+    }
+
+    @Test
+    fun `once a booking is cancelled, Back to bookings returns to the Bookings tab`() {
+        show(Role.ADMIN)
+        openTab(R.string.nav_bookings)
+        compose.onAllNodesWithTag(ADMIN_BOOKING_ROW_TAG)[0].tap()
+        // Upcoming: nothing to go back for yet.
+        compose.onNodeWithTag(BACK_TO_BOOKINGS_TAG).assertDoesNotExist()
+
+        runBlocking { admin.cancelBooking("b1", ClinicCancelReason(CancelReason.CLINIC_CLOSED, null)) }
+        settle()
+        // Pinned below the scrolling content, so tapped where it is.
+        compose.onNodeWithTag(BACK_TO_BOOKINGS_TAG).assertIsDisplayed().performClick()
+        settle()
+
+        compose.onNode(isHeading() and hasText(text(R.string.admin_bookings_title))).assertExists()
+        compose.onNode(isTab and hasText(text(R.string.nav_bookings))).assertIsSelected()
+        compose.onNodeWithTag(FLOATING_NAV_BAR_TAG).assertIsDisplayed()
+        compose.onNodeWithTag(BACK_TO_BOOKINGS_TAG).assertDoesNotExist()
     }
 
     private companion object {
